@@ -38,7 +38,8 @@ Creating a Supabase project needs your account and generates credentials, so it 
 2. Dashboard → **Database → Extensions**: enable **postgis** and choose/create the schema **`extensions`** (equivalent SQL: `create extension if not exists postgis with schema extensions;`). The first Alembic migration also runs this idempotently.
 3. Dashboard → **Connect**: copy the **Session pooler** connection string.
 4. Locally: `cp backend/.env.example backend/.env` and set `DATABASE_URL=postgresql+psycopg://postgres.<ref>:<password>@<pooler-host>:5432/postgres?sslmode=require`. `.env` is gitignored. **Never commit credentials**; share them through the team's secret channel.
-5. Set `TEST_DATABASE_URL`. Prefer a **second, disposable** database/project. It may also equal `DATABASE_URL`: the PostGIS tests run only inside a uniquely named throwaway schema (`gg_test_<random>`) that is dropped afterwards, they never touch `public`, and PostGIS itself is installed once (idempotent).
+5. Set `TEST_DATABASE_URL`. **Recommended value: the same string as `DATABASE_URL`** (see section 5 for why that is safe). The old advice below still applies if you prefer a separate database.
+   (Original note:) Set `TEST_DATABASE_URL`. Prefer a **second, disposable** database/project. It may also equal `DATABASE_URL`: the PostGIS tests run only inside a uniquely named throwaway schema (`gg_test_<random>`) that is dropped afterwards, they never touch `public`, and PostGIS itself is installed once (idempotent).
 6. Apply the schema: `cd backend && .venv/Scripts/python -m alembic upgrade head`.
 7. Verify: `.venv/Scripts/python -m app.tools.check_db` (prints server version, PostGIS version, schema, search_path; exits non-zero if requirements aren't met).
 
@@ -58,6 +59,8 @@ Creating a Supabase project needs your account and generates credentials, so it 
 | Alembic ↔ models drift check | SQLite (non-PG parts) | every run |
 | Spatial queries, PostGIS migrations, PG-specific behaviour | real PostgreSQL+PostGIS via `TEST_DATABASE_URL` | when set; **required in CI** (service container `postgis/postgis`) |
 
+**Why `TEST_DATABASE_URL` may equal `DATABASE_URL`:** the non-PostGIS tests never connect to it (they build SQLite settings with `_env_file=None`); the PostGIS tests (a) only act inside a generated schema `gg_test_<8 hex>` (name validated before every DDL), (b) connect with `search_path = <that schema>, extensions` so unqualified names cannot resolve to `public` or `greenguardian`, (c) snapshot every table outside the test schema before and after and fail on any difference, and (d) always `DROP SCHEMA ... CASCADE` only that generated schema. Residual risk: a future test that bypasses the fixture; keep new database tests on the `pg_schema` fixture.
+
 Tests marked `@pytest.mark.postgis` are skipped (with a visible reason) when `TEST_DATABASE_URL` is unset — a skipped run is **not** a verified run for spatial code.
 
 ## 6. Production notes
@@ -76,3 +79,40 @@ Use managed PostgreSQL+PostGIS with PITR backups; run API/worker containers on a
 | `check_db` reports `IPv4=no-address, IPv6=timeout` / connection timeout | Supabase's **direct** host (`db.<ref>.supabase.co`) is IPv6-only on the free tier, and this network has no working route to it (IPv6 can work intermittently on home/campus networks). | Use the **Session pooler** string (Dashboard → Connect → Session pooler: user `postgres.<ref>`, host `aws-*-<region>.pooler.supabase.com`, port 5432). It is IPv4. |
 | Commands hang | Older code had no connect timeout. | `DB_CONNECT_TIMEOUT_S` (default 10) now bounds every connection attempt; `check_db` probes TCP reachability first. |
 | `TEST_DATABASE_URL not set` skips | Variable empty/missing in `backend/.env` | Set it (see step 5). A run with skipped PostGIS tests has **not** verified PostgreSQL behaviour. |
+
+## 9. Verified state of the development database (2026-10-07, project `greenguardian`, ap-northeast-2)
+
+Checked through the Supabase connector and the app's own tooling:
+
+| Item | Result |
+|---|---|
+| Server | PostgreSQL 17.11 |
+| PostGIS | 3.3.7, installed in schema `extensions` (not `public`); `spatial_ref_sys` has 8,500 rows there |
+| Connection | Session pooler (IPv4), TLS in use on the client connection, `search_path = greenguardian, extensions` |
+| Application schema | `greenguardian` with `users, organizations, workspaces, memberships, refresh_tokens, alembic_version`; Alembic head `0001` |
+| `public` | empty (0 tables) by design |
+| Supabase-managed schemas | `auth, storage, realtime, vault, ...` untouched |
+| Test run | `pytest` 73 passed, 0 skipped (6 PostGIS tests executed); afterwards 0 leftover `gg_test_*` schemas and `public` unchanged |
+
+### Why application tables are NOT in `public` (ADR-022)
+On Supabase, `public` is exposed through the Data API and receives default grants for `anon`/`authenticated`. With RLS off, `users` (password hashes) would be readable with the public anon key. The app therefore uses its own schema (`DB_SCHEMA`, default `greenguardian`), which Supabase does not expose. Verified: `anon` and `authenticated` have no `USAGE` on `greenguardian` and no `SELECT` on `greenguardian.users`; the project security advisor reports no lints.
+
+### The "RLS disabled" advisory
+The connector's table listing flags RLS-disabled tables in `greenguardian` as critical. That message assumes the schema is API-exposed; it is not, and the privilege checks above show no access for `anon`/`authenticated`. It is still a reasonable **defence-in-depth** step if you ever expose this schema or grant those roles access. The backend role `postgres` has `BYPASSRLS`, so enabling RLS with no policies would not affect the application:
+
+```sql
+ALTER TABLE greenguardian.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE greenguardian.organizations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE greenguardian.workspaces ENABLE ROW LEVEL SECURITY;
+ALTER TABLE greenguardian.memberships ENABLE ROW LEVEL SECURITY;
+ALTER TABLE greenguardian.refresh_tokens ENABLE ROW LEVEL SECURITY;
+ALTER TABLE greenguardian.alembic_version ENABLE ROW LEVEL SECURITY;
+```
+Not applied automatically (it is provider-specific behaviour, so it stays out of the portable Alembic migrations). Decision for the team.
+
+### Troubleshooting additions
+| Symptom | Cause | Fix |
+|---|---|---|
+| `check_db` once showed `TLS = False` | `pg_stat_ssl` reports the *pooler→database* hop for pooled connections | The check now reads the client connection (`pgconn.ssl_in_use`) |
+| `DATABASE_URL` database name looks like `postgres# session (default) ...` | A template comment line was joined onto the URL line; python-dotenv only treats ` #` (with a space) as a comment | Keep `DATABASE_URL=...` on its own line |
+| PostGIS tests skip although `.env` has `TEST_DATABASE_URL` | `os.getenv` does not read `.env` | Fixed: `tests/conftest.py` falls back to `backend/.env` |

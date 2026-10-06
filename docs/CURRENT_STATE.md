@@ -37,3 +37,6 @@ Tenant scoping on all queries · append-only history tables · honest AI labelli
 **Database:** hosted PostgreSQL+PostGIS (Supabase by default) is documented (`docs/DATABASE_SETUP.md`) but **not provisioned**: that needs the team's account and credentials. Until `DATABASE_URL`/`TEST_DATABASE_URL` point at a real PostGIS database, PostgreSQL-specific behaviour (extension install, `search_path`, geometry) is unverified; everything else was tested on SQLite.
 **Not built yet:** locations, species/lifecycle, assets, observations, issues, tasks, agent wiring (the rules library exists), map, dashboards with real KPIs, reports, worker/jobs, Dockerfiles.
 **Git:** nothing pushed; all work is local commits on `main` pending an explicit instruction to push.
+
+## Database status (2026-10-07)
+Supabase project `greenguardian` provisioned; PostgreSQL 17.11, PostGIS 3.3.7 in `extensions`; migration `0001` applied to schema `greenguardian`; `check_db` OK (TLS on); backend suite **73 passed, 0 skipped**, including 6 PostGIS tests that ran against the real database. See DATABASE_SETUP section 9. Open decision: enable RLS as defence-in-depth (optional).

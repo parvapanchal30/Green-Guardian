@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 
 os.environ.setdefault("ENV", "test")
 
-from app.core.config import Settings, get_settings  # noqa: E402
+from app.core.config import Settings, get_settings, normalize_database_url  # noqa: E402
 from app.core.db import build_engine, get_db  # noqa: E402
 from app.main import create_app  # noqa: E402
 from app.models import Base  # noqa: E402
@@ -95,7 +95,23 @@ def make_actor(client):
     return _make
 
 
-postgis_url = os.getenv("TEST_DATABASE_URL", "")
+def _load_test_database_url(env_file=None) -> str:
+    """TEST_DATABASE_URL from the process environment, else from backend/.env.
+
+    (`Settings` reads .env itself, but os.getenv does not, so without this the value would be silently ignored.)
+    """
+    if value := os.getenv("TEST_DATABASE_URL"):
+        return value
+    from pathlib import Path
+
+    from dotenv import dotenv_values
+
+    path = env_file or Path(__file__).resolve().parents[1] / ".env"
+    value = dotenv_values(path).get("TEST_DATABASE_URL") or ""
+    return normalize_database_url(value) if value else ""
+
+
+postgis_url = _load_test_database_url()
 requires_postgis = pytest.mark.skipif(
     not postgis_url, reason="TEST_DATABASE_URL not set: PostgreSQL+PostGIS behaviour is NOT verified in this run"
 )

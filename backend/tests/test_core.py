@@ -74,3 +74,48 @@ def test_database_url_rejects_placeholder_brackets_around_password():
 def test_db_schema_must_be_a_simple_identifier():
     with pytest.raises(ValueError):
         Settings(db_schema='x"; DROP SCHEMA public; --', _env_file=None)
+
+
+def test_app_schema_defaults_to_a_dedicated_schema_not_public():
+    s = Settings(_env_file=None)
+    assert s.db_schema == "greenguardian"
+    assert s.db_schema != s.postgis_schema
+
+
+def test_build_engine_pins_sslmode_and_search_path(monkeypatch):
+    """Postgres engines get sslmode=require by default, unless the URL carries its own; search_path has no `public`
+    for the app schema. (create_engine is stubbed: no connection is made.)"""
+    import app.core.db as db
+
+    seen = {}
+
+    class FakeEngine:
+        dialect = type("D", (), {"name": "postgresql"})()
+
+    def fake_create_engine(url, **kw):
+        seen["url"], seen["kw"] = url, kw
+        return FakeEngine()
+
+    monkeypatch.setattr(db, "create_engine", fake_create_engine)
+    monkeypatch.setattr(db.event, "listens_for", lambda *a, **k: lambda f: f)
+    base = dict(_env_file=None, env="test", jwt_secret="x" * 40)
+    db.build_engine(Settings(database_url="postgresql://u:p@h:5432/d", **base))
+    assert seen["kw"]["connect_args"]["sslmode"] == "require"
+    assert seen["kw"]["connect_args"]["connect_timeout"] == 10
+    db.build_engine(Settings(database_url="postgresql://u:p@h:5432/d?sslmode=verify-full", **base))
+    assert "sslmode" not in seen["kw"]["connect_args"]  # the URL's explicit choice wins
+    db.build_engine(Settings(database_url="postgresql://u:p@h:6543/d", db_pool_mode="transaction", **base))
+    assert seen["kw"]["connect_args"]["prepare_threshold"] is None
+
+
+def test_test_database_url_is_read_from_dotenv_when_not_in_the_environment(tmp_path, monkeypatch):
+    """os.getenv alone would ignore backend/.env (only Settings reads it), silently skipping the PostGIS tests."""
+    from tests.conftest import _load_test_database_url
+
+    env = tmp_path / ".env"
+    env.write_text("TEST_DATABASE_URL=postgresql://u:p@h:5432/d" + chr(10), encoding="utf8")
+    monkeypatch.delenv("TEST_DATABASE_URL", raising=False)
+    assert _load_test_database_url(env) == "postgresql+psycopg://u:p@h:5432/d"
+    assert _load_test_database_url(tmp_path / "missing.env") == ""
+    monkeypatch.setenv("TEST_DATABASE_URL", "postgresql://env:p@h/d")
+    assert _load_test_database_url(env) == "postgresql://env:p@h/d"  # the real environment wins

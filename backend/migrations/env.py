@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from alembic import context
+from sqlalchemy import text
 
-from app.core.config import get_settings
+from app.core.config import get_settings, normalize_database_url
 from app.core.db import build_engine
 from app.models import Base
 
@@ -15,7 +16,8 @@ def _settings():
     settings = get_settings()
     update = {}
     if url := config.get_main_option("sqlalchemy.url"):
-        update["database_url"] = url
+        # model_copy skips validators, so normalise (driver pinning) explicitly.
+        update["database_url"] = normalize_database_url(url)
     if schema := config.get_main_option("db_schema"):
         update["db_schema"] = schema
     return settings.model_copy(update=update)
@@ -38,11 +40,16 @@ def run_migrations_online() -> None:
     s = _settings()
     engine = build_engine(s)
     with engine.connect() as connection:
+        is_pg = engine.dialect.name == "postgresql"
+        if is_pg:
+            # The application schema (and so alembic_version) must exist before Alembic touches it.
+            connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{s.db_schema}"'))
+            connection.commit()
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
-            version_table_schema=s.db_schema if engine.dialect.name == "postgresql" else None,
+            version_table_schema=s.db_schema if is_pg else None,
         )
         with context.begin_transaction():
             context.run_migrations()

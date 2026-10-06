@@ -104,6 +104,22 @@ def main() -> int:
                 if schema == "public":
                     problems.append("PostGIS is installed in 'public'; use a dedicated schema (see DATABASE_SETUP.md)")
             print(f"OK    search_path = {c.execute(text('SHOW search_path')).scalar()}")
+            print(f"OK    application schema = {settings.db_schema}")
+            leaked = c.execute(
+                text(
+                    "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' "
+                    "AND table_name = ANY(:names)"
+                ),
+                {"names": ["users", "workspaces", "memberships", "organizations", "refresh_tokens"]},
+            ).all()
+            if leaked:
+                problems.append(
+                    "application tables found in 'public' (exposed by Supabase's Data API): "
+                    + ", ".join(r[0] for r in leaked)
+                )
+            # Client->server leg (libpq). pg_stat_ssl would show the pooler->database hop instead.
+            tls = bool(c.connection.dbapi_connection.pgconn.ssl_in_use)  # type: ignore[union-attr]
+            print(f"{'OK   ' if tls else 'WARN '} TLS on client connection = {tls}")
             print(f"OK    pool mode = {settings.db_pool_mode}")
     except Exception as e:  # noqa: BLE001 - report any connectivity failure plainly
         first = str(e).splitlines()[0][:200]

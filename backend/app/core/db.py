@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 from sqlalchemy import Engine, create_engine, event
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool, StaticPool
 
@@ -28,6 +29,8 @@ def build_engine(settings: Settings) -> Engine:
 
     kwargs: dict = {"pool_pre_ping": True}
     connect_args: dict = {"connect_timeout": settings.db_connect_timeout_s}
+    if "sslmode" not in make_url(url).query:
+        connect_args["sslmode"] = settings.db_sslmode
     if settings.db_pool_mode == "transaction":
         # Provider transaction pooler (e.g. port 6543): no server-side prepared statements, no pooling here.
         kwargs["poolclass"] = NullPool

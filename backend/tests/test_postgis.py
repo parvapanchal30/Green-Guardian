@@ -1,12 +1,18 @@
 """Runs only against a real PostgreSQL+PostGIS database (TEST_DATABASE_URL).
 
-Isolation: every test works inside a uniquely named throwaway schema that is dropped afterwards, so this
-suite never touches tables in `public` (it is safe even if TEST_DATABASE_URL equals the dev database).
-PostGIS itself is installed once, in POSTGIS_SCHEMA (idempotent).
+Safety design (this suite may be pointed at the *development* database):
+  * Every test works inside a uniquely named schema `gg_test_<8 hex>`; the name is validated before any DDL,
+    and `public`, `extensions` and every other schema are never targeted.
+  * Application tables are created unqualified, and the connection `search_path` is `<test schema>, extensions`
+    (no `public`), so migrations and downgrades cannot resolve to anything outside the test schema.
+  * A canary snapshot of all tables outside the test schema is taken before and compared after teardown; any
+    difference fails the run loudly.
+PostGIS itself is installed once, in POSTGIS_SCHEMA (idempotent `CREATE EXTENSION IF NOT EXISTS`).
 """
 
 from __future__ import annotations
 
+import re
 import secrets
 
 import pytest
@@ -20,24 +26,46 @@ from tests.test_migrations import _cfg
 
 pytestmark = [pytest.mark.postgis, requires_postgis]
 
+SAFE_NAME = re.compile(r"^gg_test_[0-9a-f]{8}$")
+
+
+def _settings(schema: str | None = None) -> Settings:
+    kw = {"db_schema": schema} if schema else {}
+    return Settings(env="test", database_url=postgis_url, jwt_secret="x" * 40, _env_file=None, **kw)
+
+
+def _snapshot(engine, exclude: str) -> set[tuple[str, str]]:
+    """(schema, table) for every base table outside the test schema."""
+    with engine.connect() as c:
+        rows = c.execute(
+            text(
+                "SELECT table_schema, table_name FROM information_schema.tables "
+                "WHERE table_schema <> 'information_schema' AND table_schema NOT LIKE 'pg\\_%' "
+                "AND table_schema <> :ex AND table_type = 'BASE TABLE'"
+            ),
+            {"ex": exclude},
+        ).all()
+    return {(r[0], r[1]) for r in rows}
+
 
 @pytest.fixture
 def pg_schema():
-    """Create a throwaway schema, yield (engine, schema), always drop it."""
+    """Yield (engine, schema) for a throwaway schema; always drop it; fail if anything else changed."""
     schema = f"gg_test_{secrets.token_hex(4)}"
-    admin = build_engine(Settings(env="test", database_url=postgis_url, jwt_secret="x" * 40, _env_file=None))
-    with admin.begin() as c:
-        c.execute(text(f'CREATE SCHEMA "{schema}"'))
-    engine = build_engine(
-        Settings(env="test", database_url=postgis_url, jwt_secret="x" * 40, db_schema=schema, _env_file=None)
-    )
+    assert SAFE_NAME.match(schema)  # defence in depth: never DROP anything but a generated test schema
+    admin = build_engine(_settings())
+    before = _snapshot(admin, exclude=schema)
+    engine = build_engine(_settings(schema))
     try:
         yield engine, schema
     finally:
         engine.dispose()
+        assert SAFE_NAME.match(schema)
         with admin.begin() as c:
             c.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
+        after = _snapshot(admin, exclude=schema)
         admin.dispose()
+        assert after == before, f"tests changed tables outside {schema}: +{after - before} -{before - after}"
 
 
 def _migrate(schema: str, direction: str = "up"):
@@ -56,25 +84,38 @@ def test_server_meets_requirements(pg_schema):
         )
 
 
+def test_connection_uses_tls_and_isolated_search_path(pg_schema):
+    engine, schema = pg_schema
+    with engine.connect() as c:
+        if Settings(_env_file=None).db_sslmode == "require":
+            # client->server leg; pg_stat_ssl would report the pooler->database hop for pooled connections
+            assert c.connection.dbapi_connection.pgconn.ssl_in_use is True
+        path = c.execute(text("SHOW search_path")).scalar() or ""
+        assert path.replace('"', "").replace(" ", "") == f"{schema},extensions"
+        assert "public" not in path
+
+
 def test_postgis_is_in_a_dedicated_schema_not_public(pg_schema):
-    engine, _ = pg_schema
-    _migrate(pg_schema[1])
+    engine, schema = pg_schema
+    _migrate(schema)
     with engine.connect() as c:
         where = c.execute(
             text(
-                "SELECT n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace WHERE e.extname='postgis'"
+                "SELECT n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace "
+                "WHERE e.extname='postgis'"
             )
         ).scalar()
-        assert where != "public", "PostGIS must not live in public (exposes spatial_ref_sys)"
+        assert where != "public", "PostGIS must not live in public (exposes spatial_ref_sys via the Data API)"
         assert c.execute(text("SELECT postgis_version()")).scalar().startswith("3.")
 
 
-def test_migration_creates_schema_objects_and_is_reversible(pg_schema):
+def test_migration_creates_schema_and_objects_and_is_reversible(pg_schema):
     engine, schema = pg_schema
-    _migrate(schema)
+    _migrate(schema)  # creates the (not yet existing) schema itself
     insp = inspect(engine)
-    tables = set(insp.get_table_names(schema=schema))
-    assert {"users", "organizations", "workspaces", "memberships", "refresh_tokens", "alembic_version"} <= tables
+    assert {"users", "organizations", "workspaces", "memberships", "refresh_tokens", "alembic_version"} <= set(
+        insp.get_table_names(schema=schema)
+    )
     cols = {c["name"]: c for c in insp.get_columns("workspaces", schema=schema)}
     assert str(cols["settings"]["type"]).upper().startswith("JSONB"), "JSON columns must be JSONB on PostgreSQL"
     _migrate(schema, "down")
@@ -86,29 +127,27 @@ def test_unqualified_geometry_resolves_through_search_path(pg_schema):
     with engine.connect() as c:
         c.execute(text("CREATE TEMP TABLE _g (id int, p geometry(Point, 4326))"))
         c.execute(text("INSERT INTO _g VALUES (1, ST_SetSRID(ST_MakePoint(72.97, 19.2), 4326))"))
-        hit = c.execute(text("SELECT id FROM _g WHERE p && ST_MakeEnvelope(72, 19, 73, 20, 4326)")).scalar()
-        assert hit == 1
-        miss = c.execute(text("SELECT id FROM _g WHERE p && ST_MakeEnvelope(0, 0, 1, 1, 4326)")).scalar()
-        assert miss is None
+        assert c.execute(text("SELECT id FROM _g WHERE p && ST_MakeEnvelope(72, 19, 73, 20, 4326)")).scalar() == 1
+        assert c.execute(text("SELECT id FROM _g WHERE p && ST_MakeEnvelope(0, 0, 1, 1, 4326)")).scalar() is None
 
 
-def test_postgres_enforces_constraints_sqlite_does_not(pg_schema):
-    """CHECK constraints from the models are real in PostgreSQL (guards against SQLite-only confidence)."""
+def test_postgres_enforces_check_constraints(pg_schema):
+    """CHECK constraints are real in PostgreSQL (guards against SQLite-only confidence)."""
     engine, schema = pg_schema
     _migrate(schema)
     with engine.connect() as c:
+        c.execute(
+            text(
+                "INSERT INTO organizations (id, name, slug, created_at, updated_at) "
+                "VALUES (gen_random_uuid(), 'o', 'o-slug', now(), now())"
+            )
+        )
         with pytest.raises(Exception) as bad_mode:
             c.execute(
                 text(
-                    "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES "
-                    "(gen_random_uuid(), 'o', 'o-slug', now(), now())"
-                )
-            )
-            c.execute(
-                text(
-                    "INSERT INTO workspaces (id, organization_id, name, mode, timezone, settings, capabilities, key_counters, "
-                    "created_at, updated_at) SELECT gen_random_uuid(), id, 'w', 'not_a_mode', 'UTC', '{}', '{}', '{}', now(), now() "
-                    "FROM organizations"
+                    "INSERT INTO workspaces (id, organization_id, name, mode, timezone, settings, capabilities, "
+                    "key_counters, created_at, updated_at) SELECT gen_random_uuid(), id, 'w', 'not_a_mode', 'UTC', "
+                    "'{}', '{}', '{}', now(), now() FROM organizations"
                 )
             )
         assert "ck_workspaces_mode" in str(bad_mode.value)

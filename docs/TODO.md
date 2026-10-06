@@ -8,7 +8,7 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [x] Stage-2 review deck (pitch/) — fill names, IEN, guide, approval letter
 - [x] Rules-engine proof of concept (pure Python, 5 tests)
 - [x] Dev DB path decided: hosted PostgreSQL+PostGIS, Supabase by default (ADR-015)
-- [ ] **Human step:** create the Supabase project, enable PostGIS in schema `extensions`, set `DATABASE_URL` + `TEST_DATABASE_URL` (docs/DATABASE_SETUP.md), run `alembic upgrade head` and `python -m app.tools.check_db`, then `pytest` so the PostGIS tests actually run
+- [x] **Human step done 2026-10-07:** create the Supabase project, enable PostGIS in schema `extensions`, set `DATABASE_URL` + `TEST_DATABASE_URL` (docs/DATABASE_SETUP.md), run `alembic upgrade head` and `python -m app.tools.check_db`, then `pytest` so the PostGIS tests actually run
 - [x] Monorepo scaffold (backend + frontend done; `/infra` Dockerfiles still to do): `/backend` (FastAPI, uv/pip, ruff, mypy, pytest), `/frontend` (Vite React TS Tailwind shadcn), `/infra` (compose, Dockerfiles)
 - [x] `.gitignore`, `.env.example`, READMEs
 - [~] CI written (`.github/workflows/ci.yml`), unverified until first run; OpenAPI client drift check still to add
@@ -56,3 +56,8 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 1. ~~Dev DB path~~ decided: hosted PostGIS (Supabase).
 2. ~~Weather provider~~ decided: Open-Meteo behind an interface. **Risk R-WX-1:** the free tier is non-commercial only; decide before any commercial deployment.
 3. ~~Deployment~~ decided: static frontend hosting/CDN, containerized FastAPI, managed PostgreSQL+PostGIS, containerized workers when needed. Dockerfiles still to write.
+
+## Database follow-ups
+- [ ] Decide on enabling RLS (defence-in-depth) for `greenguardian.*` (SQL in DATABASE_SETUP section 9)
+- [ ] Optional: a separate Supabase project/branch for tests if the team wants hard separation
+- [ ] Set `TEST_DATABASE_URL` in `backend/.env` (recommended: same as `DATABASE_URL`)

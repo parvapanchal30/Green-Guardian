@@ -34,8 +34,11 @@ class Settings(BaseSettings):
     db_max_overflow: int = 5
     db_connect_timeout_s: int = 10
     postgis_schema: str = "extensions"
-    # Schema that holds the application tables (first entry of search_path). Only tests change this.
-    db_schema: str = "public"
+    # Schema that holds the application tables (first entry of search_path). NOT `public`: on Supabase `public`
+    # is exposed through the Data API with default grants to `anon` (ADR-022). Tests override this per run.
+    db_schema: str = "greenguardian"
+    # Applied only when the URL has no explicit ?sslmode=. Use "disable"/"prefer" for a local container without TLS.
+    db_sslmode: Literal["require", "verify-full", "prefer", "disable"] = "require"
 
     # --- auth ---
     jwt_secret: str = ""
