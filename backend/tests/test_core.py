@@ -60,3 +60,17 @@ def test_capability_overrides_can_only_disable():
     eff = {c.key: c for c in effective_capabilities({live.key: False, unavailable.key: True})}
     assert eff[live.key].available is False
     assert eff[unavailable.key].available is False  # an override can never enable an unbuilt feature
+
+
+def test_database_url_rejects_placeholder_brackets_around_password():
+    base = dict(_env_file=None)
+    with pytest.raises(ValueError, match="brackets"):
+        Settings(database_url="postgresql://postgres:[my-secret]@db.example.supabase.co:5432/postgres", **base)
+    # a password that merely contains brackets in the middle is left alone (URL-encode it if it has specials)
+    ok = Settings(database_url="postgresql://postgres:ab%5Bcd@db.example.co:5432/postgres", **base)
+    assert ok.database_url.startswith("postgresql+psycopg://")
+
+
+def test_db_schema_must_be_a_simple_identifier():
+    with pytest.raises(ValueError):
+        Settings(db_schema='x"; DROP SCHEMA public; --', _env_file=None)

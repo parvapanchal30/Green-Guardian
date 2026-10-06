@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from alembic import context
-from sqlalchemy import pool
 
 from app.core.config import get_settings
 from app.core.db import build_engine
@@ -11,26 +10,40 @@ config = context.config
 target_metadata = Base.metadata
 
 
-def _engine():
-    # A URL set programmatically (tests) wins over the environment.
-    url = config.get_main_option("sqlalchemy.url")
+def _settings():
+    """Settings from the environment; `sqlalchemy.url` / `db_schema` set programmatically (tests) win."""
     settings = get_settings()
-    if url:
-        settings = settings.model_copy(update={"database_url": url})
-    return build_engine(settings)
+    update = {}
+    if url := config.get_main_option("sqlalchemy.url"):
+        update["database_url"] = url
+    if schema := config.get_main_option("db_schema"):
+        update["db_schema"] = schema
+    return settings.model_copy(update=update)
 
 
 def run_migrations_offline() -> None:
-    url = config.get_main_option("sqlalchemy.url") or get_settings().database_url
-    context.configure(url=url, target_metadata=target_metadata, literal_binds=True, compare_type=True)
+    s = _settings()
+    context.configure(
+        url=s.database_url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        compare_type=True,
+        version_table_schema=s.db_schema if s.database_url.startswith("postgresql") else None,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
 
 def run_migrations_online() -> None:
-    engine = _engine()
+    s = _settings()
+    engine = build_engine(s)
     with engine.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            version_table_schema=s.db_schema if engine.dialect.name == "postgresql" else None,
+        )
         with context.begin_transaction():
             context.run_migrations()
     engine.dispose()
@@ -40,5 +53,3 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
-
-_ = pool  # keep import for tooling that inspects env.py

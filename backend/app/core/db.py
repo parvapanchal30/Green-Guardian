@@ -27,7 +27,7 @@ def build_engine(settings: Settings) -> Engine:
         return engine
 
     kwargs: dict = {"pool_pre_ping": True}
-    connect_args: dict = {}
+    connect_args: dict = {"connect_timeout": settings.db_connect_timeout_s}
     if settings.db_pool_mode == "transaction":
         # Provider transaction pooler (e.g. port 6543): no server-side prepared statements, no pooling here.
         kwargs["poolclass"] = NullPool
@@ -37,13 +37,16 @@ def build_engine(settings: Settings) -> Engine:
         kwargs["max_overflow"] = settings.db_max_overflow
     engine = create_engine(url, connect_args=connect_args, **kwargs)
 
-    schema = settings.postgis_schema
+    postgis, app_schema = settings.postgis_schema, settings.db_schema
+    # App schema first, PostGIS schema second. `public` is deliberately absent for a non-default app schema,
+    # so an isolated test schema cannot see (or touch) real tables in `public`.
+    path = f'"{app_schema}", "{postgis}"'
 
     @event.listens_for(engine, "connect")
     def _set_search_path(dbapi_conn, _):
         # Set per connection (not as a startup option) so poolers that reject startup params still work.
         with dbapi_conn.cursor() as cur:
-            cur.execute(f'SET search_path TO public, "{schema}"')
+            cur.execute(f"SET search_path TO {path}")
         dbapi_conn.commit()
 
     return engine

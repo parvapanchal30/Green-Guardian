@@ -32,7 +32,10 @@ class Settings(BaseSettings):
     db_pool_mode: Literal["session", "transaction"] = "session"
     db_pool_size: int = 5
     db_max_overflow: int = 5
+    db_connect_timeout_s: int = 10
     postgis_schema: str = "extensions"
+    # Schema that holds the application tables (first entry of search_path). Only tests change this.
+    db_schema: str = "public"
 
     # --- auth ---
     jwt_secret: str = ""
@@ -52,7 +55,21 @@ class Settings(BaseSettings):
     @field_validator("database_url")
     @classmethod
     def _norm_url(cls, v: str) -> str:
-        return normalize_database_url(v.strip())
+        v = normalize_database_url(v.strip())
+        # Providers show `postgresql://user:[YOUR-PASSWORD]@host/...`; the brackets are a placeholder marker.
+        if re.search(r"://[^:/@]+:\[[^@]*\]@", v):
+            raise ValueError(
+                "DATABASE_URL password is wrapped in [brackets]: remove them (they are only a placeholder "
+                "marker in provider dashboards). Passwords with special characters must be URL-encoded."
+            )
+        return v
+
+    @field_validator("db_schema")
+    @classmethod
+    def _db_schema_ident(cls, v: str) -> str:
+        if not _IDENT.match(v):
+            raise ValueError("DB_SCHEMA must be a simple lowercase identifier")
+        return v
 
     @field_validator("postgis_schema")
     @classmethod

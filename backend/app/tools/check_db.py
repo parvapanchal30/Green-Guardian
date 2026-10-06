@@ -8,9 +8,11 @@ Never prints the connection string or credentials.
 
 from __future__ import annotations
 
+import socket
 import sys
 
 from sqlalchemy import text
+from sqlalchemy.engine import make_url
 
 from app.core.config import get_settings
 from app.core.db import build_engine
@@ -18,11 +20,57 @@ from app.core.db import build_engine
 MIN_PG_MAJOR = 15
 
 
+def probe_network(host: str, port: int, timeout: float = 5.0) -> dict[str, str]:
+    """Per address family: 'ok' | 'no-address' | 'timeout' | 'refused/other'. Pure reachability, no auth."""
+    result: dict[str, str] = {}
+    for fam, label in ((socket.AF_INET, "IPv4"), (socket.AF_INET6, "IPv6")):
+        try:
+            addr = socket.getaddrinfo(host, port, fam, socket.SOCK_STREAM)[0][4]
+        except socket.gaierror:
+            result[label] = "no-address"
+            continue
+        s = socket.socket(fam)
+        s.settimeout(timeout)
+        try:
+            s.connect(addr)
+            result[label] = "ok"
+        except TimeoutError:
+            result[label] = "timeout"
+        except OSError as e:
+            result[label] = f"refused/other ({type(e).__name__})"
+        finally:
+            s.close()
+    return result
+
+
+def diagnose_network(net: dict[str, str]) -> str | None:
+    """A human-readable cause if no address family is reachable; None if something works."""
+    if any(v == "ok" for v in net.values()):
+        return None
+    v4, v6 = net.get("IPv4"), net.get("IPv6")
+    if v4 == "no-address" and v6 == "no-address":
+        return "The database host name does not resolve (DNS). Check the host in DATABASE_URL."
+    if v4 == "no-address":
+        return (
+            "The host only has an IPv6 address and this network cannot reach it (typical for Supabase's direct "
+            "connection on the free tier). Use the Session pooler connection string (IPv4) in DATABASE_URL."
+        )
+    return "The database host is not reachable from this network (firewall, VPN or wrong port?)."
+
+
 def main() -> int:
     settings = get_settings()
     if not settings.database_url:
         print("FAIL  DATABASE_URL is not set (copy backend/.env.example to backend/.env)")
         return 2
+    url = make_url(settings.database_url)
+    if url.get_backend_name() == "postgresql" and url.host:
+        net = probe_network(url.host, url.port or 5432)
+        print("INFO  network reachability: " + ", ".join(f"{k}={v}" for k, v in net.items()))
+        cause = diagnose_network(net)
+        if cause:
+            print(f"FAIL  {cause}")
+            return 2
     problems: list[str] = []
     engine = build_engine(settings)
     try:
@@ -58,8 +106,10 @@ def main() -> int:
             print(f"OK    search_path = {c.execute(text('SHOW search_path')).scalar()}")
             print(f"OK    pool mode = {settings.db_pool_mode}")
     except Exception as e:  # noqa: BLE001 - report any connectivity failure plainly
-        print(f"FAIL  cannot connect: {type(e).__name__}: {str(e).splitlines()[0][:200]}")
-        print("      Hint: Supabase direct connections are IPv6-only on the free tier; use the session pooler URL.")
+        first = str(e).splitlines()[0][:200]
+        print(f"FAIL  cannot connect: {type(e).__name__}: {first}")
+        if "password authentication failed" in str(e):
+            print("      Hint: check the password (remove [brackets], URL-encode special characters).")
         return 2
     finally:
         engine.dispose()

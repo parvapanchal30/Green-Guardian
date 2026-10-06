@@ -38,7 +38,7 @@ Creating a Supabase project needs your account and generates credentials, so it 
 2. Dashboard → **Database → Extensions**: enable **postgis** and choose/create the schema **`extensions`** (equivalent SQL: `create extension if not exists postgis with schema extensions;`). The first Alembic migration also runs this idempotently.
 3. Dashboard → **Connect**: copy the **Session pooler** connection string.
 4. Locally: `cp backend/.env.example backend/.env` and set `DATABASE_URL=postgresql+psycopg://postgres.<ref>:<password>@<pooler-host>:5432/postgres?sslmode=require`. `.env` is gitignored. **Never commit credentials**; share them through the team's secret channel.
-5. Create a **second, disposable** database/project (or schema) for tests and set `TEST_DATABASE_URL` — tests create/drop tables; never point it at data you care about.
+5. Set `TEST_DATABASE_URL`. Prefer a **second, disposable** database/project. It may also equal `DATABASE_URL`: the PostGIS tests run only inside a uniquely named throwaway schema (`gg_test_<random>`) that is dropped afterwards, they never touch `public`, and PostGIS itself is installed once (idempotent).
 6. Apply the schema: `cd backend && .venv/Scripts/python -m alembic upgrade head`.
 7. Verify: `.venv/Scripts/python -m app.tools.check_db` (prints server version, PostGIS version, schema, search_path; exits non-zero if requirements aren't met).
 
@@ -67,3 +67,12 @@ Use managed PostgreSQL+PostGIS with PITR backups; run API/worker containers on a
 - Endpoint `https://api.open-meteo.com/v1/forecast`; required `latitude`, `longitude`; hourly variables used: `precipitation`, `precipitation_probability`, `soil_moisture_0_to_1cm`…`soil_moisture_27_to_81cm`, `et0_fao_evapotranspiration`, `temperature_2m`; `forecast_days` 0–16, `past_days` 0–92, `timezone=auto|IANA`.
 - **The free API is for non-commercial use only.** A commercial deployment needs an API key + customer endpoint. This is recorded as risk R-WX-1; the provider is behind an interface so it can be swapped (see ARCHITECTURE §5/AI_ARCHITECTURE `WeatherProvider`).
 - Forecasts are fetched on demand and cached in-process (TTL); persisted `weather_record` rows are a later step.
+
+## 8. Troubleshooting (all seen in practice)
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `password authentication failed for user "postgres"` although the password is right | The dashboard string is `postgres:[YOUR-PASSWORD]@...`; the `[ ]` are a **placeholder marker**, not part of the password. Keeping them makes the password wrong. | Remove the brackets. `Settings` now rejects a bracket-wrapped password with a clear message. Passwords containing `@ : / ? # %` must be URL-encoded. |
+| `check_db` reports `IPv4=no-address, IPv6=timeout` / connection timeout | Supabase's **direct** host (`db.<ref>.supabase.co`) is IPv6-only on the free tier, and this network has no working route to it (IPv6 can work intermittently on home/campus networks). | Use the **Session pooler** string (Dashboard → Connect → Session pooler: user `postgres.<ref>`, host `aws-*-<region>.pooler.supabase.com`, port 5432). It is IPv4. |
+| Commands hang | Older code had no connect timeout. | `DB_CONNECT_TIMEOUT_S` (default 10) now bounds every connection attempt; `check_db` probes TCP reachability first. |
+| `TEST_DATABASE_URL not set` skips | Variable empty/missing in `backend/.env` | Set it (see step 5). A run with skipped PostGIS tests has **not** verified PostgreSQL behaviour. |
