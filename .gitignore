@@ -9,3 +9,4 @@ pitch/_work/
 .mypy_cache/
 .ruff_cache/
 *.db
+~$*

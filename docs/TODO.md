@@ -7,19 +7,23 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [x] Project documentation + PRD
 - [x] Stage-2 review deck (pitch/) — fill names, IEN, guide, approval letter
 - [x] Rules-engine proof of concept (pure Python, 5 tests)
-- [ ] Decide dev DB path: install Docker Desktop **or** local Postgres+PostGIS **or** hosted dev DB (needs user input; ADR-007)
-- [ ] Monorepo scaffold: `/backend` (FastAPI, uv/pip, ruff, mypy, pytest), `/frontend` (Vite React TS Tailwind shadcn), `/infra` (compose, Dockerfiles)
-- [ ] `.gitignore`, `.env.example`, README (setup, run, test)
-- [ ] CI (GitHub Actions): lint, types, tests with PostGIS service, frontend build, OpenAPI client drift
-- [ ] Alembic baseline + PostGIS extension migration
-- [ ] Core: config, logging, error model (problem+json), DB session/UoW, event bus, job runner skeleton
+- [x] Dev DB path decided: hosted PostgreSQL+PostGIS, Supabase by default (ADR-015)
+- [ ] **Human step:** create the Supabase project, enable PostGIS in schema `extensions`, set `DATABASE_URL` + `TEST_DATABASE_URL` (docs/DATABASE_SETUP.md), run `alembic upgrade head` and `python -m app.tools.check_db`, then `pytest` so the PostGIS tests actually run
+- [x] Monorepo scaffold (backend + frontend done; `/infra` Dockerfiles still to do): `/backend` (FastAPI, uv/pip, ruff, mypy, pytest), `/frontend` (Vite React TS Tailwind shadcn), `/infra` (compose, Dockerfiles)
+- [x] `.gitignore`, `.env.example`, READMEs
+- [~] CI written (`.github/workflows/ci.yml`), unverified until first run; OpenAPI client drift check still to add
+- [x] Alembic baseline + PostGIS extension migration (PostGIS step unverified without a real DB)
+- [x] Core: config, logging, error model, DB session
+- [ ] Core: event bus, job runner skeleton
 
 ## Phase 1 — Identity & tenancy
-- [ ] User/org/workspace/membership models + migrations
-- [ ] Register/login/refresh/logout, argon2id, JWT
-- [ ] WorkspaceContext dependency + RBAC + **tenant isolation test suite**
-- [ ] Workspace create with mode selection; capabilities endpoint
-- [ ] Frontend: auth, workspace switcher, app shell with mode-aware nav + future-surface routes
+- [x] User/org/workspace/membership models + migrations
+- [x] Register/login/refresh/logout, argon2id, JWT
+- [ ] Auth hardening: login rate limiting, refresh-token reuse grace window or httpOnly cookie (duplicated-tab limitation), email verification, password reset
+- [x] WorkspaceContext dependency + RBAC + **tenant isolation test suite**
+- [x] Workspace create with mode selection; capabilities endpoint
+- [x] Frontend: auth, workspace switcher, app shell with mode-aware nav + future-surface routes
+- [ ] Frontend: member invite/role UI, screenshot-based visual review
 
 ## Phase 2 — Assets
 - [ ] Locations (PostGIS), species/lifecycle seed data (both modes), assets + lifecycle events
@@ -49,6 +53,6 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [ ] 100k-asset perf seed, Playwright golden path (both modes), security review, deployment docs
 
 ## Open questions for the user
-1. Dev DB path (Docker vs local PostGIS vs hosted)?
-2. Weather provider preference (e.g. Open-Meteo, free/no key)? *Default assumption: Open-Meteo.*
-3. Deployment targets (Vercel/Railway/Render/VM)? *Default: containers + static hosting.*
+1. ~~Dev DB path~~ decided: hosted PostGIS (Supabase).
+2. ~~Weather provider~~ decided: Open-Meteo behind an interface. **Risk R-WX-1:** the free tier is non-commercial only; decide before any commercial deployment.
+3. ~~Deployment~~ decided: static frontend hosting/CDN, containerized FastAPI, managed PostgreSQL+PostGIS, containerized workers when needed. Dockerfiles still to write.

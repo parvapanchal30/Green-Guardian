@@ -81,3 +81,9 @@ Format: ID · date · status · context → decision → consequences. Newest at
 ## ADR-019 · 2026-10-07 · Accepted — Capability registry lives in code; workspace overrides can only disable
 **Decision:** `modules/workspaces/capabilities.py` is the source of truth for which intelligence features are live; `GET /workspaces/{ws}/capabilities` exposes it. Overrides stored on the workspace may switch a live capability off but can never enable an unbuilt one (tested).
 **Why:** Enforces ADR-008 (no fabricated features) server-side, not just in the UI.
+
+## ADR-020 · 2026-10-07 · Accepted — Frontend foundations
+**Decisions:** React 19 + TS + Vite + Tailwind v4 (tokens in `index.css`, light/dark via `prefers-color-scheme`), React Router, TanStack Query with workspace-scoped keys; hand-written API types for now (OpenAPI codegen once the surface grows); dev uses a Vite same-origin proxy to the API (no CORS locally). shadcn/ui is **not** installed yet: components are small and local until a pattern repeats enough to justify it.
+**Navigation registry** (`src/app/routes.ts`) drives the sidebar, mode-awareness and status labels: `live` (implemented), `building` (MVP, "In development"), `soon` (V2+, "Coming soon", must name a backend capability and technique). Tests assert only implemented routes are `live` and every `soon` route is capability-gated.
+**Auth storage:** access token in memory, refresh token in `sessionStorage` (per tab), single-flight refresh. Known limitation: a *duplicated tab* copies the refresh token, and the server's reuse detection then revokes all sessions. Planned fix: httpOnly cookie and/or a short reuse grace window (see TODO).
+**Status semantics:** never colour-only; each tone has a glyph and text.

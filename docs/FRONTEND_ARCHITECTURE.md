@@ -44,3 +44,7 @@ WCAG 2.1 AA: semantic landmarks, focus management in dialogs/drawers, keyboard-o
 
 ## Testing
 Vitest + RTL for forms (validation, error mapping), workflow components, CapabilityGate; MSW for API mocks (mocks = contract fixtures, not product data); Playwright golden path.
+
+## Implementation status (2026-10-07)
+Built: auth (register/login/refresh/logout, session restore), workspace list/create with mode choice, mode-aware app shell with registry-driven navigation (mobile menu), Home (mode KPIs shown as "No data yet", empty attention inbox, live capability table), Weather (real endpoint), Members (read-only), and `CapabilityGate`/`ComingSoonPanel` with real-layout previews for Crop Recommendation and Disease Detection (controls disabled). Every other route renders an honest "In development"/"Coming soon" page. 19 unit tests (API client token refresh, route registry invariants, capability gate fail-closed behaviour, weather summarisation).
+Verified in the browser pane against a local dev API: register, login, create an agricultural workspace, home, capability-gated pages (controls effectively disabled), weather with the mock provider, full-reload session restore, and a 375px layout without horizontal scroll. Screenshot-based visual review is still pending because the pane was hidden.
