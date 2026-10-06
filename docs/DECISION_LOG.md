@@ -47,3 +47,16 @@ Format: ID · date · status · context → decision → consequences. Newest at
 ## ADR-011 · 2026-10-06 · Accepted — Workflow and lifecycle as data templates
 **Decision:** Issue/task workflows and asset lifecycles are template rows validated by a generic engine.
 **Why:** Different issue categories and modes need different flows without code forks.
+
+## ADR-012 · 2026-10-06 · Accepted — Roadmap stages: MVP → V2 Prediction → V3 Recommendation → V4 Optimization
+**Context:** The earlier roadmap grouped yield/harvest prediction and crop recommendation into one V3. The product brief and Stage-2 deck define the evolution as Prediction → Recommendation → Optimization.
+**Decision:** V2 = disease detection, growth/survival/yield/harvest prediction; V3 = crop and irrigation recommendation, profitability, LLM layer; V4 = optimization. Yield/harvest prediction stays gated on sufficient real history.
+**Consequences:** PRD §38 and FUTURE_ROADMAP updated; deck and docs use identical stage names.
+
+## ADR-013 · 2026-10-06 · Accepted — Stage-2 deck is built from code and mirrors the college template
+**Decision:** `pitch/build_stage2.js` (pptxgenjs) regenerates `pitch/GreenGuardian-Stage2-Review.pptx`: 11 slides, template fonts/positions, monochrome. Solid = MVP, dashed = planned. Content must match these docs; no unimplemented capability may appear as solid.
+**Why:** The original template was supplied as PDF only; scripted rebuild keeps edits reviewable. Slide titles on pages 6–11 were moved to the top (template placed them mid-page) to make room for diagrams.
+
+## ADR-014 · 2026-10-06 · Accepted — Rules engine proof of concept is pure Python
+**Decision:** `backend/app/modules/intelligence/rules/` holds dataclass-based rules (inspection gap, health decline, symptom cluster) with no DB/I/O; tests in `backend/tests/`. `backend/poc_run.py` runs it on clearly labelled synthetic data.
+**Why:** Demonstrates the agent design honestly before infrastructure exists; same interfaces will be called by the worker service.

@@ -271,22 +271,25 @@ Target: single workspace 1M assets (municipal), 10M observations. Strategies: BR
 | Testability | Unit (rules, workflow), API (tenant isolation), integration (DB), critical frontend flows |
 | Portability | Containerized; runs on a single VM or managed services |
 
-## 38. MVP vs V2 vs V3
+## 38. MVP vs V2 vs V3 vs V4
 
-| | MVP | V2 | V3 |
-|---|---|---|---|
-| Workspaces, modes, RBAC | ✔ | SSO, org-level roles | Multi-org enterprise |
-| Assets, lifecycle | ✔ | Bulk import (CSV/KML/GeoJSON), QR tags | Drone/satellite ingestion |
-| Observations, photos | ✔ | Offline-first mobile (PWA sync) | IoT sensor streams |
-| Issues & tasks | ✔ | Recurring schedules, SLAs, notifications | Crew optimization |
-| Map | ✔ core layers | Intelligence layers live | Time-slider, 3D canopy |
-| Agent | ✔ rules | + LLM explanations, NL query | Cross-module planner |
-| Disease detection | surface | ✔ | Fine-tuned per-crop models |
-| Growth / survival | surface | ✔ | Calibrated, per-species |
-| Irrigation | surface | ✔ rules+weather | Optimizer |
-| Yield / harvest / profit | surface | — | ✔ |
-| Crop recommendation | surface | — | ✔ |
-| Reports | basic + CSV | PDF, scheduled | Custom builder, ESG/CSR formats |
+Evolution: **MVP operational foundation → V2 Prediction → V3 Recommendation → V4 Optimization** (ADR-012).
+
+| | MVP | V2 Prediction | V3 Recommendation | V4 Optimization |
+|---|---|---|---|---|
+| Workspaces, modes, RBAC | ✔ | SSO, org-level roles | | Multi-org enterprise |
+| Assets, lifecycle | ✔ | Bulk import, QR tags | Canopy estimation | Drone/satellite ingestion |
+| Observations, photos | ✔ | Offline-first PWA sync | | IoT sensor streams |
+| Issues & tasks | ✔ | Recurring schedules, SLAs, notifications | | Crew allocation |
+| Map | ✔ core layers | Intelligence layers live | | Time-slider, 3D canopy |
+| Agent | ✔ rules | Prediction-aware rules | + LLM explanations, NL query | Cross-module planner |
+| Disease detection | surface | ✔ | | Per-crop fine-tuning |
+| Growth / survival | surface | ✔ | | Calibrated per species |
+| Yield / harvest prediction | surface | ✔ (needs history) | | |
+| Irrigation | surface (rule: defer on rain) | | ✔ recommendation | ✔ optimizer |
+| Crop recommendation | surface | | ✔ | Crop-mix optimization |
+| Profitability | surface | | ✔ ranges | Profit optimization |
+| Reports | basic + CSV | PDF, scheduled | Narratives | Custom builder, ESG/CSR |
 
 ## 39. Risks
 

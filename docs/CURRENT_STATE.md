@@ -4,7 +4,7 @@ _Last updated: 2026-10-06 (initial session)_
 
 ## Repository
 - GitHub: `parvapanchal30/Green-Guardian` — **was empty** (no commits) at start. Cloned to `D:\college\GreenGuardian`.
-- Contents now: `docs/` only (project memory + PRD). **No application code yet.**
+- Contents now: `docs/` (project memory + PRD), `pitch/` (Stage-2 review deck + generator), and a small proof of concept: `backend/app/modules/intelligence/rules/` (rules engine) with `backend/tests/` (5 passing tests) and `backend/poc_run.py` (synthetic data run). **No API, database or frontend yet.**
 
 ## Audit result
 | Question | Answer |
@@ -26,3 +26,6 @@ See `TODO.md` — Phase 0 scaffold, then vertical slices per MVP_SCOPE build ord
 
 ## Must-not-break (once code exists)
 Tenant scoping on all queries · append-only history tables · honest AI labelling · no mock data in prod builds.
+
+## Stage-2 presentation (2026-10-06)
+`pitch/GreenGuardian-Stage2-Review.pptx` — 11 slides following the college template (source was a PDF; rebuilt). Regenerate: `cd pitch && npm install && node build_stage2.js`. Slide content mirrors PRD/MVP_SCOPE; solid = MVP, dashed = planned. **Still blank by design:** student names/IEN/guide (slide 1), team member names (slide 9), signed industry approval letter (slide 11). Gantt uses relative weeks W1–W12 with an assumed Stage 3/4 split at W6.

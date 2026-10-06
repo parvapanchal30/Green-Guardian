@@ -5,6 +5,8 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 ## Phase 0 — Foundation
 - [x] Repository audit (empty repo)
 - [x] Project documentation + PRD
+- [x] Stage-2 review deck (pitch/) — fill names, IEN, guide, approval letter
+- [x] Rules-engine proof of concept (pure Python, 5 tests)
 - [ ] Decide dev DB path: install Docker Desktop **or** local Postgres+PostGIS **or** hosted dev DB (needs user input; ADR-007)
 - [ ] Monorepo scaffold: `/backend` (FastAPI, uv/pip, ruff, mypy, pytest), `/frontend` (Vite React TS Tailwind shadcn), `/infra` (compose, Dockerfiles)
 - [ ] `.gitignore`, `.env.example`, README (setup, run, test)
