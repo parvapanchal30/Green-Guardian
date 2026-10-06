@@ -1,0 +1,61 @@
+# Domain Model
+
+## Core graph
+
+```
+Organization ─┬─ Membership ── User
+              └─ Workspace (mode: green_management | agricultural_production; capability flags; thresholds)
+                    └─ Project
+                         ├─ Location (Field | Zone | Site; hierarchical; polygon)
+                         └─ Planting (species/crop, planted_at, area, source)
+                              └─ Batch / BiologicalAsset
+                                   ├─ LifecycleEvent*      (append-only)
+                                   ├─ Observation*         (append-only; evidence)
+                                   │    ├─ HealthRecord*   (derived/explicit score over time)
+                                   │    ├─ GrowthRecord*
+                                   │    └─ Attachment*     (photos)
+                                   ├─ Issue* ─ IssueStatusHistory*
+                                   ├─ Task*  ─ TaskStatusHistory*
+                                   ├─ Treatment / Inspection / Harvest
+                                   └─ Outcome (via resolved issues, harvests, survival)
+Recommendation  (agent output → accepted → Issue/Task)
+Prediction      (reserved; model output with uncertainty + provenance)
+EnvironmentReading / WeatherRecord (per location)
+Report
+```
+`*` = many, historical.
+
+## Key modelling decisions
+
+1. **One `BiologicalAsset` entity, `kind` discriminator.** kinds: `tree`, `plant`, `crop_batch`, `shrub`, `other`. `tracking_mode`: `individual` | `population`. A population asset has `estimated_count` and (optionally) child individuals via `parent_asset_id`. Avoids separate Tree/Crop/Plant tables; screens differ by `kind` + workspace mode, not by schema.
+2. **Locations are a single hierarchical table** (`kind`: site, field, zone, plot), polygon geometry, parent pointer. "Field" (agri) and "Zone" (green) are vocabulary over the same thing.
+3. **Species/Crop is one catalog** (`category`: tree, crop, ornamental…) with lifecycle template reference and agronomic parameters.
+4. **State is time-aware.** Current values live in the `asset_state` projection; truth is the append-only history. Health/growth are records with `observed_at`, `source` (human, model, sensor), `method`.
+5. **Observation is the universal evidence unit.** Humans, disease models, sensors and inspections all produce Observations; Issues cite Observations as evidence; rules read them.
+6. **Issue and Task are first-class with status history**; polymorphic *subject* (asset | location | batch) via `subject_type + subject_id` plus `issue_asset` for clusters.
+7. **Lifecycle & workflow are data** (templates), validated by services.
+8. **Recommendation ≠ Prediction ≠ Rule output.** Recommendation = suggested action with explanation & method; Prediction = quantitative forecast with interval & model version.
+9. **Soft delete** assets/locations (`archived_at`); history preserved. Hard delete only by workspace purge.
+
+## Enumerations (initial)
+
+- **Workspace mode:** `green_management`, `agricultural_production`
+- **Role:** `owner`, `admin`, `manager`, `worker`, `viewer`
+- **Lifecycle stages:** Green — `planted, growing, mature, maintained, health_monitoring, survival` ; Agri — `planted, germination, vegetative, flowering, fruiting, harvest, post_harvest` ; Exit — `dead, removed, replaced, failed`
+- **Health band (derived):** `healthy (≥70) | at_risk (40–69) | critical (<40) | unknown`
+- **Issue category:** `disease, pest, nutrient, water_stress, irrigation_failure, physical_damage, growth_anomaly, harvest_readiness, maintenance, other`
+- **Issue severity:** `low, medium, high, critical`
+- **Issue state (template-defined):** `open, investigating, field_inspection, treatment, monitoring, resolved, assigned, fixed, verified, pending, inspection, ready, harvested, closed_wont_fix`
+- **Task type:** `water, fertilize, inspect, treat, prune, plant, replace, harvest, monitor, other`
+- **Task status:** `todo, in_progress, blocked, done, cancelled`; **priority** `p1..p4`
+- **Observation source:** `human, model, sensor, import, agent`
+- **Recommendation status:** `open, accepted, dismissed, expired`; **method:** `rule, statistical, model, llm`
+
+## Invariants
+
+- Every tenant entity belongs to exactly one workspace; cross-workspace references are forbidden (FK + service check).
+- An asset's `current_stage` always equals its latest `LifecycleEvent.stage`.
+- An Issue's `state` always equals its latest `IssueStatusHistory.to_state` and is a legal transition per its workflow template.
+- Observation rows are immutable; corrections are new rows referencing `supersedes_id`.
+- Health score ∈ [0,100]; growth percent ∈ [0,100] (or null).
+- Recommendation dedupe key unique among *open* recommendations.
