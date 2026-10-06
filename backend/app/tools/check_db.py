@@ -117,6 +117,21 @@ def main() -> int:
                     "application tables found in 'public' (exposed by Supabase's Data API): "
                     + ", ".join(r[0] for r in leaked)
                 )
+            rls = c.execute(
+                text(
+                    "SELECT count(*) FILTER (WHERE c.relrowsecurity), count(*), "
+                    "count(*) FILTER (WHERE pg_get_userbyid(c.relowner) = current_user) "
+                    "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+                    "WHERE n.nspname = :s AND c.relkind IN ('r','p')"
+                ),
+                {"s": settings.db_schema},
+            ).one()
+            bypass = bool(c.execute(text("SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user")).scalar())
+            print(f"OK    RLS enabled on {rls[0]}/{rls[1]} application tables; role owns {rls[2]}; BYPASSRLS={bypass}")
+            if rls[1] and rls[0] < rls[1]:
+                problems.append(f"{rls[1] - rls[0]} application table(s) without RLS (see app/core/rls.py)")
+            if rls[1] and rls[2] < rls[1] and not bypass:
+                problems.append("this role neither owns the tables nor has BYPASSRLS: RLS (no policies) hides all rows")
             # Client->server leg (libpq). pg_stat_ssl would show the pooler->database hop instead.
             tls = bool(c.connection.dbapi_connection.pgconn.ssl_in_use)  # type: ignore[union-attr]
             print(f"{'OK   ' if tls else 'WARN '} TLS on client connection = {tls}")

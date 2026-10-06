@@ -151,3 +151,110 @@ def test_postgres_enforces_check_constraints(pg_schema):
                 )
             )
         assert "ck_workspaces_mode" in str(bad_mode.value)
+
+
+# ---------------------------------------------------------------- Row Level Security (ADR-023)
+
+
+def _app_tables(c, schema: str) -> list[tuple[str, bool]]:
+    rows = c.execute(
+        text(
+            "SELECT c.relname, c.relrowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "WHERE n.nspname = :s AND c.relkind IN ('r','p') ORDER BY 1"
+        ),
+        {"s": schema},
+    ).all()
+    return [(r[0], bool(r[1])) for r in rows]
+
+
+def test_every_application_table_has_rls_enabled_and_no_policies(pg_schema):
+    """Guard for future migrations: a new table without `enable_rls(...)` fails here."""
+    engine, schema = pg_schema
+    _migrate(schema)
+    with engine.connect() as c:
+        tables = _app_tables(c, schema)
+        assert tables, "no tables found"
+        missing = [t for t, on in tables if not on]
+        assert not missing, f"tables without RLS: {missing} (call app.core.rls.enable_rls in the migration)"
+        policies = c.execute(text("SELECT count(*) FROM pg_policies WHERE schemaname = :s"), {"s": schema}).scalar()
+        assert policies == 0, "policies are not expected yet; see app/core/rls.py before adding any"
+
+
+def test_provider_api_roles_have_no_access_to_the_schema(pg_schema):
+    engine, schema = pg_schema
+    _migrate(schema)
+    with engine.connect() as c:
+        present = [
+            r[0] for r in c.execute(text("SELECT rolname FROM pg_roles WHERE rolname IN ('anon','authenticated')"))
+        ]
+        tables = [t for t, _ in _app_tables(c, schema)]
+        for role in present:  # empty on a plain PostgreSQL container: nothing to check there
+            assert not c.execute(
+                text("SELECT has_schema_privilege(:r, :s, 'USAGE')"), {"r": role, "s": schema}
+            ).scalar()
+            for t in tables:
+                for priv in ("SELECT", "INSERT", "UPDATE", "DELETE"):
+                    ok = c.execute(
+                        text("SELECT has_table_privilege(:r, :t, :p)"), {"r": role, "t": f'"{schema}"."{t}"', "p": priv}
+                    ).scalar()
+                    assert not ok, f"{role} has {priv} on {t}"
+
+
+def test_backend_role_operates_normally_with_rls_enabled(pg_schema):
+    """The runtime role must still read and write: it owns the tables and/or has BYPASSRLS."""
+    engine, schema = pg_schema
+    _migrate(schema)
+    with engine.begin() as c:
+        owner, bypass = c.execute(
+            text(
+                "SELECT (SELECT pg_get_userbyid(relowner) = current_user FROM pg_class WHERE oid = CAST(:t AS regclass)), "
+                "(SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user)"
+            ),
+            {"t": f'"{schema}"."organizations"'},
+        ).one()
+        assert owner or bypass, "backend role neither owns the tables nor bypasses RLS: it would see no rows"
+        c.execute(
+            text(
+                "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES "
+                "(gen_random_uuid(), 'o', 'rls-probe', now(), now())"
+            )
+        )
+        assert c.execute(text("SELECT count(*) FROM organizations WHERE slug = 'rls-probe'")).scalar() == 1
+
+
+def test_rls_really_blocks_a_role_that_neither_owns_nor_bypasses(pg_schema):
+    """Prove the barrier works: a throwaway role granted SELECT still sees zero rows (RLS, no policy)."""
+    engine, schema = pg_schema
+    _migrate(schema)
+    role = f"gg_rls_probe_{secrets.token_hex(4)}"
+    assert re.match(r"^gg_rls_probe_[0-9a-f]{8}$", role)
+    setup = [
+        f'CREATE ROLE "{role}" NOLOGIN',
+        f'GRANT "{role}" TO CURRENT_USER WITH SET TRUE',
+        f'GRANT USAGE ON SCHEMA "{schema}" TO "{role}"',
+        f'GRANT SELECT ON "{schema}".organizations TO "{role}"',
+    ]
+    # Role setup and cleanup are committed on their own connection (roles are cluster-wide objects).
+    admin = engine.execution_options(isolation_level="AUTOCOMMIT")
+    created = False
+    try:
+        with admin.connect() as c:
+            for stmt in setup:
+                c.execute(text(stmt))
+                created = created or stmt.startswith("CREATE ROLE")
+        with engine.begin() as c:
+            c.execute(
+                text(
+                    "INSERT INTO organizations (id, name, slug, created_at, updated_at) "
+                    "VALUES (gen_random_uuid(), 'o', 'visible-to-owner', now(), now())"
+                )
+            )
+            assert c.execute(text("SELECT count(*) FROM organizations")).scalar() == 1  # owner sees it
+            c.execute(text(f'SET LOCAL ROLE "{role}"'))
+            assert c.execute(text("SELECT current_user")).scalar() == role
+            assert c.execute(text("SELECT count(*) FROM organizations")).scalar() == 0  # RLS hides it
+    finally:
+        if created:
+            with admin.connect() as c:
+                c.execute(text(f'DROP OWNED BY "{role}"'))
+                c.execute(text(f'DROP ROLE IF EXISTS "{role}"'))

@@ -50,7 +50,8 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173"]
 
     # --- weather (behind an abstraction; see app/modules/weather) ---
-    weather_provider: Literal["open_meteo", "mock"] = "open_meteo"
+    # Key of a registered provider (app/modules/weather/registry.py); validated at application startup.
+    weather_provider: str = "open_meteo"
     open_meteo_base_url: str = "https://api.open-meteo.com/v1/forecast"
     weather_timeout_s: float = 8.0
     weather_cache_ttl_s: int = 900

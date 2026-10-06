@@ -10,6 +10,14 @@ from app.models import Base
 config = context.config
 target_metadata = Base.metadata
 
+# Tables that exist in the database but are not ours: Alembic's bookkeeping table and PostGIS's reference table
+# (visible through search_path). Everything else that is unexpected IS reported as drift by `alembic check`.
+INFRA_TABLES = {"alembic_version", "spatial_ref_sys"}
+
+
+def include_object(obj, name, type_, reflected, compare_to):
+    return not (type_ == "table" and reflected and name in INFRA_TABLES)
+
 
 def _settings():
     """Settings from the environment; `sqlalchemy.url` / `db_schema` set programmatically (tests) win."""
@@ -30,6 +38,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         compare_type=True,
+        include_object=include_object,
         version_table_schema=s.db_schema if s.database_url.startswith("postgresql") else None,
     )
     with context.begin_transaction():
@@ -49,6 +58,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
+            include_object=include_object,
             version_table_schema=s.db_schema if is_pg else None,
         )
         with context.begin_transaction():

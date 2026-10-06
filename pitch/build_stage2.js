@@ -555,4 +555,6 @@ function legend(slide, x, y) {
   s.addNotes("Placeholder: the signed approval letter on company letterhead must be supplied by the team and the industry contact; it cannot be generated.");
 }
 
-pres.writeFile({ fileName: path.join(__dirname, "GreenGuardian-Stage2-Review.pptx") }).then((f) => console.log("wrote", f));
+// Never overwrite GreenGuardian-Stage2-Review.pptx: it is hand-edited in PowerPoint (names, IEN, letter images).
+// The generator writes a separate file; copy slides across deliberately if you want its content.
+pres.writeFile({ fileName: path.join(__dirname, "GreenGuardian-Stage2-Review.generated.pptx") }).then((f) => console.log("wrote", f));

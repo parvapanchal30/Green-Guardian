@@ -9,10 +9,18 @@ from app.core.db import get_engine
 from app.core.errors import install_error_handlers
 from app.core.logging import configure_logging
 from app.modules.identity.router import router as identity_router
+from app.modules.weather.registry import UnknownWeatherProvider, available_providers
 from app.modules.weather.router import router as weather_router
 from app.modules.workspaces.router import router as workspaces_router
 
 API_PREFIX = "/api/v1"
+
+
+def validate_weather_provider(settings: Settings) -> None:
+    if settings.weather_provider not in available_providers():
+        raise UnknownWeatherProvider(
+            f"WEATHER_PROVIDER={settings.weather_provider!r} is not registered; available: {available_providers()}"
+        )
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -27,6 +35,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
     install_error_handlers(app)
+    validate_weather_provider(settings)
 
     for r in (identity_router, workspaces_router, weather_router):
         app.include_router(r, prefix=API_PREFIX)

@@ -112,6 +112,10 @@ def _load_test_database_url(env_file=None) -> str:
 
 
 postgis_url = _load_test_database_url()
+
+if os.getenv("GG_REQUIRE_POSTGRES_TESTS") == "1" and not postgis_url:
+    # Set in CI: a missing database must fail the run, never turn into skipped tests.
+    raise RuntimeError("GG_REQUIRE_POSTGRES_TESTS=1 but TEST_DATABASE_URL is not set")
 requires_postgis = pytest.mark.skipif(
     not postgis_url, reason="TEST_DATABASE_URL not set: PostgreSQL+PostGIS behaviour is NOT verified in this run"
 )

@@ -10,3 +10,4 @@ pitch/_work/
 .ruff_cache/
 *.db
 ~$*
+pitch/*.generated.pptx

@@ -3,11 +3,10 @@ from __future__ import annotations
 import time
 from functools import lru_cache
 
-from app.core.config import Settings, get_settings
+from app.core.config import get_settings
 
 from .domain import Forecast, WeatherProvider
-from .mock import MockWeatherProvider
-from .open_meteo import OpenMeteoProvider
+from .registry import build_provider
 
 
 class WeatherService:
@@ -31,12 +30,6 @@ class WeatherService:
         fc = self._provider.forecast(latitude, longitude, days)  # raises WeatherUnavailable
         self._cache[key] = (now, fc)
         return fc
-
-
-def build_provider(settings: Settings) -> WeatherProvider:
-    if settings.weather_provider == "mock":
-        return MockWeatherProvider()
-    return OpenMeteoProvider(settings.open_meteo_base_url, settings.weather_timeout_s)
 
 
 @lru_cache

@@ -5,27 +5,42 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: backend
     services:
-      # Real PostgreSQL + PostGIS so the `postgis`-marked tests run (they are skipped locally without TEST_DATABASE_URL).
+      # Real PostgreSQL + PostGIS (no TLS, no stored password: the container only exists for this job and is
+      # reachable only from the runner, hence trust auth; nothing here is a credential).
       postgres:
         image: postgis/postgis:16-3.4
         env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: gg_test
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 12
     env:
       ENV: test
-      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/gg_test
+      # Local container has no TLS. Hosted databases keep the secure default (DB_SSLMODE=require) because this
+      # override exists only in this workflow.
+      DB_SSLMODE: disable
       POSTGIS_SCHEMA: extensions
-      DB_SSLMODE: disable  # the CI container has no TLS; real databases keep the default `require`
+      # PostgreSQL tests may never be skipped in CI: a missing database fails the run instead.
+      GG_REQUIRE_POSTGRES_TESTS: "1"
+      DATABASE_URL: postgresql://postgres@localhost:5432/gg_ci
+      TEST_DATABASE_URL: postgresql://postgres@localhost:5432/gg_ci
+      PGHOST: localhost
+      PGUSER: postgres
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,13 +49,33 @@ jobs:
           cache: pip
           cache-dependency-path: backend/pyproject.toml
       - run: pip install -e ".[dev]"
-      - run: ruff check .
-      - run: mypy app
-      - name: Tests (PostGIS tests must not be skipped in CI)
-        run: pytest -q -rs --strict-markers | tee pytest.out; ! grep -q "TEST_DATABASE_URL not set" pytest.out
+
+      - name: Lint, format, types
+        run: |
+          ruff check .
+          ruff format --check .
+          mypy app
+
+      # The postgis image installs PostGIS into `public` of its default database. A database from template0 is
+      # pristine, so the migration installs PostGIS into the dedicated `extensions` schema exactly as on hosted
+      # providers (docs/DATABASE_SETUP.md).
+      - name: Create a pristine database
+        run: psql -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE gg_ci TEMPLATE template0"
+
+      - name: Migrate, check drift, verify, prove reversibility
+        run: |
+          alembic upgrade head
+          alembic check
+          python -m app.tools.check_db
+          alembic downgrade base
+          alembic upgrade head
+
+      - name: Tests (plain run, any failure fails the job)
+        run: pytest -q -rs --strict-markers
 
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
