@@ -5,3 +5,7 @@ __pycache__/
 .env
 pitch/_work/
 *.pyc
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+*.db

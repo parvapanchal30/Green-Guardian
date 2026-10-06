@@ -1,0 +1,76 @@
+"""Application settings. Everything comes from environment variables (or a local, gitignored .env)."""
+
+from __future__ import annotations
+
+import re
+from functools import lru_cache
+from typing import Literal
+
+from pydantic import field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_IDENT = re.compile(r"^[a-z_][a-z0-9_]*$")
+
+
+def normalize_database_url(url: str) -> str:
+    """Accept provider-style URLs (postgres:// or postgresql://) and pin the psycopg 3 driver."""
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://") :]
+    if url.startswith("postgresql://"):
+        url = "postgresql+psycopg://" + url[len("postgresql://") :]
+    return url
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    env: Literal["development", "test", "production"] = "development"
+    log_level: str = "INFO"
+
+    # --- database (hosted PostgreSQL + PostGIS; see docs/DATABASE_SETUP.md) ---
+    database_url: str = ""
+    db_pool_mode: Literal["session", "transaction"] = "session"
+    db_pool_size: int = 5
+    db_max_overflow: int = 5
+    postgis_schema: str = "extensions"
+
+    # --- auth ---
+    jwt_secret: str = ""
+    jwt_algorithm: str = "HS256"
+    access_token_ttl_minutes: int = 15
+    refresh_token_ttl_days: int = 30
+
+    # --- http ---
+    cors_origins: list[str] = ["http://localhost:5173"]
+
+    # --- weather (behind an abstraction; see app/modules/weather) ---
+    weather_provider: Literal["open_meteo", "mock"] = "open_meteo"
+    open_meteo_base_url: str = "https://api.open-meteo.com/v1/forecast"
+    weather_timeout_s: float = 8.0
+    weather_cache_ttl_s: int = 900
+
+    @field_validator("database_url")
+    @classmethod
+    def _norm_url(cls, v: str) -> str:
+        return normalize_database_url(v.strip())
+
+    @field_validator("postgis_schema")
+    @classmethod
+    def _schema_ident(cls, v: str) -> str:
+        if not _IDENT.match(v):
+            raise ValueError("POSTGIS_SCHEMA must be a simple lowercase identifier")
+        return v
+
+    @model_validator(mode="after")
+    def _prod_guards(self) -> Settings:
+        if self.env == "production":
+            if len(self.jwt_secret) < 32:
+                raise ValueError("JWT_SECRET must be at least 32 characters in production")
+            if self.weather_provider == "mock":
+                raise ValueError("WEATHER_PROVIDER=mock is not allowed in production")
+        return self
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

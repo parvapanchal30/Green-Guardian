@@ -3,6 +3,7 @@
 Pure functions over plain data: no DB, no I/O. Rules never write; they return Findings
 that a service later persists as deduplicated Recommendations.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

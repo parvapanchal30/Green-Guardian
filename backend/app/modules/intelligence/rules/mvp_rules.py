@@ -1,4 +1,5 @@
 """MVP rules. Thresholds are per-workspace parameters (defaults shown)."""
+
 from __future__ import annotations
 
 from collections import defaultdict

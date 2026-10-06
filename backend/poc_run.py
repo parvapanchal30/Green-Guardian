@@ -1,4 +1,5 @@
 """Proof-of-concept run of the rules engine on SYNTHETIC sample data (not real observations)."""
+
 from datetime import datetime, timedelta
 
 from app.modules.intelligence.rules.base import AssetSnapshot, HealthPoint
