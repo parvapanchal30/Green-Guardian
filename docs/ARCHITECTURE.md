@@ -85,7 +85,7 @@ Structured JSON logs with request/workspace/user IDs; `/healthz` (liveness) and 
 Docker images: `web` (nginx/static or Vercel/Netlify), `api`, `worker`. Managed Postgres+PostGIS; S3-compatible bucket. Migrations (`alembic upgrade head`) as a release step. Config via env. CI (GitHub Actions): lint, type-check, test (Postgres+PostGIS service), build images, OpenAPI client drift check.
 
 ## 13. Local development
-`docker compose up` (db, minio, api, worker, web) is the documented path. **Note:** the current dev machine has no Docker; fallback is a locally installed PostgreSQL+PostGIS or a hosted dev DB (see CURRENT_STATE). SQLite is *not* supported — PostGIS is a hard dependency.
+Database: a hosted PostgreSQL+PostGIS project (Supabase by default) — see `docs/DATABASE_SETUP.md` (ADR-015). Backend: `cd backend && python -m venv .venv && .venv/Scripts/pip install -e ".[dev]"`, copy `.env.example` to `.env`, `alembic upgrade head`, `python -m app.tools.check_db`, then `uvicorn app.main:create_app --factory --reload`. Tests: `pytest` (fast, SQLite-backed for non-spatial code; PostGIS tests need `TEST_DATABASE_URL`). Docker/compose is optional and not required.
 
 ## 14. Key architectural risks
 1. PostGIS availability in dev/CI/prod → mitigated by compose + CI service image.

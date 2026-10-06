@@ -71,7 +71,7 @@ GET   /workspaces/{ws}/agent/rules             list + params;  PATCH /agent/rule
 POST  /workspaces/{ws}/agent/run               admin: trigger sweep now
 GET   /workspaces/{ws}/agent/runs              run history
 GET   /workspaces/{ws}/predictions             reserved → returns [] + capability.available=false in MVP
-GET   /workspaces/{ws}/capabilities            feature flags {disease_detection:{available:false,technique:"computer_vision"},…}
+GET   /workspaces/{ws}/capabilities            [{key,label,technique,stage:mvp|v2|v3|v4,available,reason}] — implemented
 ```
 Future (reserved, return `501 capability_unavailable` with `Problem.code`): `POST /ai/crop-recommendations`, `POST /ai/disease-scans`, `POST /ai/irrigation-plans`.
 
@@ -80,7 +80,7 @@ Future (reserved, return `501 capability_unavailable` with `Problem.code`): `POS
 GET /workspaces/{ws}/dashboard                 ?project_id=   mode-shaped KPI payload (+ per-KPI `available`/`reason`)
 GET /workspaces/{ws}/map                       ?bbox=&layers=assets,health,issues,tasks,boundaries&zoom=  → GeoJSON FeatureCollections per layer
 GET /workspaces/{ws}/map/layers                registry incl. disabled/future layers
-GET /workspaces/{ws}/weather                   ?location_id=   (provider-backed; 503 problem when unavailable)
+GET /workspaces/{ws}/weather                   ?lat=&lon=&days=1..16  (provider-neutral forecast + source/attribution; 503 weather_unavailable on failure). `location_id` replaces lat/lon once locations exist.
 ```
 
 ## Reports
@@ -101,3 +101,6 @@ GET /workspaces/{ws}/reports/templates     POST /workspaces/{ws}/reports     GET
  "attention":[{"recommendation_id":"…","title":"Tree #482 has not been inspected in 21 days","severity":"medium"}]}
 ```
 Every KPI is either a computed value (with `basis`) or `available:false` with a reason — never a fabricated number.
+
+## Implementation status (2026-10-07)
+Implemented and tested: `POST /auth/register|login|refresh|logout`, `GET|PATCH /me`, `GET|POST /workspaces`, `GET|PATCH /workspaces/{ws}`, `GET /workspaces/{ws}/capabilities`, members `GET|POST /workspaces/{ws}/members`, `PATCH|DELETE /workspaces/{ws}/members/{user_id}`, `GET /workspaces/{ws}/weather`, `GET /healthz`, `GET /readyz`. Everything else in this document is still design.

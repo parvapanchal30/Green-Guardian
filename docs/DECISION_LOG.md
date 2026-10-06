@@ -29,7 +29,7 @@ Format: ID · date · status · context → decision → consequences. Newest at
 
 ## ADR-007 · 2026-10-06 · Accepted — PostGIS required; Docker is the documented dev path
 **Context:** The current dev machine has no Docker installed.
-**Decision:** Keep PostGIS mandatory (spatial is core). Document docker-compose as primary; fallback is a locally installed Postgres+PostGIS or a hosted dev database. No SQLite mode.
+**Decision:** Keep PostGIS mandatory (spatial is core). *Amended by ADR-015:* development uses a hosted PostgreSQL+PostGIS database; docker-compose remains optional. SQLite is allowed **in fast unit tests only**, never as a runtime target.
 **Consequences:** Dev environment setup is the first scaffold task (see TODO).
 
 ## ADR-008 · 2026-10-06 · Accepted — Capability-flagged future surfaces, never fabricated outputs
@@ -60,3 +60,24 @@ Format: ID · date · status · context → decision → consequences. Newest at
 ## ADR-014 · 2026-10-06 · Accepted — Rules engine proof of concept is pure Python
 **Decision:** `backend/app/modules/intelligence/rules/` holds dataclass-based rules (inspection gap, health decline, symptom cluster) with no DB/I/O; tests in `backend/tests/`. `backend/poc_run.py` runs it on clearly labelled synthetic data.
 **Why:** Demonstrates the agent design honestly before infrastructure exists; same interfaces will be called by the worker service.
+
+## ADR-015 · 2026-10-07 · Accepted — Hosted PostgreSQL + PostGIS (Supabase by default) for development, portable by construction
+**Context:** No Docker/PostgreSQL on the dev machine. Team decision: use a hosted database, Supabase unless something requires otherwise.
+**Decision:** Treat Supabase as "managed PostgreSQL+PostGIS" only. All access via the backend (SQLAlchemy 2 + Alembic + psycopg 3). No Supabase client SDK, Auth, Storage, RLS or Data API; no provider-specific SQL in migrations. PostGIS lives in a dedicated schema (`POSTGIS_SCHEMA`, default `extensions`) and each connection sets `search_path` itself. Pool mode (`session` default / `transaction` → NullPool + no prepared statements) and the IPv4/IPv6 connection choice are env-driven. Requirements and one-time setup: `docs/DATABASE_SETUP.md`. Credentials only in env/`.env`; `.env.example` has names.
+**Consequences:** Switching provider = env change (+ `POSTGIS_SCHEMA` if PostGIS must live in `public`). Creating the Supabase project is a human step (account + credentials). Until `TEST_DATABASE_URL` is set, PostgreSQL/PostGIS-specific behaviour is **not verified** by tests (2 gated tests skip with an explicit reason); CI must provide a PostGIS service.
+
+## ADR-016 · 2026-10-07 · Accepted — Synchronous SQLAlchemy + psycopg 3; services commit explicitly
+**Decision:** Sync engine/sessions (FastAPI runs sync handlers in a threadpool); psycopg 3 driver; each service use case ends with an explicit `commit()`; the `get_db` dependency only opens/closes the session. UUIDv7 ids generated in Python.
+**Why:** Simplest correct model for CRUD + Alembic; avoids dependency-exit-timing ambiguity; async can be introduced per hot path later.
+
+## ADR-017 · 2026-10-07 · Accepted — Tenancy contract: 404 for non-members, role checks in dependencies and services, route-matrix test
+**Decision:** `workspace_ctx` is the only way a handler obtains a workspace; non-members and unknown ids both get `404 workspace_not_found`; insufficient role gets `403`. Only owners can grant/change/remove the owner role; a workspace always keeps ≥1 owner. `tests/test_tenancy.py` derives all `{ws}` routes from the OpenAPI schema and fails if any route is missing from the isolation matrix.
+**Why:** Makes "every endpoint has an isolation test" mechanically enforced instead of a convention.
+
+## ADR-018 · 2026-10-07 · Accepted — Weather behind a provider interface; Open-Meteo first
+**Decision:** `WeatherProvider` protocol + provider-neutral `Forecast/HourlyPoint`; `OpenMeteoProvider` adapter; `MockWeatherProvider` (dev/test only, refused when `ENV=production`, output labelled `source=mock`); `WeatherService` adds a coordinate-rounded TTL cache; provider failures map to `503 weather_unavailable` without leaking internals. Pure helper `expected_precipitation_mm` is ready for the future irrigation-deferral rule.
+**Risk R-WX-1:** Open-Meteo's free API is for **non-commercial use**; a commercial deployment needs an API key/customer endpoint or a different provider. Swap = new adapter + `WEATHER_PROVIDER` value.
+
+## ADR-019 · 2026-10-07 · Accepted — Capability registry lives in code; workspace overrides can only disable
+**Decision:** `modules/workspaces/capabilities.py` is the source of truth for which intelligence features are live; `GET /workspaces/{ws}/capabilities` exposes it. Overrides stored on the workspace may switch a live capability off but can never enable an unbuilt one (tested).
+**Why:** Enforces ADR-008 (no fabricated features) server-side, not just in the UI.
