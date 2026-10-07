@@ -22,30 +22,14 @@ from sqlalchemy import inspect, text
 from app.core.config import Settings
 from app.core.db import build_engine
 from tests.conftest import postgis_url, requires_postgis
-from tests.test_migrations import _cfg
+from tests.pgsupport import SAFE_NAME, alembic_cfg, snapshot_tables
 
 pytestmark = [pytest.mark.postgis, requires_postgis]
-
-SAFE_NAME = re.compile(r"^gg_test_[0-9a-f]{8}$")
 
 
 def _settings(schema: str | None = None) -> Settings:
     kw = {"db_schema": schema} if schema else {}
     return Settings(env="test", database_url=postgis_url, jwt_secret="x" * 40, _env_file=None, **kw)
-
-
-def _snapshot(engine, exclude: str) -> set[tuple[str, str]]:
-    """(schema, table) for every base table outside the test schema."""
-    with engine.connect() as c:
-        rows = c.execute(
-            text(
-                "SELECT table_schema, table_name FROM information_schema.tables "
-                "WHERE table_schema <> 'information_schema' AND table_schema NOT LIKE 'pg\\_%' "
-                "AND table_schema <> :ex AND table_type = 'BASE TABLE'"
-            ),
-            {"ex": exclude},
-        ).all()
-    return {(r[0], r[1]) for r in rows}
 
 
 @pytest.fixture
@@ -54,7 +38,7 @@ def pg_schema():
     schema = f"gg_test_{secrets.token_hex(4)}"
     assert SAFE_NAME.match(schema)  # defence in depth: never DROP anything but a generated test schema
     admin = build_engine(_settings())
-    before = _snapshot(admin, exclude=schema)
+    before = snapshot_tables(admin, exclude=schema)
     engine = build_engine(_settings(schema))
     try:
         yield engine, schema
@@ -63,13 +47,13 @@ def pg_schema():
         assert SAFE_NAME.match(schema)
         with admin.begin() as c:
             c.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
-        after = _snapshot(admin, exclude=schema)
+        after = snapshot_tables(admin, exclude=schema)
         admin.dispose()
         assert after == before, f"tests changed tables outside {schema}: +{after - before} -{before - after}"
 
 
 def _migrate(schema: str, direction: str = "up"):
-    cfg = _cfg(postgis_url)
+    cfg = alembic_cfg(postgis_url)
     cfg.set_main_option("db_schema", schema)
     return command.upgrade(cfg, "head") if direction == "up" else command.downgrade(cfg, "base")
 

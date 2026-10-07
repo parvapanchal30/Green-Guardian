@@ -75,3 +75,9 @@ def require_role(minimum: Role) -> Callable[..., WorkspaceContext]:
         return ctx
 
     return _dep
+
+
+# Role shortcuts (module-level so FastAPI `Depends(...)` defaults stay constant expressions).
+viewer_ctx = workspace_ctx  # any member can read
+worker_ctx = require_role(Role.WORKER)  # field staff: record observations, register assets, report issues
+manager_ctx = require_role(Role.MANAGER)  # plan work: assign tasks, run the agent, change issues

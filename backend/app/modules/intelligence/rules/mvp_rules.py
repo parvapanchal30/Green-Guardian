@@ -19,7 +19,11 @@ class InspectionGap:
     def evaluate(self, assets: list[AssetSnapshot], now: datetime) -> list[Finding]:
         out = []
         for a in assets:
+            if a.has_open_inspection_task:
+                continue  # somebody is already on it; do not nag
             if a.last_observed_at is None:
+                if a.registered_at is not None and (now - a.registered_at) <= timedelta(days=self.max_days):
+                    continue  # registered recently: nothing is overdue yet
                 gap_text = "has never been observed"
             else:
                 gap = now - a.last_observed_at
@@ -53,7 +57,17 @@ class HealthDecline:
         out = []
         cutoff = now - timedelta(days=self.window_days)
         for a in assets:
-            pts = sorted((p for p in a.health_history if p.observed_at >= cutoff), key=lambda p: p.observed_at)
+            if a.open_issue_count > 0:
+                continue  # an issue already tracks this asset
+            # Only scores recorded after the last resolved issue count: a decline that was handled is not news.
+            pts = sorted(
+                (
+                    p
+                    for p in a.health_history
+                    if p.observed_at >= cutoff and not (a.last_resolved_at and p.observed_at <= a.last_resolved_at)
+                ),
+                key=lambda p: p.observed_at,
+            )
             if len(pts) < 2:
                 continue
             drop = pts[0].score - pts[-1].score
@@ -103,16 +117,57 @@ class SymptomCluster:
         return out
 
 
-DEFAULT_RULES = (InspectionGap(), HealthDecline(), SymptomCluster())
+@dataclass(frozen=True)
+class CriticalHealth:
+    """RULE: the latest recorded health score is below the critical threshold and no issue is open for the asset ->
+    recommend opening a Botanical Issue. A threshold check on recorded data, not a prediction."""
+
+    below: float = 40.0
+    key: str = "critical_health"
+
+    def evaluate(self, assets: list[AssetSnapshot], now: datetime) -> list[Finding]:
+        out = []
+        for a in assets:
+            score = a.latest_health_score
+            if score is None or score >= self.below or a.open_issue_count > 0:
+                continue
+            out.append(
+                Finding(
+                    rule_key=self.key,
+                    method="rule",
+                    subject_ids=(a.asset_id,),
+                    title=f"{a.label} health is critical ({score:.0f})",
+                    explanation=f"latest health score {score:.0f} is below the critical threshold {self.below:g} "
+                    "and the asset has no open issue",
+                    severity="critical" if score < self.below / 2 else "high",
+                    proposed_action={
+                        "create": "issue",
+                        "category": "growth_anomaly",
+                        "asset_id": a.asset_id,
+                        "observation_id": a.latest_observation_id,
+                    },
+                )
+            )
+        return out
+
+
+# Order matters: the first rule that proposes an issue for an asset wins (see run_agent).
+DEFAULT_RULES = (CriticalHealth(), HealthDecline(), InspectionGap(), SymptomCluster())
 
 
 def run_agent(assets: list[AssetSnapshot], now: datetime, rules=DEFAULT_RULES) -> list[Finding]:
     """Evaluate all rules; drop duplicate dedupe_keys (first wins)."""
     seen: set[str] = set()
+    issue_proposed_for: set[str] = set()  # at most one "create issue" proposal per asset per run
     out: list[Finding] = []
     for rule in rules:
         for f in rule.evaluate(assets, now):
-            if f.dedupe_key not in seen:
-                seen.add(f.dedupe_key)
-                out.append(f)
+            if f.dedupe_key in seen:
+                continue
+            if f.proposed_action.get("create") == "issue" and len(f.subject_ids) == 1:
+                if f.subject_ids[0] in issue_proposed_for:
+                    continue
+                issue_proposed_for.add(f.subject_ids[0])
+            seen.add(f.dedupe_key)
+            out.append(f)
     return out

@@ -25,6 +25,14 @@ class AssetSnapshot:
     last_observed_at: datetime | None
     health_history: tuple[HealthPoint, ...] = ()
     latest_symptoms: tuple[str, ...] = ()
+    # --- operational context (defaults keep older callers valid) ---
+    registered_at: datetime | None = None  # a just-registered asset is not "overdue"
+    latest_health_score: float | None = None
+    latest_observation_id: str | None = None
+    open_issue_count: int = 0
+    has_open_inspection_task: bool = False
+    # The decline baseline restarts when an issue for this asset is resolved: what was handled is not re-flagged.
+    last_resolved_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -43,6 +51,7 @@ class Finding:
 
 
 class Rule(Protocol):
-    key: str
+    @property
+    def key(self) -> str: ...
 
     def evaluate(self, assets: list[AssetSnapshot], now: datetime) -> list[Finding]: ...

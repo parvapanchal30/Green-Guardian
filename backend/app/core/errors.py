@@ -34,6 +34,10 @@ class NotFound(AppError):
     status, code = 404, "not_found"
 
 
+class Unprocessable(AppError):
+    status, code = 422, "unprocessable"
+
+
 class Conflict(AppError):
     status, code = 409, "conflict"
 

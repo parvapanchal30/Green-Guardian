@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import geoalchemy2  # noqa: F401  (registers the PostGIS `geometry` type so the reflected centroid columns are recognised)
 from alembic import context
 from sqlalchemy import text
 
@@ -16,7 +17,15 @@ INFRA_TABLES = {"alembic_version", "spatial_ref_sys"}
 
 
 def include_object(obj, name, type_, reflected, compare_to):
-    return not (type_ == "table" and reflected and name in INFRA_TABLES)
+    if type_ == "table" and reflected and name in INFRA_TABLES:
+        return False
+    # PostGIS-derived objects are created by migrations (generated `centroid` columns and their GiST indexes) and
+    # intentionally not mapped by the ORM, so the drift check must not report them as "extra".
+    if type_ == "column" and reflected and name == "centroid":
+        return False
+    if type_ == "index" and reflected and name is not None and name.endswith("_centroid_gist"):
+        return False
+    return True
 
 
 def _settings():

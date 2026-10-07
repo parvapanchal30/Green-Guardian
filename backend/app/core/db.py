@@ -18,8 +18,12 @@ def build_engine(settings: Settings) -> Engine:
         raise RuntimeError("DATABASE_URL is not set (see docs/DATABASE_SETUP.md)")
 
     if url.startswith("sqlite"):
-        # Tests only (ADR-007/ADR-015): in-memory SQLite, never a runtime target.
-        engine = create_engine(url, connect_args={"check_same_thread": False}, poolclass=StaticPool)
+        # Tests / throwaway smoke runs only (ADR-007/ADR-015), never a runtime target.
+        # One shared connection is only valid for a private in-memory database; a file database gets a normal pool so
+        # concurrent requests do not interleave statements on a single connection.
+        in_memory = ":memory:" in url or url in ("sqlite://", "sqlite+pysqlite://")
+        extra = {"poolclass": StaticPool} if in_memory else {}
+        engine = create_engine(url, connect_args={"check_same_thread": False}, **extra)
 
         @event.listens_for(engine, "connect")
         def _sqlite_fk(dbapi_conn, _):  # pragma: no cover - trivial

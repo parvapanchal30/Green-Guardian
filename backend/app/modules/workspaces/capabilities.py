@@ -26,8 +26,7 @@ REGISTRY: tuple[Capability, ...] = (
         "Botanical Operations Agent (rules)",
         "Rules + statistics",
         "mvp",
-        False,
-        "Rules engine exists as a library; recommendations API and worker are not wired yet",
+        True,  # rule-based checks run after each observation and on demand; no ML, no LLM
     ),
     Capability("weather_context", "Weather context", "Weather provider", "mvp", True),
     Capability("disease_detection", "Disease Detection", "Computer vision", "v2", False, "Planned (V2)"),

@@ -15,7 +15,55 @@ ENDPOINTS = [
     ("PATCH", "/api/v1/workspaces/{ws}/members/{user_id}", {"role": "viewer"}),
     ("DELETE", "/api/v1/workspaces/{ws}/members/{user_id}", None),
     ("GET", "/api/v1/workspaces/{ws}/weather?lat=19.2&lon=72.9", None),
+    # locations / catalog
+    ("GET", "/api/v1/workspaces/{ws}/locations", None),
+    ("POST", "/api/v1/workspaces/{ws}/locations", {"name": "x", "kind": "zone"}),
+    ("GET", "/api/v1/workspaces/{ws}/locations/{location_id}", None),
+    ("GET", "/api/v1/workspaces/{ws}/species", None),
+    ("POST", "/api/v1/workspaces/{ws}/species", {"category": "tree", "common_name": "x"}),
+    # assets
+    ("GET", "/api/v1/workspaces/{ws}/assets", None),
+    ("POST", "/api/v1/workspaces/{ws}/assets", {"label": "x", "kind": "tree"}),
+    ("GET", "/api/v1/workspaces/{ws}/assets/{asset_id}", None),
+    ("PATCH", "/api/v1/workspaces/{ws}/assets/{asset_id}", {"label": "x"}),
+    ("DELETE", "/api/v1/workspaces/{ws}/assets/{asset_id}", None),
+    ("GET", "/api/v1/workspaces/{ws}/assets/{asset_id}/timeline", None),
+    # observations
+    ("POST", "/api/v1/workspaces/{ws}/observations", {"asset_id": "00000000-0000-0000-0000-000000000000"}),
+    ("GET", "/api/v1/workspaces/{ws}/observations", None),
+    ("GET", "/api/v1/workspaces/{ws}/observations/{observation_id}", None),
+    # issues
+    ("GET", "/api/v1/workspaces/{ws}/issues", None),
+    ("POST", "/api/v1/workspaces/{ws}/issues", {"title": "x", "asset_id": "00000000-0000-0000-0000-000000000000"}),
+    ("GET", "/api/v1/workspaces/{ws}/issues/workflows", None),
+    ("GET", "/api/v1/workspaces/{ws}/issues/{issue_id}", None),
+    ("PATCH", "/api/v1/workspaces/{ws}/issues/{issue_id}", {"title": "x"}),
+    ("POST", "/api/v1/workspaces/{ws}/issues/{issue_id}/transitions", {"to_state": "investigating"}),
+    (
+        "POST",
+        "/api/v1/workspaces/{ws}/issues/{issue_id}/evidence",
+        {"observation_id": "00000000-0000-0000-0000-000000000000"},
+    ),
+    # tasks
+    ("GET", "/api/v1/workspaces/{ws}/tasks", None),
+    ("POST", "/api/v1/workspaces/{ws}/tasks", {"title": "x"}),
+    ("GET", "/api/v1/workspaces/{ws}/tasks/{task_id}", None),
+    ("PATCH", "/api/v1/workspaces/{ws}/tasks/{task_id}", {"title": "x"}),
+    ("POST", "/api/v1/workspaces/{ws}/tasks/{task_id}/transitions", {"to_status": "in_progress"}),
+    # botanical operations agent
+    ("GET", "/api/v1/workspaces/{ws}/agent/rules", None),
+    ("POST", "/api/v1/workspaces/{ws}/agent/run", None),
+    ("GET", "/api/v1/workspaces/{ws}/recommendations", None),
+    ("POST", "/api/v1/workspaces/{ws}/recommendations/{recommendation_id}/accept", {}),
+    ("POST", "/api/v1/workspaces/{ws}/recommendations/{recommendation_id}/dismiss", {"reason": "not now"}),
 ]
+
+
+def _fill(path: str, ws: str) -> str:
+    """Substitute {ws}; every other path parameter becomes a well-formed id that does not exist."""
+    import re
+
+    return re.sub(r"\{(\w+)\}", lambda m: ws if m.group(1) == "ws" else "00000000-0000-0000-0000-00000000dead", path)
 
 
 def test_every_workspace_route_is_covered_by_isolation_matrix(app):
@@ -31,7 +79,7 @@ def test_every_workspace_route_is_covered_by_isolation_matrix(app):
 def test_non_member_gets_404_and_nothing_leaks(client, make_actor, method, path, body):
     owner, outsider = make_actor("owner@example.com", "Owner"), make_actor("out@example.com", "Outsider")
     ws = owner.create_workspace()
-    url = path.format(ws=ws, user_id=owner.id)
+    url = _fill(path, ws)
     r = outsider.client.request(method, url, json=body, headers=outsider.headers)
     assert r.status_code == 404, (method, url, r.text)
     assert r.json()["code"] == "workspace_not_found"
@@ -41,7 +89,7 @@ def test_non_member_gets_404_and_nothing_leaks(client, make_actor, method, path,
 @pytest.mark.parametrize("method,path,body", ENDPOINTS)
 def test_unauthenticated_gets_401(client, make_actor, method, path, body):
     ws = make_actor("owner@example.com").create_workspace()
-    r = client.request(method, path.format(ws=ws, user_id="00000000-0000-0000-0000-000000000000"), json=body)
+    r = client.request(method, _fill(path, ws), json=body)
     assert r.status_code == 401
 
 
@@ -143,7 +191,10 @@ def test_capabilities_never_claim_unbuilt_features(make_actor):
         "crop_recommendation",
         "yield_prediction",
         "optimization",
-        "botanical_agent_rules",
+        "irrigation_recommendation",
     ):
         assert caps[key]["available"] is False and caps[key]["reason"]
+    # Genuinely implemented and wired (rule-based agent, weather context): these may be advertised as live.
     assert caps["weather_context"]["available"] is True
+    assert caps["botanical_agent_rules"]["available"] is True
+    assert caps["botanical_agent_rules"]["technique"] == "Rules + statistics"  # never "AI"/"ML"

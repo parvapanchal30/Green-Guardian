@@ -8,7 +8,14 @@ from app.core.config import Settings, get_settings
 from app.core.db import get_engine
 from app.core.errors import install_error_handlers
 from app.core.logging import configure_logging
+from app.modules.assets.router import router as assets_router
+from app.modules.catalog.router import router as catalog_router
 from app.modules.identity.router import router as identity_router
+from app.modules.intelligence.router import router as intelligence_router
+from app.modules.issues.router import router as issues_router
+from app.modules.locations.router import router as locations_router
+from app.modules.observations.router import router as observations_router
+from app.modules.tasks.router import router as tasks_router
 from app.modules.weather.registry import UnknownWeatherProvider, available_providers
 from app.modules.weather.router import router as weather_router
 from app.modules.workspaces.router import router as workspaces_router
@@ -37,7 +44,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     install_error_handlers(app)
     validate_weather_provider(settings)
 
-    for r in (identity_router, workspaces_router, weather_router):
+    for r in (
+        identity_router,
+        workspaces_router,
+        weather_router,
+        locations_router,
+        catalog_router,
+        assets_router,
+        observations_router,
+        issues_router,
+        tasks_router,
+        intelligence_router,
+    ):
         app.include_router(r, prefix=API_PREFIX)
 
     @app.get("/healthz", tags=["system"])
