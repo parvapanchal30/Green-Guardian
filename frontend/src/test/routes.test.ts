@@ -10,7 +10,7 @@ describe('route registry', () => {
   })
 
   it('only marks as live what is implemented', () => {
-    expect(ROUTES.filter((r) => r.status === 'live').map((r) => r.path).sort()).toEqual(['', 'ai/agent', 'assets', 'issues', 'monitor/weather', 'settings/members', 'tasks'])
+    expect(ROUTES.filter((r) => r.status === 'live').map((r) => r.path).sort()).toEqual(['', 'ai/agent', 'assets', 'issues', 'monitor/map', 'monitor/weather', 'settings/members', 'tasks'])
   })
 
   it('every future (soon) surface is gated by a backend capability and names its technique', () => {

@@ -15,6 +15,7 @@ from app.modules.identity.router import router as identity_router
 from app.modules.intelligence.router import router as intelligence_router
 from app.modules.issues.router import router as issues_router
 from app.modules.locations.router import router as locations_router
+from app.modules.map.router import router as map_router
 from app.modules.observations.router import router as observations_router
 from app.modules.tasks.router import router as tasks_router
 from app.modules.weather.registry import UnknownWeatherProvider, available_providers
@@ -57,6 +58,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         tasks_router,
         intelligence_router,
         dashboard_router,
+        map_router,
     ):
         app.include_router(r, prefix=API_PREFIX)
 

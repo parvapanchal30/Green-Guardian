@@ -47,7 +47,7 @@ export const ROUTES: NavRoute[] = [
   { path: 'monitor/health', label: 'Health', group: 'Monitor', status: 'building', stage: 'mvp', summary: 'Current and historical health of assets.' },
   { path: 'monitor/growth', label: 'Growth', group: 'Monitor', status: 'building', stage: 'mvp', summary: 'Recorded growth over time.' },
   { path: 'monitor/weather', label: 'Weather', group: 'Monitor', status: 'live', summary: 'Forecast context for a location.' },
-  { path: 'monitor/map', label: 'Map', group: 'Monitor', status: 'building', stage: 'mvp', summary: 'Assets, health, issues and tasks on a map.' },
+  { path: 'monitor/map', label: 'Map', group: 'Monitor', status: 'live', stage: 'mvp', summary: 'Assets, health, issues and tasks on a map.' },
   { path: 'monitor/yield', label: 'Yield', group: 'Monitor', status: 'soon', modes: [A], capability: 'yield_prediction', stage: 'v2', technique: 'Machine learning', summary: 'Production forecast with a range and confidence, updated as observations arrive.' },
   { path: 'monitor/irrigation', label: 'Irrigation', group: 'Monitor', status: 'soon', capability: 'irrigation_recommendation', stage: 'v3', technique: 'Water balance + rules', summary: 'Recommended volume and time window from soil moisture, forecast, crop and growth stage.' },
 

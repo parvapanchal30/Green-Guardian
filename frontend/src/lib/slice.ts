@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type {
-  AgentRun, Asset, Dashboard, Issue, IssueDetail, LocationItem, Observation, ObservationCreated, Page, Recommendation, RuleInfo,
+  AgentRun, Asset, Dashboard, MapFeatureCollection, MapLayerInfo, Issue, IssueDetail, LocationItem, Observation, ObservationCreated, Page, Recommendation, RuleInfo,
   SpeciesItem, TaskDetail, Task, TimelineEvent, Workflow,
 } from '../api/types'
 
@@ -19,7 +19,7 @@ export function qs(params: Params = {}): string {
 const base = (ws: string, path: string, params?: Params) => `/workspaces/${ws}${path}${qs(params)}`
 
 /** Everything that can change after an observation, issue, task or recommendation action. */
-const DATA = new Set(['assets', 'asset', 'timeline', 'observations', 'issues', 'issue', 'tasks', 'task', 'recommendations', 'dashboard'])
+const DATA = new Set(['assets', 'asset', 'timeline', 'observations', 'issues', 'issue', 'tasks', 'task', 'recommendations', 'dashboard', 'map'])
 export function refreshWorkspaceData(qc: QueryClient, ws: string) {
   return qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === ws && DATA.has(String(q.queryKey[1])) })
 }
@@ -67,6 +67,13 @@ export const useAgentRules = (ws: string) =>
 /** One backend read model: every figure is aggregated in the database, never summed from lists in the browser. */
 export const useDashboard = (ws: string, params: Params = {}) =>
   useQuery({ queryKey: [ws, 'dashboard', params], queryFn: () => api<Dashboard>(base(ws, '/dashboard', params)) })
+
+export const useMapLayers = (ws: string) =>
+  useQuery({ queryKey: [ws, 'map-layers'], queryFn: () => api<MapLayerInfo[]>(base(ws, '/map/layers')), staleTime: 600_000 })
+
+/** Features of one map layer, filtered and scoped by the server (PostGIS). */
+export const useMapLayer = (ws: string, layer: string, params: Params) =>
+  useQuery({ queryKey: [ws, 'map', layer, params], queryFn: () => api<MapFeatureCollection>(base(ws, `/map/layers/${layer}`, params)) })
 
 // ------------------------------------------------------------------ writes (each refreshes the affected workspace data)
 function useWsMutation<TIn, TOut>(ws: string, fn: (input: TIn) => Promise<TOut>) {

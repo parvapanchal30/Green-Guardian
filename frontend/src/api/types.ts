@@ -307,3 +307,18 @@ export interface Dashboard {
   kpis: DashboardKpi[]
   recent_activity: DashboardActivity[]
 }
+
+// ------------------------------------------------------------------ map read model (GeoJSON, one layer registry)
+export type MapFilter = 'all' | 'healthy' | 'at_risk' | 'critical' | 'open_issues' | 'tasks'
+export interface MapLayerInfo { key: string; label: string; description: string; available: boolean; stage: string; geometry: 'point' | 'polygon' | 'raster'; requires: string | null }
+export interface MapAssetProps {
+  asset_id: string; label: string; kind: string; tracking_mode: string; estimated_count: number | null; species: string | null
+  location_id: string | null; location_name: string | null; health_band: HealthBand | null; health_score: number | null
+  open_issue_count: number; open_task_count: number; position_source: 'asset' | 'location'
+}
+export interface MapFeature { type: 'Feature'; id: string; geometry: { type: 'Point'; coordinates: [number, number] }; properties: MapAssetProps }
+export interface MapCounts { all: number; healthy: number; at_risk: number; critical: number; open_issues: number; tasks: number; unlocated: number }
+export interface MapFeatureCollection {
+  type: 'FeatureCollection'; layer: string; filter: MapFilter; features: MapFeature[]; counts: MapCounts
+  bbox: [number, number, number, number] | null; truncated: boolean
+}

@@ -8,6 +8,7 @@ import { IssueDetailPage } from '../pages/IssueDetailPage'
 import { IssuesPage } from '../pages/IssuesPage'
 import { TasksPage } from '../pages/TasksPage'
 import { LoginPage, RegisterPage } from '../pages/AuthPages'
+import { MapPage } from '../pages/MapPage'
 import { MembersPage } from '../pages/MembersPage'
 import { PlannedPage } from '../pages/PlannedPage'
 import { WeatherPage } from '../pages/WeatherPage'
@@ -44,6 +45,7 @@ const LIVE: Record<string, () => React.JSX.Element> = {
   tasks: TasksPage,
   issues: IssuesPage,
   'ai/agent': AgentPage,
+  'monitor/map': MapPage,
   'monitor/weather': WeatherPage,
   'settings/members': MembersPage,
 }
