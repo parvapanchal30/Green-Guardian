@@ -31,7 +31,7 @@ def build_engine(settings: Settings) -> Engine:
 
         return engine
 
-    kwargs: dict = {"pool_pre_ping": True}
+    kwargs: dict = {"pool_pre_ping": settings.db_pool_pre_ping}
     connect_args: dict = {"connect_timeout": settings.db_connect_timeout_s}
     if "sslmode" not in make_url(url).query:
         connect_args["sslmode"] = settings.db_sslmode

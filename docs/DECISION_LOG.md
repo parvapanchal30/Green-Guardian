@@ -115,3 +115,6 @@ Backend job: `postgis/postgis` service with trust auth (no stored password); a d
 
 ## ADR-028 · 2026-10-07 · Accepted — SQLite engine details for tests/smoke runs
 `StaticPool` only for in-memory SQLite; file databases use a normal pool (a shared single connection corrupted concurrent requests in a browser smoke run and produced spurious 404/500 responses). SQLite remains tests/smoke only and returns timezone-naive datetimes (clients mis-read them); PostgreSQL returns timezone-aware values.
+
+## ADR-029 · 2026-10-07 · Accepted — Request latency is network-bound; make pre-ping configurable, colocate in deployment
+Profiled before changing anything (DATABASE_SETUP section 10): 99% of request time on a remote database is round-trip waiting (~159 ms each); no N+1, ~29 ms of application time. Only measured, low-risk change: `DB_POOL_PRE_PING` setting (default true). Deployment guidance: colocate API and database. Further round-trip reductions are listed as candidates and deliberately deferred. A profiler (`tests/test_profile.py`, opt-in) and a non-gating CI step keep the numbers reproducible.

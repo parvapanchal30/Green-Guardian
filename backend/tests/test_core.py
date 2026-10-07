@@ -106,6 +106,9 @@ def test_build_engine_pins_sslmode_and_search_path(monkeypatch):
     assert "sslmode" not in seen["kw"]["connect_args"]  # the URL's explicit choice wins
     db.build_engine(Settings(database_url="postgresql://u:p@h:6543/d", db_pool_mode="transaction", **base))
     assert seen["kw"]["connect_args"]["prepare_threshold"] is None
+    assert seen["kw"]["pool_pre_ping"] is True  # safe default
+    db.build_engine(Settings(database_url="postgresql://u:p@h:5432/d", db_pool_pre_ping=False, **base))
+    assert seen["kw"]["pool_pre_ping"] is False
 
 
 def test_test_database_url_is_read_from_dotenv_when_not_in_the_environment(tmp_path, monkeypatch):

@@ -120,3 +120,26 @@ The Supabase performance advisor reports INFO items only: 26 "foreign keys witho
 | `check_db` once showed `TLS = False` | `pg_stat_ssl` reports the *pooler→database* hop for pooled connections | The check now reads the client connection (`pgconn.ssl_in_use`) |
 | `DATABASE_URL` database name looks like `postgres# session (default) ...` | A template comment line was joined onto the URL line; python-dotenv only treats ` #` (with a space) as a comment | Keep `DATABASE_URL=...` on its own line |
 | PostGIS tests skip although `.env` has `TEST_DATABASE_URL` | `os.getenv` does not read `.env` | Fixed: `tests/conftest.py` falls back to `backend/.env` |
+
+## 10. Performance profile against a remote hosted database (2026-10-07)
+
+Question: why did one end-to-end PostgreSQL test (about 45 requests) take 538 s and end with a dropped pooler connection? Method: `GG_PROFILE=1 pytest tests/test_profile.py -s` (an opt-in profiler that records, per request, wall time, SQL statements, time waiting on the database and repeated statement shapes), run on SQLite (no network) and on Supabase (session pooler, ap-northeast-2, client in India).
+
+| | SQLite (no network) | Supabase over the internet |
+|---|---|---|
+| Requests profiled | 17 | 17 |
+| SQL statements | 161 (9.5 per request) | 207 (48 are savepoint bookkeeping that only the test harness issues) |
+| Application time per request | ~24 ms | ~29 ms |
+| Round trip (`SELECT 1`, median) | 0 ms | **159 ms** |
+| Wall time | 0.4 s | **37.7 s** (statements x round trip predicts 33.0 s) |
+| Share of time waiting on the database | 2% | **99%** |
+| Repeated statement shapes (N+1 candidates) | none | none |
+
+**Conclusion: the bottleneck is network round-trip latency, not the application, the queries, N+1 patterns or the ORM.** Each request makes 5-23 round trips; at ~159 ms each that is 1-4 s. The remaining gap between predicted and observed is transaction control (`BEGIN`/`COMMIT`/`ROLLBACK`), which costs round trips but is invisible to statement logging. The 538 s run was a ~45-request test on a degraded link and ended at roughly the 9-minute mark, consistent with a connection-lifetime limit on the pooler; it is not a defect in the code. The test was not weakened or shortened.
+
+Measured separately: on a pooled connection one trivial query costs **511 ms with `pool_pre_ping` off and 676 ms with it on**, i.e. pre-ping adds ~166 ms per request over this link. It is now configurable (`DB_POOL_PRE_PING`, default `true`, the safe choice).
+
+What follows for the project:
+1. **Deployment, not code, is the big lever:** run the API in the database's region (round trip ~1-5 ms instead of ~160 ms) and keep the browser far away instead.
+2. Locally against a remote database, run the integrity/RLS/migration tests and the compact smoke test; the complete suite runs against a local PostgreSQL container in CI, which also prints the same profile table (step "Request profile (local PostgreSQL)") so the local-database comparison appears on the first CI run.
+3. Candidate optimisations, **not implemented because they are not needed once the API is colocated** (apply only if measurements on the deployed system show a need): (a) run read-only GET requests in AUTOCOMMIT to drop `BEGIN`/`ROLLBACK` (about 2 of ~8 round trips); (b) fold `current_user` + `workspace_ctx` into one query (saves 1 round trip per request); (c) avoid re-reading rows after `commit()` when building responses. Each trades a little simplicity or snapshot consistency for fewer round trips.

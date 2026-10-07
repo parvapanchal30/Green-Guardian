@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     db_pool_size: int = 5
     db_max_overflow: int = 5
     db_connect_timeout_s: int = 10
+    # A liveness ping on every connection checkout. Safe default; it costs one round trip per request (measured at
+    # ~166 ms against a remote hosted database). Disable only when the API runs next to the database and the pooler
+    # is stable, and keep pool recycling in mind (see docs/DATABASE_SETUP.md section 10).
+    db_pool_pre_ping: bool = True
     postgis_schema: str = "extensions"
     # Schema that holds the application tables (first entry of search_path). NOT `public`: on Supabase `public`
     # is exposed through the Data API with default grants to `anon` (ADR-022). Tests override this per run.

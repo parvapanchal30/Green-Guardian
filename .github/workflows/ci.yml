@@ -74,6 +74,10 @@ jobs:
       - name: Tests (plain run, any failure fails the job)
         run: pytest -q -rs --strict-markers
 
+      # Where does request time go on a local database? Prints a table; compare with the remote profile in docs/DATABASE_SETUP.md.
+      - name: Request profile (local PostgreSQL)
+        run: GG_PROFILE=1 pytest tests/test_profile.py -q -s
+
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 15
