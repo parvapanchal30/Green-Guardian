@@ -16,7 +16,7 @@ _Last updated: 2026-10-07_
 | Architectural risks | See ARCHITECTURE §14 |
 
 ## Environment (dev machine)
-Python 3.13.3, Node 24.14.0 present. **Docker not installed.** PostGIS availability is the first setup blocker (ADR-007). Git identity: `parvapanchal30 <parvampanchal.c@gmail.com>`.
+Python 3.13.3, Node 24.14.0 present. **Docker not installed.** PostGIS availability is the first setup blocker (ADR-007). Git identity: the repository owner's configured name and email.
 
 ## Decisions made
 ADR-001..011 in DECISION_LOG.md (stack, monolith, asset model, append-only history, jobs, modes, PostGIS, capability-gated future surfaces, rules-first agent, auth, template-driven workflows).
