@@ -1,6 +1,12 @@
 import { Link, Navigate, createBrowserRouter, type RouteObject } from 'react-router-dom'
 import { AuthProvider } from '../lib/auth'
+import { AgentPage } from '../pages/AgentPage'
+import { AssetProfilePage } from '../pages/AssetProfilePage'
+import { AssetsPage } from '../pages/AssetsPage'
 import { HomePage } from '../pages/HomePage'
+import { IssueDetailPage } from '../pages/IssueDetailPage'
+import { IssuesPage } from '../pages/IssuesPage'
+import { TasksPage } from '../pages/TasksPage'
 import { LoginPage, RegisterPage } from '../pages/AuthPages'
 import { MembersPage } from '../pages/MembersPage'
 import { PlannedPage } from '../pages/PlannedPage'
@@ -34,9 +40,19 @@ function NotFound() {
 
 const LIVE: Record<string, () => React.JSX.Element> = {
   '': HomePage,
+  assets: AssetsPage,
+  tasks: TasksPage,
+  issues: IssuesPage,
+  'ai/agent': AgentPage,
   'monitor/weather': WeatherPage,
   'settings/members': MembersPage,
 }
+
+// Detail pages are reachable by link, not from the sidebar.
+const detailRoutes: RouteObject[] = [
+  { path: 'assets/:assetId', element: <AssetProfilePage /> },
+  { path: 'issues/:issueId', element: <IssueDetailPage /> },
+]
 
 const workspaceChildren: RouteObject[] = ROUTES.map((r) => {
   const Live = LIVE[r.path]
@@ -51,7 +67,7 @@ export const routes: RouteObject[] = [
       { path: '/login', element: <LoginPage /> },
       { path: '/register', element: <RegisterPage /> },
       { path: '/', element: <RequireAuth><WorkspacesPage /></RequireAuth> },
-      { path: '/w/:ws', element: <RequireAuth><WorkspaceLayout /></RequireAuth>, children: [...workspaceChildren, { path: '*', element: <Navigate to="." replace /> }] },
+      { path: '/w/:ws', element: <RequireAuth><WorkspaceLayout /></RequireAuth>, children: [...workspaceChildren, ...detailRoutes, { path: '*', element: <Navigate to="." replace /> }] },
       { path: '*', element: <NotFound /> },
     ],
   },

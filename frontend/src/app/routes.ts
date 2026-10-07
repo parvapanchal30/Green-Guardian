@@ -31,7 +31,7 @@ const A: WorkspaceMode = 'agricultural_production'
 export const ROUTES: NavRoute[] = [
   { path: '', label: 'Home', group: 'Home', status: 'live' },
 
-  { path: 'assets', label: 'All assets', group: 'Assets', status: 'building', stage: 'mvp', summary: 'Registry of every tree, plant, crop batch, field and zone.' },
+  { path: 'assets', label: 'All assets', group: 'Assets', status: 'live', stage: 'mvp', summary: 'Registry of every tree, plant, crop batch, field and zone.' },
   { path: 'assets/trees', label: 'Trees', group: 'Assets', status: 'building', stage: 'mvp', modes: [G], summary: 'Individually tracked trees.' },
   { path: 'assets/plants', label: 'Plants', group: 'Assets', status: 'building', stage: 'mvp', summary: 'Individually tracked plants.' },
   { path: 'assets/crops', label: 'Crops', group: 'Assets', status: 'building', stage: 'mvp', modes: [A], summary: 'Crops grown in this workspace.' },
@@ -39,8 +39,8 @@ export const ROUTES: NavRoute[] = [
   { path: 'assets/species', label: 'Species', group: 'Assets', status: 'building', stage: 'mvp', summary: 'Species and crop catalog with lifecycle templates.' },
   { path: 'locations', label: 'Fields and zones', group: 'Assets', status: 'building', stage: 'mvp', summary: 'Spatial structure of the workspace.' },
 
-  { path: 'tasks', label: 'Tasks', group: 'Work', status: 'building', stage: 'mvp', summary: 'Assigned work with due dates, priorities and history.' },
-  { path: 'issues', label: 'Botanical issues', group: 'Work', status: 'building', stage: 'mvp', summary: 'Structured issues with severity, evidence, workflow and resolution.' },
+  { path: 'tasks', label: 'Tasks', group: 'Work', status: 'live', stage: 'mvp', summary: 'Assigned work with due dates, priorities and history.' },
+  { path: 'issues', label: 'Botanical issues', group: 'Work', status: 'live', stage: 'mvp', summary: 'Structured issues with severity, evidence, workflow and resolution.' },
   { path: 'inspections', label: 'Inspections', group: 'Work', status: 'building', stage: 'mvp', summary: 'Scheduled and ad-hoc inspections.' },
   { path: 'harvests', label: 'Harvests', group: 'Work', status: 'building', stage: 'mvp', modes: [A], summary: 'Harvest records and plans.' },
 
@@ -51,7 +51,7 @@ export const ROUTES: NavRoute[] = [
   { path: 'monitor/yield', label: 'Yield', group: 'Monitor', status: 'soon', modes: [A], capability: 'yield_prediction', stage: 'v2', technique: 'Machine learning', summary: 'Production forecast with a range and confidence, updated as observations arrive.' },
   { path: 'monitor/irrigation', label: 'Irrigation', group: 'Monitor', status: 'soon', capability: 'irrigation_recommendation', stage: 'v3', technique: 'Water balance + rules', summary: 'Recommended volume and time window from soil moisture, forecast, crop and growth stage.' },
 
-  { path: 'ai/agent', label: 'Botanical Operations Agent', group: 'AI', status: 'soon', capability: 'botanical_agent_rules', stage: 'mvp', technique: 'Rules + statistics', summary: 'Watches the system and turns observations into recommendations, issues and tasks.' },
+  { path: 'ai/agent', label: 'Botanical Operations Agent', group: 'AI', status: 'live', summary: 'Rule-based checks that turn recorded observations into explained suggestions.' },
   { path: 'ai/crop-recommendation', label: 'Crop Recommendation', group: 'AI', status: 'soon', modes: [A], capability: 'crop_recommendation', stage: 'v3', technique: 'Recommendation engine', summary: 'Soil, weather, location, water, season and market in; ranked crops with yield, cost and profit ranges out.' },
   { path: 'ai/disease-detection', label: 'Disease Detection', group: 'AI', status: 'soon', capability: 'disease_detection', stage: 'v2', technique: 'Computer vision', summary: 'Image in; possible condition, confidence and severity out; one click to create a botanical issue.' },
   { path: 'ai/growth-prediction', label: 'Growth Prediction', group: 'AI', status: 'soon', capability: 'growth_prediction', stage: 'v2', technique: 'Machine learning', summary: 'Historical observations plus environment in; predicted growth trajectory with an uncertainty band out.' },

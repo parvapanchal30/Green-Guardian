@@ -71,3 +71,223 @@ export interface ProblemBody {
   status: number
   errors?: { loc: string[]; msg: string; type: string }[]
 }
+
+// ---------------------------------------------------------------- vertical slice (assets -> observations -> issues -> tasks)
+
+export interface Page<T> {
+  items: T[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export type HealthBand = 'healthy' | 'at_risk' | 'critical'
+export type Severity = 'low' | 'medium' | 'high' | 'critical'
+export type AssetKind = 'tree' | 'plant' | 'crop_batch' | 'shrub' | 'other'
+export type LocationKind = 'site' | 'field' | 'zone' | 'plot'
+
+export interface LocationItem {
+  id: string
+  name: string
+  kind: LocationKind
+  parent_id: string | null
+  latitude: number | null
+  longitude: number | null
+  attributes: Record<string, unknown>
+}
+
+export interface SpeciesItem {
+  id: string
+  category: string
+  common_name: string
+  scientific_name: string | null
+  is_global: boolean
+}
+
+export interface AssetState {
+  health_score: number | null
+  health_band: HealthBand | null
+  health_observed_at: string | null
+  last_observed_at: string | null
+  open_issue_count: number
+  open_task_count: number
+  last_resolved_at: string | null
+}
+
+export interface Asset {
+  id: string
+  label: string
+  kind: AssetKind
+  tracking_mode: 'individual' | 'population'
+  tag_code: string | null
+  estimated_count: number | null
+  current_stage: string
+  species_id: string | null
+  species_name: string | null
+  location_id: string | null
+  location_name: string | null
+  latitude: number | null
+  longitude: number | null
+  planted_at: string | null
+  attributes: Record<string, unknown>
+  notes: string | null
+  created_at: string
+  archived_at: string | null
+  state: AssetState
+}
+
+export interface Attachment {
+  name: string
+  content_type: string
+  url?: string
+  storage_key?: string
+  caption?: string
+}
+
+export interface Observation {
+  id: string
+  asset_id: string | null
+  observed_at: string
+  observer_id: string | null
+  kind: string
+  source: string
+  health_score: number | null
+  symptoms: string[]
+  notes: string | null
+  data: Record<string, unknown>
+  attachments: Attachment[]
+  supersedes_id: string | null
+  created_at: string
+}
+
+export type Method = 'rule' | 'statistical' | 'model' | 'llm'
+
+export interface Recommendation {
+  id: string
+  rule_key: string
+  method: Method
+  asset_id: string
+  title: string
+  explanation: string
+  evidence: Record<string, unknown>
+  proposed_action: Record<string, unknown>
+  severity: Severity
+  status: 'open' | 'accepted' | 'dismissed' | 'expired'
+  accepted_entity_type: string | null
+  accepted_entity_id: string | null
+  dismissed_reason: string | null
+  created_at: string
+  decided_at: string | null
+}
+
+export interface ObservationCreated {
+  observation: Observation
+  recommendations: Recommendation[]
+}
+
+export interface IssueHistory {
+  from_state: string | null
+  to_state: string
+  actor_id: string | null
+  note: string | null
+  at: string
+}
+
+export interface Issue {
+  id: string
+  key: string
+  title: string
+  description: string | null
+  category: string
+  severity: Severity
+  workflow_key: string
+  state: string
+  is_open: boolean
+  asset_id: string | null
+  asset_label: string | null
+  location_id: string | null
+  assignee_id: string | null
+  reporter_id: string | null
+  source: 'manual' | 'observation' | 'agent' | 'model'
+  origin_observation_id: string | null
+  recommendation_id: string | null
+  opened_at: string
+  updated_at: string
+  resolved_at: string | null
+  resolution_outcome: string | null
+  resolution_notes: string | null
+  resolved_by: string | null
+  version: number
+}
+
+export interface IssueDetail extends Issue {
+  history: IssueHistory[]
+  evidence: Observation[]
+  tasks: Task[]
+  allowed_transitions: string[]
+}
+
+export interface Workflow {
+  key: string
+  label: string
+  states: string[]
+  initial: string
+  terminal: string[]
+  transitions: Record<string, string[]>
+}
+
+export type TaskStatus = 'todo' | 'in_progress' | 'blocked' | 'done' | 'cancelled'
+
+export interface Task {
+  id: string
+  key: string
+  type: string
+  title: string
+  description: string | null
+  issue_id: string | null
+  issue_key: string | null
+  asset_id: string | null
+  asset_label: string | null
+  location_id: string | null
+  assignee_id: string | null
+  priority: 'p1' | 'p2' | 'p3' | 'p4'
+  status: TaskStatus
+  source: string
+  due_at: string | null
+  started_at: string | null
+  completed_at: string | null
+  completion_notes: string | null
+  overdue: boolean
+  created_at: string
+  updated_at: string
+  version: number
+}
+
+export interface TaskDetail extends Task {
+  history: { from_status: string | null; to_status: string; actor_id: string | null; note: string | null; at: string }[]
+  allowed_transitions: string[]
+}
+
+export interface TimelineEvent {
+  at: string
+  type: 'observation' | 'issue' | 'task'
+  ref_id: string
+  key: string | null
+  title: string
+  detail: string | null
+  actor_id: string | null
+}
+
+export interface RuleInfo {
+  key: string
+  method: string
+  description: string
+  parameters: Record<string, number>
+}
+
+export interface AgentRun {
+  evaluated_assets: number
+  created: Recommendation[]
+  rules: RuleInfo[]
+  note: string
+}
