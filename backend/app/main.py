@@ -10,6 +10,7 @@ from app.core.errors import install_error_handlers
 from app.core.logging import configure_logging
 from app.modules.assets.router import router as assets_router
 from app.modules.catalog.router import router as catalog_router
+from app.modules.dashboard.router import router as dashboard_router
 from app.modules.identity.router import router as identity_router
 from app.modules.intelligence.router import router as intelligence_router
 from app.modules.issues.router import router as issues_router
@@ -55,6 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         issues_router,
         tasks_router,
         intelligence_router,
+        dashboard_router,
     ):
         app.include_router(r, prefix=API_PREFIX)
 

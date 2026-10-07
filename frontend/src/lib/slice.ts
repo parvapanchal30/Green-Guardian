@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type {
-  AgentRun, Asset, Issue, IssueDetail, LocationItem, Observation, ObservationCreated, Page, Recommendation, RuleInfo,
+  AgentRun, Asset, Dashboard, Issue, IssueDetail, LocationItem, Observation, ObservationCreated, Page, Recommendation, RuleInfo,
   SpeciesItem, TaskDetail, Task, TimelineEvent, Workflow,
 } from '../api/types'
 
@@ -19,7 +19,7 @@ export function qs(params: Params = {}): string {
 const base = (ws: string, path: string, params?: Params) => `/workspaces/${ws}${path}${qs(params)}`
 
 /** Everything that can change after an observation, issue, task or recommendation action. */
-const DATA = new Set(['assets', 'asset', 'timeline', 'observations', 'issues', 'issue', 'tasks', 'task', 'recommendations', 'counts'])
+const DATA = new Set(['assets', 'asset', 'timeline', 'observations', 'issues', 'issue', 'tasks', 'task', 'recommendations', 'dashboard'])
 export function refreshWorkspaceData(qc: QueryClient, ws: string) {
   return qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === ws && DATA.has(String(q.queryKey[1])) })
 }
@@ -64,20 +64,9 @@ export const useRecommendations = (ws: string, params: Params = { status: 'open'
 export const useAgentRules = (ws: string) =>
   useQuery({ queryKey: [ws, 'agent-rules'], queryFn: () => api<RuleInfo[]>(base(ws, '/agent/rules')) })
 
-/** Dashboard numbers composed from list totals (limit=1): every figure is a count of recorded data. */
-export function useCounts(ws: string) {
-  return useQuery({
-    queryKey: [ws, 'counts'],
-    queryFn: async () => {
-      const total = (path: string, p: Params) => api<Page<unknown>>(base(ws, path, { ...p, limit: 1 })).then((r) => r.total)
-      const [assets, healthy, atRisk, critical, openIssues, openTasks] = await Promise.all([
-        total('/assets', {}), total('/assets', { health_band: 'healthy' }), total('/assets', { health_band: 'at_risk' }),
-        total('/assets', { health_band: 'critical' }), total('/issues', { is_open: true }), total('/tasks', { is_open: true }),
-      ])
-      return { assets, healthy, atRisk, critical, unknown: assets - healthy - atRisk - critical, openIssues, openTasks }
-    },
-  })
-}
+/** One backend read model: every figure is aggregated in the database, never summed from lists in the browser. */
+export const useDashboard = (ws: string, params: Params = {}) =>
+  useQuery({ queryKey: [ws, 'dashboard', params], queryFn: () => api<Dashboard>(base(ws, '/dashboard', params)) })
 
 // ------------------------------------------------------------------ writes (each refreshes the affected workspace data)
 function useWsMutation<TIn, TOut>(ws: string, fn: (input: TIn) => Promise<TOut>) {

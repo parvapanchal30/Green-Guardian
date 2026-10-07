@@ -50,6 +50,7 @@ ENDPOINTS = [
     ("GET", "/api/v1/workspaces/{ws}/tasks/{task_id}", None),
     ("PATCH", "/api/v1/workspaces/{ws}/tasks/{task_id}", {"title": "x"}),
     ("POST", "/api/v1/workspaces/{ws}/tasks/{task_id}/transitions", {"to_status": "in_progress"}),
+    ("GET", "/api/v1/workspaces/{ws}/dashboard", None),
     # botanical operations agent
     ("GET", "/api/v1/workspaces/{ws}/agent/rules", None),
     ("POST", "/api/v1/workspaces/{ws}/agent/run", None),

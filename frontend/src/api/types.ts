@@ -291,3 +291,19 @@ export interface AgentRun {
   rules: RuleInfo[]
   note: string
 }
+
+// ------------------------------------------------------------------ dashboard read model
+export interface DashboardKpi { key: string; label: string; available: boolean; value: number | null; unit: string | null; basis: string | null; reason: string | null }
+export interface DashboardActivity { at: string; type: 'observation' | 'issue' | 'task'; ref_id: string; asset_id: string | null; key: string | null; title: string; detail: string | null }
+export interface Dashboard {
+  mode: string
+  as_of: string
+  filters: { location_id: string | null; kind: string | null }
+  assets: { total: number; by_kind: Record<string, number>; health: { healthy: number; at_risk: number; critical: number; unknown: number } }
+  work: {
+    open_issues: number; open_issues_by_severity: Record<string, number>; open_tasks: number; overdue_tasks: number
+    tasks_due_next_7_days: number; inspections_due: number; inspection_interval_days: number; open_recommendations: number
+  }
+  kpis: DashboardKpi[]
+  recent_activity: DashboardActivity[]
+}

@@ -1,10 +1,12 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useWorkspaceCtx } from '../app/WorkspaceLayout'
 import { RecommendationCard } from '../components/RecommendationCard'
 import { StatusChip } from '../components/StatusChip'
 import { EmptyState, ErrorState, LoadingBlock } from '../components/states'
-import { atLeast } from '../lib/format'
-import { useCounts, useRecommendations } from '../lib/slice'
+import { input } from '../components/domain'
+import { atLeast, fmtDateTime } from '../lib/format'
+import { useDashboard, useLocations, useRecommendations } from '../lib/slice'
 import { VOCABULARY } from '../lib/vocabulary'
 
 function Tile({ name, value, hint }: { name: string; value: string; hint?: string }) {
@@ -17,15 +19,19 @@ function Tile({ name, value, hint }: { name: string; value: string; hint?: strin
   )
 }
 
+const KINDS = ['tree', 'plant', 'shrub', 'crop_batch', 'other']
+
 export function HomePage() {
   const { ws, workspace, capabilities } = useWorkspaceCtx()
   const v = VOCABULARY[workspace.mode]
-  const counts = useCounts(ws)
+  const [locationId, setLocationId] = useState('')
+  const [kind, setKind] = useState('')
+  const locations = useLocations(ws)
+  const dash = useDashboard(ws, { location_id: locationId || undefined, kind: kind || undefined })
   const recs = useRecommendations(ws)
-  const c = counts.data
+  const d = dash.data
   const canDecide = atLeast(workspace.role, 'manager')
-  // KPIs that cannot be computed from recorded data yet stay explicit about it.
-  const notYet: Record<string, string> = { Survival: 'Needs planting and loss records', Canopy: 'Needs canopy measurements', Coverage: 'Needs zone areas', Growth: 'Needs growth records', Yield: 'Estimates are planned (V2)', Harvest: 'Estimates are planned (V2)', Revenue: 'Needs yield and price data' }
+  const filtered = Boolean(locationId || kind)
 
   return (
     <div className="space-y-8">
@@ -35,33 +41,81 @@ export function HomePage() {
       </header>
 
       <section aria-labelledby="state">
-        <h2 id="state" className="mb-2 text-lg font-semibold">Current state</h2>
-        {counts.isLoading && <LoadingBlock label="Loading counts" />}
-        {counts.error && <ErrorState error={counts.error} onRetry={() => counts.refetch()} />}
-        {c && (
-          c.assets === 0 ? (
-            <EmptyState title="No assets yet" action={atLeast(workspace.role, 'worker') ? <Link to={`/w/${ws}/assets`} className="text-moss underline">Register the first asset</Link> : undefined}>
-              Register trees, plants or crop batches to see their health, issues and tasks here.
-            </EmptyState>
-          ) : (
-            <ul className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <Tile name="Assets" value={String(c.assets)} />
-              <Tile name="Healthy" value={String(c.healthy)} />
-              <Tile name="At risk" value={String(c.atRisk)} />
-              <Tile name="Critical" value={String(c.critical)} />
-              <Tile name="Open issues" value={String(c.openIssues)} />
-              <Tile name="Open tasks" value={String(c.openTasks)} />
-              {c.unknown > 0 && <Tile name="No health data" value={String(c.unknown)} hint="Not observed yet" />}
-            </ul>
-          )
+        <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
+          <h2 id="state" className="text-lg font-semibold">Current state</h2>
+          <div className="flex flex-wrap gap-2 text-sm">
+            <label className="flex items-center gap-1">Location
+              <select aria-label="Filter by location" value={locationId} onChange={(e) => setLocationId(e.target.value)} className={input}>
+                <option value="">All</option>
+                {locations.data?.items.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+            </label>
+            <label className="flex items-center gap-1">Type
+              <select aria-label="Filter by type" value={kind} onChange={(e) => setKind(e.target.value)} className={input}>
+                <option value="">All</option>
+                {KINDS.map((k) => <option key={k} value={k}>{k.replace('_', ' ')}</option>)}
+              </select>
+            </label>
+          </div>
+        </div>
+        {dash.isLoading && <LoadingBlock label="Loading dashboard" />}
+        {dash.error && <ErrorState error={dash.error} onRetry={() => dash.refetch()} />}
+        {d && d.assets.total === 0 && (
+          <EmptyState title={filtered ? 'No assets match these filters' : 'No assets yet'} action={!filtered && atLeast(workspace.role, 'worker') ? <Link to={`/w/${ws}/assets`} className="text-moss underline">Register the first asset</Link> : undefined}>
+            {filtered ? 'Clear a filter to see the rest of the workspace.' : 'Register trees, plants or crop batches to see their health, issues and tasks here.'}
+          </EmptyState>
         )}
-        <details className="mt-3 text-sm text-ink-2">
-          <summary className="cursor-pointer">{v.kpis.join(' → ')}: what is not measured yet</summary>
-          <ul className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {v.kpis.map((k) => <li key={k} className="rounded border border-line p-2"><span className="font-medium">{k}</span><span className="block text-xs text-ink-3">{notYet[k] ?? 'Computed from recorded observations'}</span></li>)}
-          </ul>
-        </details>
+        {d && d.assets.total > 0 && (
+          <div className="space-y-4">
+            <ul className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <Tile name="Assets" value={String(d.assets.total)} />
+              <Tile name="Healthy" value={String(d.assets.health.healthy)} />
+              <Tile name="At risk" value={String(d.assets.health.at_risk)} />
+              <Tile name="Critical" value={String(d.assets.health.critical)} />
+              <Tile name="Open issues" value={String(d.work.open_issues)} />
+              <Tile name="Open tasks" value={String(d.work.open_tasks)} />
+              {d.assets.health.unknown > 0 && <Tile name="No health data" value={String(d.assets.health.unknown)} hint="Not observed yet" />}
+            </ul>
+            <ul aria-label="Work needing attention" className="grid gap-3 sm:grid-cols-3">
+              <Tile name="Overdue tasks" value={String(d.work.overdue_tasks)} hint={`${d.work.tasks_due_next_7_days} more due in 7 days`} />
+              <Tile name="Inspections due" value={String(d.work.inspections_due)} hint={`No observation in ${d.work.inspection_interval_days} days`} />
+              <Tile name="Suggestions to review" value={String(d.work.open_recommendations)} />
+            </ul>
+          </div>
+        )}
+        {d && (
+          <details className="mt-3 text-sm text-ink-2">
+            <summary className="cursor-pointer">{d.kpis.map((k) => k.label).join(' → ')}</summary>
+            <ul className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {d.kpis.map((k) => (
+                <li key={k.key} className="rounded border border-line p-2">
+                  <span className="font-medium">{k.label}</span>
+                  {k.available
+                    ? <span className="block text-ink"><span className="font-semibold">{k.value}{k.unit}</span> <span className="text-xs text-ink-3">{k.basis}</span></span>
+                    : <span className="block text-xs text-ink-3">{k.reason}</span>}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </section>
+
+      {d && d.recent_activity.length > 0 && (
+        <section aria-labelledby="activity">
+          <h2 id="activity" className="mb-2 text-lg font-semibold">Recent activity</h2>
+          <ul className="divide-y divide-line rounded-lg border border-line bg-surface text-sm">
+            {d.recent_activity.map((a) => (
+              <li key={`${a.type}-${a.ref_id}-${a.at}`} className="flex flex-wrap items-baseline justify-between gap-x-3 p-2">
+                <span>
+                  <Link className="text-moss underline" to={a.type === 'issue' ? `/w/${ws}/issues/${a.ref_id}` : a.asset_id ? `/w/${ws}/assets/${a.asset_id}` : `/w/${ws}/tasks`}>{a.title}</Link>
+                  {a.detail && <span className="text-ink-2"> · {a.detail}</span>}
+                </span>
+                <time className="text-xs text-ink-3" dateTime={a.at}>{fmtDateTime(a.at)}</time>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section aria-labelledby="attention">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
