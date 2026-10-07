@@ -53,7 +53,10 @@ export function AssetMap({
     }).addTo(m)
     layer.current = L.layerGroup().addTo(m)
     map.current = m
-    return () => { m.remove(); map.current = null; layer.current = null }
+    // Leaflet must be told when its container is laid out or resized, otherwise fitBounds works on a 0-size map.
+    const ro = new ResizeObserver(() => m.invalidateSize())
+    ro.observe(el.current)
+    return () => { ro.disconnect(); m.remove(); map.current = null; layer.current = null; fitted.current = '' }
   }, [])
 
   useEffect(() => {
@@ -71,6 +74,7 @@ export function AssetMap({
     if (bbox && key !== fitted.current) {
       fitted.current = key
       const [w, s, e, n] = bbox
+      m.invalidateSize()
       m.fitBounds([[s, w], [n, e]], { padding: [40, 40], maxZoom: 17 })
     }
   }, [features, bbox, selectedId])
