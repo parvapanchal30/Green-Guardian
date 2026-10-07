@@ -66,9 +66,10 @@ Tests marked `@pytest.mark.postgis` are skipped (with a visible reason) when `TE
 ## 6. Production notes
 Use managed PostgreSQL+PostGIS with PITR backups; run API/worker containers on a network with a supported connection mode (session pooler or direct); separate migration and runtime roles; set pool sizes so `instances × (pool_size + max_overflow)` stays below the provider's connection limit; monitor connection counts.
 
-## 7. Weather provider (Open-Meteo) — constraints that affect the database/config
-- Endpoint `https://api.open-meteo.com/v1/forecast`; required `latitude`, `longitude`; hourly variables used: `precipitation`, `precipitation_probability`, `soil_moisture_0_to_1cm`…`soil_moisture_27_to_81cm`, `et0_fao_evapotranspiration`, `temperature_2m`; `forecast_days` 0–16, `past_days` 0–92, `timezone=auto|IANA`.
-- **The free API is for non-commercial use only.** A commercial deployment needs an API key + customer endpoint. This is recorded as risk R-WX-1; the provider is behind an interface so it can be swapped (see ARCHITECTURE §5/AI_ARCHITECTURE `WeatherProvider`).
+## 7. Weather provider (Open-Meteo) — constraints and licensing risk (R-WX-1)
+- Endpoint `https://api.open-meteo.com/v1/forecast`; required `latitude`, `longitude`; hourly variables used: `precipitation`, `precipitation_probability`, `soil_moisture_0_to_1cm` … `soil_moisture_27_to_81cm`, `et0_fao_evapotranspiration`, `temperature_2m`; `forecast_days` 0–16, `timezone=auto`.
+- **Licensing / commercial use — a risk that must be verified before any commercial deployment.** As read from Open-Meteo's terms page on 2026-10-07: the free API is described as for **non-commercial** use, with stated limits of fewer than 10,000 calls/day, 5,000/hour and 600/minute; data is under CC BY 4.0 (attribution required, and we return an attribution string with every forecast); the terms list "integration into commercial products" among commercial uses, and describe paid subscription tiers that remove the limits and allow commercial use. The terms page does not give the paid endpoint/key mechanics, so none is implemented. Terms and pricing change: **re-read them and obtain a licence (or switch provider) before charging for, or running ads on, anything that calls this API.** Nothing here is legal advice.
+- Mitigation by design: weather is reached only through `WeatherContextProvider` (agent-owned port) → `WeatherService` → `WeatherProvider` → a registered adapter (ADR-024). Replacing Open-Meteo means one new adapter and one environment value; no agent, domain or API code changes. Tests never call the live API.
 - Forecasts are fetched on demand and cached in-process (TTL); persisted `weather_record` rows are a later step.
 
 ## 8. Troubleshooting (all seen in practice)
@@ -97,18 +98,21 @@ Checked through the Supabase connector and the app's own tooling:
 ### Why application tables are NOT in `public` (ADR-022)
 On Supabase, `public` is exposed through the Data API and receives default grants for `anon`/`authenticated`. With RLS off, `users` (password hashes) would be readable with the public anon key. The app therefore uses its own schema (`DB_SCHEMA`, default `greenguardian`), which Supabase does not expose. Verified: `anon` and `authenticated` have no `USAGE` on `greenguardian` and no `SELECT` on `greenguardian.users`; the project security advisor reports no lints.
 
-### The "RLS disabled" advisory
-The connector's table listing flags RLS-disabled tables in `greenguardian` as critical. That message assumes the schema is API-exposed; it is not, and the privilege checks above show no access for `anon`/`authenticated`. It is still a reasonable **defence-in-depth** step if you ever expose this schema or grant those roles access. The backend role `postgres` has `BYPASSRLS`, so enabling RLS with no policies would not affect the application:
+### Row Level Security: final model (migration `0002`, ADR-023)
+RLS is **enabled on every application table** (17 of 17, including `alembic_version`) with **no policies**: deny-by-default for every role that neither owns the tables nor has `BYPASSRLS`.
 
-```sql
-ALTER TABLE greenguardian.users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE greenguardian.organizations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE greenguardian.workspaces ENABLE ROW LEVEL SECURITY;
-ALTER TABLE greenguardian.memberships ENABLE ROW LEVEL SECURITY;
-ALTER TABLE greenguardian.refresh_tokens ENABLE ROW LEVEL SECURITY;
-ALTER TABLE greenguardian.alembic_version ENABLE ROW LEVEL SECURITY;
-```
-Not applied automatically (it is provider-specific behaviour, so it stays out of the portable Alembic migrations). Decision for the team.
+| Role | Relationship | Effect |
+|---|---|---|
+| `postgres` (the role the backend connects as) | owns all tables; `rolbypassrls = true` (verified) | unaffected by RLS: the app works exactly as before |
+| `anon`, `authenticated` | no privilege on the schema or any table (`REVOKE ALL` + default privileges revoked); not API-exposed | cannot read or write anything, and RLS would hide every row even if a grant were ever added |
+| any future non-owner runtime role without `BYPASSRLS` | n/a | sees **zero rows** until explicit policies are added in a migration (intentional fail-closed behaviour) |
+
+Rules: (1) tenancy is enforced by the service layer; RLS is the second barrier, not the first. (2) We do **not** use `FORCE ROW LEVEL SECURITY`. (3) Every migration that creates a table must call `app.core.rls.enable_rls("<table>")`; `test_every_application_table_has_rls_enabled_and_no_policies` fails otherwise. (4) `check_db` reports the RLS count and whether the connected role owns the tables or bypasses RLS, and fails if neither.
+
+Verified through Supabase after applying `0002` and `0003`: RLS on all tables, 0 policies, 0 grants to `anon`/`authenticated`, no schema `USAGE` for `anon`, the `gg_forbid_mutation()` trigger function not executable by them. The security advisor reports only the **INFO** notice `rls_enabled_no_policy` on all 17 tables, which is the intended state (the earlier *critical* "RLS disabled" finding is gone). A test also proves the barrier works: a throwaway role granted `SELECT` sees 0 rows while the owner sees the row.
+
+### Performance advisor notes (accepted for now)
+The Supabase performance advisor reports INFO items only: 26 "foreign keys without a covering index" and 27 "unused indexes". The unused-index notice is expected on an empty development database. The unindexed foreign keys are mostly composite `(workspace_id, x_id)` tenant-integrity keys and user references (`created_by`, `actor_id`, ...) on tables we never delete from; the hot query paths (by workspace + asset/issue/task/assignee/status) already have indexes. Adding 26 speculative indexes would slow every write, so they are deliberately **not** added now; revisit with real query statistics (`pg_stat_statements`) before production.
 
 ### Troubleshooting additions
 | Symptom | Cause | Fix |

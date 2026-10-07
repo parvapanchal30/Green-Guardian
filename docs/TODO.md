@@ -61,3 +61,15 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [ ] Decide on enabling RLS (defence-in-depth) for `greenguardian.*` (SQL in DATABASE_SETUP section 9)
 - [ ] Optional: a separate Supabase project/branch for tests if the team wants hard separation
 - [ ] Set `TEST_DATABASE_URL` in `backend/.env` (recommended: same as `DATABASE_URL`)
+
+## Next slice candidates (recommended order)
+- [ ] Run the full API suite on PostgreSQL in CI (first push) and fix anything it finds
+- [ ] `GET /dashboard` and `GET /map` read models; MapLibre map with asset/health/issue/task layers (PostGIS `centroid` is ready)
+- [ ] Photo upload: storage abstraction, validation, signed URLs (attachments are metadata only today)
+- [ ] Lifecycle events and templates (read-only `current_stage` today); species lifecycle durations
+- [ ] Worker + scheduler: periodic agent runs, recurring inspection tasks; weather-aware irrigation-deferral rule using the existing port
+- [ ] Member invite/role UI; workspace settings UI for agent thresholds
+- [ ] Reports (analytics/impact, CSV) from records; survival rate once loss/planting records exist
+- [ ] Decide on a local PostgreSQL+PostGIS (or Docker) for developers so the whole suite can run locally on PostgreSQL
+- [ ] Revisit the advisor's unindexed-foreign-key notices with real query statistics before production
+- [ ] Open-Meteo commercial licence decision (R-WX-1) before any commercial deployment

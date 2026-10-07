@@ -46,3 +46,14 @@ Conventional-ish commits: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore
 
 ## Definition of Done
 Frontend + backend + database + validation + error handling + loading/empty states + tests + docs.
+
+## Database rules for new tables and migrations
+1. Create tables with Alembic (autogenerate, then review). Add PostgreSQL-only extras behind a dialect check so the same revision still runs in the SQLite unit tests.
+2. Call `app.core.rls.enable_rls("<table>")` for every new table (a test fails otherwise). Never create tables in `public`.
+3. History tables: `app.core.append_only.make_append_only("<table>")`; use `RESTRICT` (not `SET NULL`) for user FKs on them.
+4. Tenant tables: `workspace_id` + `UNIQUE (workspace_id, id)` and composite FKs for links to other tenant tables.
+5. Add an index for each real query pattern; do not add speculative ones.
+6. Add every new `{ws}` route to the isolation matrix in `tests/test_tenancy.py` (a test enforces this).
+
+## Testing modes
+`TEST_DATABASE_URL` set → PostgreSQL mode (isolated schema per session, savepoint rollback per test). `GG_TEST_DB=sqlite` → fast logic mode, PostgreSQL-only tests skipped and reported. CI sets `GG_REQUIRE_POSTGRES_TESTS=1` so nothing can be skipped. New database tests must use the `world` / `pg_schema` fixtures, never open their own connection to a shared database.

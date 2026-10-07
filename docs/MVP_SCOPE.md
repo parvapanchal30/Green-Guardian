@@ -40,3 +40,17 @@ Backend endpoint + validation + error handling + tenant scoping tests · migrati
 
 ## Acceptance (MVP exit)
 Golden path passes in Playwright for both modes: register asset → record declining observations → agent recommends → accept → task assigned → worker completes with observation → issue resolved with verification → dashboard KPIs and report reflect it. Cross-tenant isolation tests green. No UI element shows an unimplemented intelligence output as real.
+
+## Status against the build order (2026-10-07)
+
+| Step | Status |
+|---|---|
+| 0 Scaffold, CI, DB baseline | done (CI written and linted; first GitHub run pending) |
+| 1 Identity, workspaces, RBAC, tenant tests | done |
+| 2 Locations, catalog, assets | done (lifecycle events/templates, bulk import: not yet) |
+| 3 Observations, state projection | done (charts, photo upload, environment readings: not yet) |
+| 4 Issues + tasks | done (recurring tasks, treatments, harvest records: not yet) |
+| 5 Agent | done for 3 rules + recommendations; weather rules and worker/scheduler: not yet |
+| 6 Map + dashboards | not started (Home shows counts) |
+| 7 Reports, surfaces, polish | surfaces done earlier; reports not started |
+| 8 Hardening | partially (RLS, immutability, CI); e2e on CI and perf seed pending |

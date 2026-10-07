@@ -36,3 +36,8 @@ Offline banner + queued submissions; empty lists explain the next action; permis
 
 ## 11. Role views
 Worker: My tasks, observe, map. Manager: + issues, tasks assign, agent inbox. Admin/Owner: + settings, members, rules. Viewer: read-only everywhere, no action buttons.
+
+## Implemented flows (2026-10-07)
+
+Register asset → asset profile → record observation → (rules) suggestion with "Why?" → accept → issue → add task (assignee, priority, due) → task start/complete (+ follow-up check) → issue transitions → resolve → asset state and history updated.
+Design decisions from testing the flow: the accept button names its outcome ("Accept: open issue") because the page also has a manual "Open issue" action; the issue stepper marks only visited stages; closing with open tasks is blocked with an actionable message and an explicit opt-in to cancel them; the suggestions list is driven by the server, never by a local copy of the last response.

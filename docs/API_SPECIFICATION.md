@@ -102,5 +102,22 @@ GET /workspaces/{ws}/reports/templates     POST /workspaces/{ws}/reports     GET
 ```
 Every KPI is either a computed value (with `basis`) or `available:false` with a reason — never a fabricated number.
 
-## Implementation status (2026-10-07)
-Implemented and tested: `POST /auth/register|login|refresh|logout`, `GET|PATCH /me`, `GET|POST /workspaces`, `GET|PATCH /workspaces/{ws}`, `GET /workspaces/{ws}/capabilities`, members `GET|POST /workspaces/{ws}/members`, `PATCH|DELETE /workspaces/{ws}/members/{user_id}`, `GET /workspaces/{ws}/weather`, `GET /healthz`, `GET /readyz`. Everything else in this document is still design.
+## Implementation status (2026-10-07, vertical slice)
+
+All paths are under `/api/v1/workspaces/{ws}`. Lists return `{items, total, limit, offset}` (`limit` 1–200, default 50). Errors are RFC 7807 problem+json with a stable `code`. Non-members get `404 workspace_not_found` for every route (verified by an OpenAPI-derived isolation matrix).
+
+| Area | Endpoint | Min. role | Notes |
+|---|---|---|---|
+| Identity | `POST /auth/register|login|refresh|logout`, `GET|PATCH /me` | — / any | argon2id, JWT, rotating refresh tokens with reuse detection |
+| Workspace | `GET|POST /workspaces`, `GET|PATCH /{ws}`, `GET /{ws}/capabilities`, members `GET|POST /members`, `PATCH|DELETE /members/{user_id}` | member / admin | PATCH `settings.agent` sets rule thresholds |
+| Weather | `GET /weather?lat&lon&days` | member | provider-neutral; source + attribution returned |
+| Locations | `GET /locations`, `POST /locations`, `GET /locations/{id}` | member / manager | zone/field/site/plot, optional parent |
+| Species | `GET /species?category&q`, `POST /species` | member / manager | global seed + workspace-private |
+| Assets | `GET /assets` (`kind, location_id, health_band, q, has_open_issue`), `POST /assets`, `GET|PATCH|DELETE /assets/{id}`, `GET /assets/{id}/timeline` | member / worker / manager | `DELETE` archives (soft); profile includes current `state` |
+| Observations | `POST /observations`, `GET /observations?asset_id`, `GET /observations/{id}` | worker / member | immutable (no PUT/PATCH/DELETE); `POST` returns `{observation, recommendations}` |
+| Issues | `GET /issues` (`state, is_open, severity, category, assignee, asset_id, q`), `POST /issues`, `GET /issues/workflows`, `GET|PATCH /issues/{id}`, `POST /issues/{id}/transitions`, `POST /issues/{id}/evidence` | member / worker / manager | transitions validated by the workflow; closing needs a resolution |
+| Tasks | `GET /tasks` (`status, is_open, assignee=me|unassigned|id, issue_id, asset_id, type, overdue, q`), `POST /tasks`, `GET|PATCH /tasks/{id}`, `POST /tasks/{id}/transitions` | member / manager / assignee-or-manager | completing may carry a follow-up `observation` |
+| Agent | `GET /agent/rules`, `POST /agent/run`, `GET /recommendations?status&asset_id`, `POST /recommendations/{id}/accept|dismiss` | member / manager | rule-based only; accepting creates an issue/task through the normal services |
+
+**Conventions:** request bodies reject unknown fields; JSON blobs ≤ 10 KB; attachments are metadata (https URL or storage key, image types only, ≤ 10); `observed_at` may be back-dated but not future; `409` for illegal transitions (`allowed` lists the legal ones), open tasks blocking resolution (`open_tasks`), duplicates; `422` for validation and business-rule violations; `403` for role violations.
+Still design only: `GET /dashboard`, `GET /map`, reports, bulk import, predictions (`501 capability_unavailable` is reserved). The Home dashboard currently composes counts from list totals.

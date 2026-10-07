@@ -63,3 +63,20 @@ Conventions: `id uuid` (UUIDv7) PK; `workspace_id uuid NOT NULL REFERENCES works
 - Map query: `WHERE workspace_id=$1 AND position && ST_MakeEnvelope(...)` + server-side clustering at low zoom (`ST_SnapToGrid`).
 - Keyset pagination on `(created_at, id)`.
 - Retention: attachments referenced by history are never auto-deleted.
+
+## Implemented schema (migrations 0001–0003) — what actually exists
+
+Source of truth is the migration files and `alembic check` (clean against the live PostgreSQL schema). This section lists decisions that differ from, or refine, the design above.
+
+**Tables (17, schema `greenguardian`):** `users, organizations, workspaces, memberships, refresh_tokens` (0001) · `locations, species, biological_assets, asset_states, observations, recommendations, issues, issue_observations, issue_status_history, tasks, task_status_history` (0003) · `alembic_version`. All have RLS enabled (0002 / 0003).
+
+**Differences from the design, and why**
+- **Deferred (no consumer yet):** `project`, `planting`, `parent_asset_id`, `lifecycle_event`, `health_record`/`growth_record`, `environment_reading`, `weather_record`, `prediction`, `job`, `attachment`. Health is carried by `observations.health_score` and projected into `asset_states`; photo evidence is **metadata only** (`observations.attachments` JSON) until the storage slice. `biological_assets.current_stage` is read-only until lifecycle events exist.
+- **Coordinates:** `latitude`/`longitude` (portable `FLOAT`, range CHECKs, pair CHECK) are the source of truth. On PostgreSQL a **generated stored `centroid geometry(Point,4326)`** column with a GiST index is derived from them (`locations`, `biological_assets`). The ORM does not map it (`include_object` in `migrations/env.py` ignores exactly those columns/indexes); spatial queries use it directly. Verified: `POINT(lon lat)`, bbox `&&` queries, update propagation.
+- **Tenant integrity in the database:** every tenant table has `UNIQUE (workspace_id, id)` and cross-table links are **composite foreign keys** `(workspace_id, x_id)`, so a service bug cannot link records across workspaces (tested with direct SQL).
+- **Append-only history:** `BEFORE UPDATE OR DELETE` triggers (`gg_forbid_mutation()`, pinned `search_path`, not executable by PUBLIC) on `observations`, `issue_status_history`, `task_status_history`. Consequence: users with history cannot be deleted (FKs are `RESTRICT`); erasure means anonymising the user row.
+- **Issues:** `resolved_at` is set on entering *any* terminal state; `resolution_outcome` distinguishes fixed/mitigated/no-action/duplicate/won't-fix; `CHECK ((resolved_at IS NULL) = (resolution_outcome IS NULL))`. `state` is validated against a workflow defined in code (`app/modules/issues/workflows.py`), not by a DB CHECK, so new workflows need no migration. Field edits are audited as history rows with `from_state = to_state`.
+- **Keys:** `GG-001` / `T-001` allocated from `workspaces.key_counters` under `SELECT … FOR UPDATE`.
+- **Recommendations:** partial unique index `uq_recommendations_open_dedupe (workspace_id, dedupe_key) WHERE status = 'open'`; dismissals are suppressed for `dismiss_suppress_days` (default 7) by the runner.
+- **Seed data:** 11 global species (`workspace_id IS NULL`) inserted by `0003`.
+- **Indexes:** the ones the queries use are present (see `test_indexes_exist_for_the_real_query_patterns`); the advisor's "unindexed foreign key" INFO notices are accepted for now (see DATABASE_SETUP section 9).

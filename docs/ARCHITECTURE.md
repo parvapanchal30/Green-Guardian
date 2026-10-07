@@ -93,3 +93,11 @@ Database: a hosted PostgreSQL+PostGIS project (Supabase by default) — see `doc
 3. Batch-vs-individual asset modelling → single table + `tracking_mode`, tested for both.
 4. Rule noise → dedupe keys, per-workspace thresholds, dismissal suppression.
 5. Cross-tenant leakage → single scoping path + isolation tests in CI.
+
+## Implementation notes (2026-10-07)
+
+- **Tenant isolation is layered:** (1) `workspace_ctx` is the only way a handler obtains a workspace (404 for non-members); (2) every service query filters by `ctx.workspace_id`; (3) composite foreign keys make cross-tenant links impossible in the database; (4) RLS deny-by-default protects against any other role. An OpenAPI-derived test fails if a `{ws}` route is not in the isolation matrix.
+- **Modules** (`app/modules/*`): `identity, workspaces, locations, catalog, assets, observations, issues, tasks, intelligence, weather`, each `models / schemas / service / router` (small modules co-locate schemas in `service.py`). Routers hold no business logic. Dependency direction: `observations → assets, intelligence.runner`; `issues → assets, observations, tasks.mapping`; `tasks → issues, observations`; `intelligence.service → issues, tasks`; no cycles.
+- **Transactions:** a service use case ends with one `commit()`; sessions run with `autoflush=False`, so code that must see its own pending changes (projection counts, agent snapshots) flushes explicitly.
+- **Test strategy:** the full API suite runs on PostgreSQL in CI. Locally, `GG_TEST_DB=sqlite` (or no `TEST_DATABASE_URL`) is an explicit, reported fast mode for logic iteration; PostgreSQL-only tests (integrity, RLS, PostGIS, smoke) are skipped visibly there. Against a distant hosted database (~130 ms/round trip) only the database-integrity tests, the migration/RLS tests and a compact end-to-end smoke test are run (ADR-026).
+- **CI:** see `.github/workflows/ci.yml` (ADR-027).

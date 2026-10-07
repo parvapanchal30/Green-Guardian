@@ -40,3 +40,11 @@ Tenant scoping on all queries · append-only history tables · honest AI labelli
 
 ## Database status (2026-10-07)
 Supabase project `greenguardian` provisioned; PostgreSQL 17.11, PostGIS 3.3.7 in `extensions`; migration `0001` applied to schema `greenguardian`; `check_db` OK (TLS on); backend suite **73 passed, 0 skipped**, including 6 PostGIS tests that ran against the real database. See DATABASE_SETUP section 9. Open decision: enable RLS as defence-in-depth (optional).
+
+## Update 2026-10-07 (RLS, CI, weather boundary, first vertical slice)
+- **Database (Supabase, real):** migrations `0001`–`0003` applied; `alembic check` clean; 17 tables in `greenguardian`, RLS on all, API roles locked out, append-only triggers, generated PostGIS centroids, 11 seeded species; `check_db` OK; advisors: only INFO.
+- **Backend:** vertical slice implemented (assets, observations, issues, tasks, rule-based agent) — see API_SPECIFICATION. Tests: **239 passed + 23 PostgreSQL-only skipped** in fast mode; PostgreSQL mode on Supabase: migration/RLS/PostGIS tests, 12 database-integrity tests and the end-to-end smoke test (see TODO for the last verified counts).
+- **Frontend:** slice pages live; 30 tests; verified in a real browser.
+- **CI:** rewritten, `actionlint` clean, steps reproduced locally; **not yet run on GitHub**.
+- **Deck:** `pitch/GreenGuardian-Stage2-Review.pptx` contains the team's own edits (names, IEN, guide, letter images); left uncommitted; the generator now writes `*.generated.pptx`.
+- **Git:** local commits only; nothing pushed.

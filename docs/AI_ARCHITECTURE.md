@@ -54,3 +54,19 @@ Capture now: timestamped health/growth/symptom observations, treatments applied 
 
 ## Safety & governance
 Confidence thresholds, human-in-the-loop for low confidence, "decision support — not a diagnosis" copy for disease output, model version pinned per prediction, kill-switch via `capabilities`, bias/coverage notes per model (species/region it was trained on).
+
+## Implemented: the rule-based Botanical Operations Agent (2026-10-07)
+
+**What it is:** deterministic rules over recorded data → explained, de-duplicated recommendations → a person accepts (creating an issue/task via the normal services) or dismisses (with a reason). **What it is not:** machine learning, prediction, or a language model; the API says so (`AgentRunOut.note`, method labels `rule` / `statistical`, capability technique "Rules + statistics") and the UI shows a method badge and "this is not a prediction".
+
+| Rule | Method | Fires when | Proposes |
+|---|---|---|---|
+| `critical_health` | rule | latest health score below the critical threshold (default 40) and no open issue | open an issue (high; critical below half the threshold) |
+| `health_decline` | statistical | health fell ≥ 15 points between the oldest and newest scores within 14 days (≥ 2 scores), no open issue; the baseline restarts after an issue is resolved | open an issue (medium/high) |
+| `inspection_gap` | rule | no observation for > 21 days (a just-registered asset is not overdue) and no open inspection task | create an inspection task |
+
+Behaviour: runs right after each observation (for that asset) and on demand for the workspace; at most one *issue* proposal per asset per run; an open recommendation is never duplicated (partial unique index); a dismissed one is suppressed for 7 days; thresholds come from `workspace.settings.agent` and malformed overrides fall back to defaults. `symptom_cluster` exists in the rules library but is not wired (needs multi-asset issues).
+
+**Weather boundary (ADR-024):** `Agent → WeatherContextProvider (agent-owned port, app/modules/intelligence/ports.py) ← ForecastWeatherContext (adapter) → WeatherService → WeatherProvider → Open-Meteo | mock | future`. The agent package imports nothing from `app.modules.weather` (AST test). No current rule consumes weather; the port and `WeatherContext` (rain next 24 h, rain probability, top-soil moisture, temperature; unknown = `None`, never zero) are in place for the irrigation-deferral rule.
+
+**Extension path unchanged:** `Detector`, `Predictor`, `Recommender` interfaces and model provenance fields as described above; nothing ML-shaped has been added.

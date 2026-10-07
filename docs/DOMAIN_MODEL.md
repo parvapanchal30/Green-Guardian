@@ -59,3 +59,14 @@ Report
 - Observation rows are immutable; corrections are new rows referencing `supersedes_id`.
 - Health score ∈ [0,100]; growth percent ∈ [0,100] (or null).
 - Recommendation dedupe key unique among *open* recommendations.
+
+## Implemented in the first vertical slice (2026-10-07)
+
+`Workspace → Location → BiologicalAsset → Observation → Issue → Task`, plus `AssetState` (projection) and `Recommendation`. A tree and a crop batch are the **same entity** (`kind`, `tracking_mode`); the agricultural example (crop batch of 84,200 plants in a field) is covered by the same tests as the tree.
+
+- **Observation** is the single evidence unit and carries the optional health score; there is no separate HealthRecord yet.
+- **AssetState** (current health/band, last observed, open issue/task counts, last resolved) is updated synchronously in the transaction that changes its inputs and is rebuildable (`rebuild_state`, tested for equality with the maintained values).
+- **Issue** lifecycle is defined by a *workflow* chosen by category and workspace mode (plant health, field disease, infrastructure, harvest readiness). Reopening clears the resolution; history keeps everything.
+- **Task** has its own status workflow; completing a task may record a follow-up observation, which is how acting on an issue changes the asset's state.
+- **Recommendation** is produced only by rules (`method` ∈ rule/statistical), de-duplicated, explained, and acted on by a person.
+- Invariants now enforced by the database: tenant-consistent links (composite FKs), immutable history (triggers), one open recommendation per dedupe key, consistent issue resolution columns, health score 0–100.
