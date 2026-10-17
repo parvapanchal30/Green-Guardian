@@ -180,6 +180,13 @@ export interface Recommendation {
   dismissed_reason: string | null
   created_at: string
   decided_at: string | null
+  /** Traceability: the run that produced it (null when evaluated inline on an observation) and the rule's version. */
+  agent_run_id: string | null
+  rule_version: number | null
+  /** Follow-up: what eventually happened to the work it led to. */
+  outcome: 'task_completed' | 'task_cancelled' | 'issue_resolved' | 'issue_closed' | 'deferral_applied' | null
+  outcome_at: string | null
+  outcome_detail: string | null
 }
 
 export interface ObservationCreated {
@@ -283,13 +290,35 @@ export interface TimelineEvent {
 export interface RuleInfo {
   key: string
   method: string
+  version?: number
   description: string
   parameters: Record<string, number>
 }
 
+/** One entry of the agent's execution history (manual or scheduled). */
+export interface AgentRunRecord {
+  id: string
+  trigger: 'manual' | 'scheduled'
+  status: 'running' | 'succeeded' | 'failed'
+  requested_by: string | null
+  worker_id: string | null
+  started_at: string
+  finished_at: string | null
+  duration_s: number | null
+  evaluated_assets: number
+  findings: number
+  recommendations_created: number
+  recommendations_expired: number
+  rules: RuleInfo[]
+  diagnostics: { weather?: { requested?: boolean; locations?: number; unavailable?: number; no_location?: number; source?: string | null }; skipped?: Record<string, number>; already_open?: number; dismissed_recently?: number }
+  error: string | null
+}
+
 export interface AgentRun {
+  run: AgentRunRecord | null
   evaluated_assets: number
   created: Recommendation[]
+  expired: number
   rules: RuleInfo[]
   note: string
 }

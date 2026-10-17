@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { api, apiBlob } from '../api/client'
 import type {
-  AgentRun, Asset, AuditEvent, AuditMeta, Dashboard, Evidence, MapFeatureCollection, MapLayerInfo, Issue, IssueDetail, LocationItem, Observation, ObservationCreated, Page, Recommendation, RuleInfo,
+  AgentRun, AgentRunRecord, Asset, AuditEvent, AuditMeta, Dashboard, Evidence, MapFeatureCollection, MapLayerInfo, Issue, IssueDetail, LocationItem, Observation, ObservationCreated, Page, Recommendation, RuleInfo,
   SpeciesItem, TaskDetail, Task, TimelineEvent, Workflow,
 } from '../api/types'
 
@@ -19,7 +19,7 @@ export function qs(params: Params = {}): string {
 const base = (ws: string, path: string, params?: Params) => `/workspaces/${ws}${path}${qs(params)}`
 
 /** Everything that can change after an observation, issue, task or recommendation action. */
-const DATA = new Set(['assets', 'asset', 'timeline', 'observations', 'issues', 'issue', 'tasks', 'task', 'recommendations', 'dashboard', 'map', 'evidence'])
+const DATA = new Set(['assets', 'asset', 'timeline', 'observations', 'issues', 'issue', 'tasks', 'task', 'recommendations', 'dashboard', 'map', 'evidence', 'agent-runs'])
 export function refreshWorkspaceData(qc: QueryClient, ws: string) {
   return qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === ws && DATA.has(String(q.queryKey[1])) })
 }
@@ -60,6 +60,9 @@ export const useTasks = (ws: string, params: Params) =>
 
 export const useRecommendations = (ws: string, params: Params = { status: 'open' }) =>
   useQuery({ queryKey: [ws, 'recommendations', params], queryFn: () => api<Page<Recommendation>>(base(ws, '/recommendations', params)) })
+
+export const useAgentRuns = (ws: string, limit = 10) =>
+  useQuery({ queryKey: [ws, 'agent-runs', limit], queryFn: () => api<Page<AgentRunRecord>>(base(ws, '/agent/runs', { limit })), refetchInterval: 60_000 })
 
 export const useAgentRules = (ws: string) =>
   useQuery({ queryKey: [ws, 'agent-rules'], queryFn: () => api<RuleInfo[]>(base(ws, '/agent/rules')) })

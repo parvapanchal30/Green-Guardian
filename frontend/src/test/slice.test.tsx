@@ -14,14 +14,15 @@ const rec: Recommendation = {
   explanation: 'latest health score 22 is below the critical threshold 40 and the asset has no open issue',
   evidence: {}, proposed_action: { create: 'issue' }, severity: 'high', status: 'open', accepted_entity_type: null,
   accepted_entity_id: null, dismissed_reason: null, created_at: new Date().toISOString(), decided_at: null,
+  agent_run_id: null, rule_version: 1, outcome: null, outcome_at: null, outcome_detail: null,
 }
 
-function renderCard(canDecide: boolean) {
+function renderCard(canDecide: boolean, over: Partial<Recommendation> = {}) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter>
-        <ul><RecommendationCard rec={rec} ws="w1" canDecide={canDecide} /></ul>
+        <ul><RecommendationCard rec={{ ...rec, ...over }} ws="w1" canDecide={canDecide} /></ul>
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -99,5 +100,47 @@ describe('RecommendationCard', () => {
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toContain('/workspaces/w1/recommendations/r1/accept')
     expect(init.method).toBe('POST')
+  })
+})
+
+describe('RecommendationCard: irrigation advice and outcomes', () => {
+  const irrigation: Partial<Recommendation> = {
+    rule_key: 'irrigation_defer', severity: 'low', title: 'Consider deferring watering of Mango #7 (T-004): 14 mm rain forecast',
+    explanation: 'ADVISORY, based on a weather forecast and not on a measurement of soil moisture. 14 mm of rain is forecast.',
+    proposed_action: { create: 'defer_task', task_id: 't1' }, rule_version: 1,
+    evidence: { evaluated_at: '2026-10-18T06:00:00Z', rule: { key: 'irrigation_defer', version: 1 }, inputs: {
+      kind: 'advisory_forecast_based', forecast: { source: 'open-meteo', as_of: '2026-10-18T06:00:00Z' },
+      not_known: ['measured soil moisture (a coarse model estimate is shown, not a sensor reading)', 'observed rainfall (only a forecast is available)'],
+    } },
+  }
+  it('labels forecast-based advice as advisory and lists what the rule does not know', async () => {
+    renderCard(true, irrigation)
+    expect(screen.getByText(/Advisory · forecast-based/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Why?' }))
+    expect(screen.getByText(/a forecast is not a measurement of soil moisture/)).toBeInTheDocument()
+    expect(screen.queryByText(/this is not a prediction/)).not.toBeInTheDocument()
+    expect(screen.getByText('Not known to this rule:')).toBeInTheDocument()
+    expect(screen.getByText(/observed rainfall/)).toBeInTheDocument()
+    expect(screen.getByText(/Forecast source: open-meteo/)).toBeInTheDocument()
+    expect(screen.queryByText(/\.\./)).not.toBeInTheDocument() // no doubled full stop after an explanation that already ends in one
+  })
+  it('offers to postpone the watering task, never to water or skip it automatically', () => {
+    renderCard(true, irrigation)
+    expect(screen.getByRole('button', { name: 'Accept: postpone the watering task' })).toBeInTheDocument()
+  })
+  it('shows the outcome and hides the actions once the advice has been acted on', () => {
+    renderCard(true, { ...irrigation, status: 'accepted', outcome: 'deferral_applied', outcome_at: '2026-10-18T07:00:00Z', outcome_detail: 'task T-004 due date moved to 2026-10-19T12:00:00+00:00' })
+    expect(screen.getByText('Task postponed')).toBeInTheDocument()
+    expect(screen.getByText(/due date moved to/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Accept/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Dismiss' })).not.toBeInTheDocument()
+  })
+  it('shows why a dismissed or expired suggestion is no longer open', () => {
+    const { unmount } = renderCard(true, { status: 'dismissed', dismissed_reason: 'Hand-watering anyway' })
+    expect(screen.getByText(/Dismissed: Hand-watering anyway/)).toBeInTheDocument()
+    unmount()
+    renderCard(true, { status: 'expired' })
+    expect(screen.getByText('Expired')).toBeInTheDocument()
+    expect(screen.queryByText(/A manager decides/)).not.toBeInTheDocument()
   })
 })
