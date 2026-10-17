@@ -50,8 +50,24 @@ class Settings(BaseSettings):
     access_token_ttl_minutes: int = 15
     refresh_token_ttl_days: int = 30
 
+    # Brute-force protection (identity/throttle.py). Failures are counted per window; reaching a limit locks that key
+    # for `auth_lockout_s`, after which counters start fresh. Pair = this email from this address; account = this
+    # email from anywhere (deliberately higher, so one attacker cannot lock a victim out); ip = any email from this
+    # address.
+    auth_failure_window_s: int = 900
+    auth_lockout_s: int = 900
+    auth_login_max_failures_pair: int = 5
+    auth_login_max_failures_account: int = 15
+    auth_login_max_failures_ip: int = 30
+    auth_refresh_max_failures_ip: int = 30
+    auth_register_max_per_ip: int = 10  # attempts per `auth_register_window_s`
+    auth_register_window_s: int = 3600
+
     # --- http ---
     cors_origins: list[str] = ["http://localhost:5173"]
+    # Reverse proxies in front of the API. 0 = use the socket peer address; N = trust the Nth entry from the right of
+    # X-Forwarded-For. Leave at 0 unless a proxy you control sets that header (otherwise clients can spoof it).
+    trusted_proxy_count: int = 0
 
     # --- weather (behind an abstraction; see app/modules/weather) ---
     # Key of a registered provider (app/modules/weather/registry.py); validated at application startup.
@@ -96,9 +112,13 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _prod_guards(self) -> Settings:
+        # A signing key is required wherever real data may be reachable (development talks to a hosted database too).
+        if self.env != "test" and len(self.jwt_secret) < 32:
+            raise ValueError(
+                "JWT_SECRET must be at least 32 characters. Generate one with: "
+                'python -c "import secrets; print(secrets.token_urlsafe(48))"'
+            )
         if self.env == "production":
-            if len(self.jwt_secret) < 32:
-                raise ValueError("JWT_SECRET must be at least 32 characters in production")
             if self.weather_provider == "mock":
                 raise ValueError("WEATHER_PROVIDER=mock is not allowed in production")
             if self.storage_provider == "memory":

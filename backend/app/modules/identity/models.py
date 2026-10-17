@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Uuid
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.orm import Base, IdMixin, TimestampMixin
@@ -37,4 +37,17 @@ class RefreshTokenRow(IdMixin, Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
-__all__ = ["User", "Organization", "RefreshTokenRow", "Uuid"]
+class AuthThrottle(Base):
+    """Failure counters for brute-force protection (see identity/throttle.py). Global, not tenant-scoped. Keys are
+    hashed (accounts) or addresses (IPs); no plaintext email is ever stored here."""
+
+    __tablename__ = "auth_throttle"
+
+    key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    window_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+__all__ = ["User", "Organization", "RefreshTokenRow", "AuthThrottle", "Uuid"]

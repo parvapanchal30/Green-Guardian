@@ -12,6 +12,7 @@ from app.core.pagination import Page, PageParams
 from app.core.timeutil import as_utc, utcnow
 from app.modules.assets.service import get_asset
 from app.modules.assets.state import apply_observation
+from app.modules.audit import service as audit
 from app.modules.intelligence import runner
 from app.modules.intelligence.schemas import RecommendationOut
 
@@ -64,6 +65,14 @@ def create_observation(
     )
     db.add(obs)
     db.flush()
+    audit.record_ctx(
+        db,
+        ctx,
+        "observation.create",
+        target_type="observation",
+        target_id=obs.id,
+        details={"asset_id": asset.id, "kind": obs.kind, "health_score": obs.health_score},
+    )
     apply_observation(db, obs)  # update the asset's current state in the same transaction
     _, recs = runner.evaluate(db, ctx, asset_ids=[asset.id], now=now)  # DETECT: rule-based checks, right away
     if commit:

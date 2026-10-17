@@ -10,6 +10,7 @@ from app.core.deps import WorkspaceContext
 from app.core.errors import Conflict, NotFound
 from app.core.pagination import Page, PageParams
 from app.core.schemas import SmallDict, StrictModel
+from app.modules.audit import service as audit
 
 from .models import Species, SpeciesCategory
 
@@ -86,5 +87,14 @@ def create_species(db: Session, ctx: WorkspaceContext, data: SpeciesCreate) -> S
         attributes=data.attributes,
     )
     db.add(s)
+    db.flush()
+    audit.record_ctx(
+        db,
+        ctx,
+        "species.create",
+        target_type="species",
+        target_id=s.id,
+        details={"name": s.common_name, "category": s.category},
+    )
     db.commit()
     return s

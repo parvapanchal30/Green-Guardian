@@ -56,6 +56,7 @@ ENDPOINTS = [
     ("GET", "/api/v1/workspaces/{ws}/evidence/{evidence_id}", None),
     ("GET", "/api/v1/workspaces/{ws}/evidence/{evidence_id}/content", None),
     ("DELETE", "/api/v1/workspaces/{ws}/evidence/{evidence_id}", None),
+    ("GET", "/api/v1/workspaces/{ws}/audit", None),
     ("GET", "/api/v1/workspaces/{ws}/map/layers", None),
     ("GET", "/api/v1/workspaces/{ws}/map/layers/{layer}", None),
     # botanical operations agent

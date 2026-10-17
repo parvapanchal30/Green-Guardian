@@ -10,6 +10,7 @@ from app.core.deps import WorkspaceContext
 from app.core.errors import NotFound
 from app.core.pagination import Page, PageParams
 from app.core.schemas import SmallDict, StrictModel
+from app.modules.audit import service as audit
 
 from .models import Location, LocationKind
 
@@ -65,6 +66,15 @@ def create_location(db: Session, ctx: WorkspaceContext, data: LocationCreate) ->
         attributes=data.attributes,
     )
     db.add(loc)
+    db.flush()
+    audit.record_ctx(
+        db,
+        ctx,
+        "location.create",
+        target_type="location",
+        target_id=loc.id,
+        details={"name": loc.name, "kind": loc.kind},
+    )
     db.commit()
     return loc
 

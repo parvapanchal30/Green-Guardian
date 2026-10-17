@@ -11,6 +11,7 @@ from app.core.pagination import Page, PageParams
 from app.core.timeutil import utcnow
 from app.modules.assets.service import get_asset
 from app.modules.assets.state import refresh_counts
+from app.modules.audit import service as audit
 from app.modules.issues.service import get_issue
 from app.modules.locations.service import get_location
 from app.modules.observations.models import ObservationKind
@@ -119,6 +120,21 @@ def create_task_entity(
 
 def create_task(db: Session, ctx: WorkspaceContext, data: TaskCreate) -> TaskDetail:
     task = create_task_entity(db, ctx, data)
+    audit.record_ctx(
+        db,
+        ctx,
+        "task.create",
+        target_type="task",
+        target_id=task.id,
+        details={
+            "key": task.key,
+            "type": task.type,
+            "priority": task.priority,
+            "asset_id": task.asset_id,
+            "issue_id": task.issue_id,
+            "assignee_id": task.assignee_id,
+        },
+    )
     db.commit()
     return detail(db, ctx, task)
 
@@ -204,6 +220,9 @@ def update_task(db: Session, ctx: WorkspaceContext, task_id: uuid.UUID, data: Ta
     if changes:
         task.version += 1
         _history(db, ctx, task, task.status, task.status, "; ".join(changes))  # audited like a state change
+        audit.record_ctx(
+            db, ctx, "task.update", target_type="task", target_id=task.id, details={"key": task.key, "changes": changes}
+        )
     db.commit()
     return detail(db, ctx, task)
 
@@ -255,5 +274,18 @@ def transition(db: Session, ctx: WorkspaceContext, task_id: uuid.UUID, data: Tas
         )
     if task.asset_id:
         refresh_counts(db, ctx.workspace_id, task.asset_id)
+    audit.record_ctx(
+        db,
+        ctx,
+        "task.transition",
+        target_type="task",
+        target_id=task.id,
+        details={
+            "key": task.key,
+            "from": from_status,
+            "to": to_status,
+            "follow_up_observation": data.observation is not None,
+        },
+    )
     db.commit()
     return detail(db, ctx, task)

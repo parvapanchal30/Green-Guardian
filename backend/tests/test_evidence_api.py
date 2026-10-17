@@ -250,8 +250,9 @@ def test_a_database_failure_removes_the_blob(up, team, asset, world, monkeypatch
         raise Boom("database write failed")
 
     monkeypatch.setattr(evidence_service, "Evidence", broken)
-    with pytest.raises(Boom):
-        up(team.worker, asset["id"])
+    r = up(team.worker, asset["id"])
+    # An unexpected failure becomes a generic 500 carrying the request ID (no internals), and the blob is still removed.
+    assert r.status_code == 500 and r.json()["code"] == "internal_error" and "database write failed" not in r.text
     assert not world.store.objects  # no orphan blob
     monkeypatch.undo()
     assert count_rows(world) == 0

@@ -12,6 +12,7 @@ from app.core.timeutil import utcnow
 from app.modules.assets.models import BiologicalAsset
 from app.modules.assets.service import get_asset
 from app.modules.assets.state import refresh_counts
+from app.modules.audit import service as audit
 from app.modules.locations.service import get_location
 from app.modules.observations.models import Observation
 from app.modules.observations.schemas import ObservationOut
@@ -214,6 +215,14 @@ def create_issue_entity(
 
 def create_issue(db: Session, ctx: WorkspaceContext, data: IssueCreate) -> IssueDetail:
     issue = create_issue_entity(db, ctx, data)
+    audit.record_ctx(
+        db,
+        ctx,
+        "issue.create",
+        target_type="issue",
+        target_id=issue.id,
+        details={"key": issue.key, "severity": issue.severity, "category": issue.category, "asset_id": issue.asset_id},
+    )
     db.commit()
     return detail(db, ctx, issue)
 
@@ -288,6 +297,14 @@ def update_issue(db: Session, ctx: WorkspaceContext, issue_id: uuid.UUID, data: 
         issue.version += 1
         # Field changes are audited as a history row whose from_state equals to_state.
         _history(db, ctx, issue, issue.state, issue.state, "; ".join(changes))
+        audit.record_ctx(
+            db,
+            ctx,
+            "issue.update",
+            target_type="issue",
+            target_id=issue.id,
+            details={"key": issue.key, "changes": changes},
+        )
     db.commit()
     return detail(db, ctx, issue)
 
@@ -374,6 +391,19 @@ def transition(db: Session, ctx: WorkspaceContext, issue_id: uuid.UUID, data: Is
             issue.asset_id,
             resolved_at=now if wf.is_terminal(to_state) and to_state in wf.success else None,
         )
+    audit.record_ctx(
+        db,
+        ctx,
+        "issue.transition",
+        target_type="issue",
+        target_id=issue.id,
+        details={
+            "key": issue.key,
+            "from": from_state,
+            "to": to_state,
+            "resolution": data.resolution.outcome.value if data.resolution else None,
+        },
+    )
     db.commit()
     return detail(db, ctx, issue)
 
@@ -388,6 +418,14 @@ def add_evidence(db: Session, ctx: WorkspaceContext, issue_id: uuid.UUID, observ
     if issue.asset_id and obs.asset_id != issue.asset_id:
         raise Unprocessable("observation belongs to a different asset", code="observation_asset_mismatch")
     _link_evidence(db, ctx, issue, obs.id)
+    audit.record_ctx(
+        db,
+        ctx,
+        "issue.evidence_add",
+        target_type="issue",
+        target_id=issue.id,
+        details={"key": issue.key, "observation_id": obs.id},
+    )
     db.commit()
     return detail(db, ctx, issue)
 

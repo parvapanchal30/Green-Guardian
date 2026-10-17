@@ -10,6 +10,7 @@ from app.core.deps import WorkspaceContext
 from app.core.errors import Conflict, NotFound
 from app.core.pagination import Page, PageParams
 from app.core.timeutil import utcnow
+from app.modules.audit import service as audit
 from app.modules.catalog.models import Species
 from app.modules.catalog.service import get_visible_species
 from app.modules.issues.models import Issue, IssueStatusHistory
@@ -91,6 +92,9 @@ def _check_tag_free(
         raise Conflict(f"tag_code {tag_code!r} is already used in this workspace", code="tag_code_taken")
 
 
+AUDITED_FIELDS = ["label", "location_id", "species_id", "tag_code", "estimated_count", "latitude", "longitude", "notes"]
+
+
 def create_asset(db: Session, ctx: WorkspaceContext, data: AssetCreate) -> AssetOut:
     if data.location_id:
         get_location(db, ctx, data.location_id)
@@ -120,6 +124,14 @@ def create_asset(db: Session, ctx: WorkspaceContext, data: AssetCreate) -> Asset
         db.rollback()
         raise Conflict("tag_code is already used in this workspace", code="tag_code_taken") from e
     ensure_state(db, ctx.workspace_id, asset.id)
+    audit.record_ctx(
+        db,
+        ctx,
+        "asset.create",
+        target_type="asset",
+        target_id=asset.id,
+        details={"label": asset.label, "kind": asset.kind, "location_id": asset.location_id},
+    )
     db.commit()
     return profile(db, ctx, asset)
 
@@ -175,6 +187,7 @@ def list_assets(
 
 def update_asset(db: Session, ctx: WorkspaceContext, asset_id: uuid.UUID, data: AssetUpdate) -> AssetOut:
     asset = get_asset(db, ctx, asset_id)
+    before = {f: getattr(asset, f) for f in AUDITED_FIELDS}
     sent = data.model_fields_set
     if "location_id" in sent:
         if data.location_id:
@@ -203,6 +216,9 @@ def update_asset(db: Session, ctx: WorkspaceContext, asset_id: uuid.UUID, data: 
         asset.attributes = data.attributes
     if "notes" in sent:
         asset.notes = data.notes
+    changed = audit.changes(before, {f: getattr(asset, f) for f in AUDITED_FIELDS}, AUDITED_FIELDS)
+    if changed:
+        audit.record_ctx(db, ctx, "asset.update", target_type="asset", target_id=asset.id, details={"changes": changed})
     db.commit()
     return profile(db, ctx, asset)
 
@@ -211,6 +227,7 @@ def archive_asset(db: Session, ctx: WorkspaceContext, asset_id: uuid.UUID) -> No
     """Soft delete: history (observations, issues, tasks) is preserved."""
     asset = get_asset(db, ctx, asset_id)
     asset.archived_at = utcnow()
+    audit.record_ctx(db, ctx, "asset.archive", target_type="asset", target_id=asset.id, details={"label": asset.label})
     db.commit()
 
 

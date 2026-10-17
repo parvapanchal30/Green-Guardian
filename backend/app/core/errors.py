@@ -7,6 +7,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from .request_context import REQUEST_ID_HEADER, current_request_id
+
 PROBLEM = "application/problem+json"
 
 
@@ -14,12 +16,20 @@ class AppError(Exception):
     status = 400
     code = "bad_request"
 
-    def __init__(self, detail: str = "", *, code: str | None = None, extra: dict | None = None):
+    def __init__(
+        self,
+        detail: str = "",
+        *,
+        code: str | None = None,
+        extra: dict | None = None,
+        headers: dict[str, str] | None = None,
+    ):
         super().__init__(detail)
         self.detail = detail or self.code
         if code:
             self.code = code
         self.extra = extra or {}
+        self.headers = headers or {}
 
 
 class Unauthorized(AppError):
@@ -40,6 +50,10 @@ class Unprocessable(AppError):
 
 class Conflict(AppError):
     status, code = 409, "conflict"
+
+
+class TooManyRequests(AppError):
+    status, code = 429, "too_many_requests"
 
 
 class PayloadTooLarge(AppError):
@@ -66,9 +80,11 @@ def _problem(request: Request, status: int, code: str, detail: str, **extra) -> 
         "code": code,
         "detail": detail,
         "instance": request.url.path,
+        "request_id": current_request_id(),
         **extra,
     }
-    return JSONResponse(body, status_code=status, media_type=PROBLEM)
+    headers = {REQUEST_ID_HEADER: body["request_id"]} if body["request_id"] else None
+    return JSONResponse(body, status_code=status, media_type=PROBLEM, headers=headers)
 
 
 def install_error_handlers(app: FastAPI) -> None:
@@ -78,6 +94,7 @@ def install_error_handlers(app: FastAPI) -> None:
         resp = _problem(request, exc.status, exc.code, exc.detail, **exc.extra)
         if headers:
             resp.headers.update(headers)
+        resp.headers.update(exc.headers)
         return resp
 
     @app.exception_handler(RequestValidationError)

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import WorkspaceContext
 from app.core.errors import Conflict, Forbidden, NotFound
+from app.modules.audit import service as audit
 from app.modules.identity.models import Organization, User
 from app.modules.identity.service import get_user_by_email
 
@@ -37,6 +38,15 @@ def create_workspace(db: Session, user: User, data: WorkspaceCreate) -> tuple[Wo
     db.add(ws)
     db.flush()
     db.add(Membership(workspace_id=ws.id, user_id=user.id, role=Role.OWNER.value))
+    audit.record(
+        db,
+        action="workspace.create",
+        workspace_id=ws.id,
+        actor_id=user.id,
+        target_type="workspace",
+        target_id=ws.id,
+        details={"mode": ws.mode, "name": ws.name},
+    )
     db.commit()
     return ws, Role.OWNER
 
@@ -53,12 +63,14 @@ def list_workspaces(db: Session, user: User) -> list[tuple[Workspace, Role]]:
 
 def update_workspace(db: Session, ctx: WorkspaceContext, data: WorkspaceUpdate) -> Workspace:
     ws = ctx.workspace
+    fields = sorted(data.model_fields_set & {"name", "timezone", "settings"})  # names only, never values
     if data.name is not None:
         ws.name = data.name.strip()
     if data.timezone is not None:
         ws.timezone = data.timezone
     if data.settings is not None:
         ws.settings = data.settings
+    audit.record_ctx(db, ctx, "workspace.update", target_type="workspace", target_id=ws.id, details={"fields": fields})
     db.commit()
     return ws
 
@@ -112,6 +124,7 @@ def add_member(db: Session, ctx: WorkspaceContext, email: str, role: Role) -> Me
     if exists:
         raise Conflict("User is already a member", code="already_member")
     db.add(Membership(workspace_id=ctx.workspace_id, user_id=user.id, role=role.value))
+    audit.record_ctx(db, ctx, "member.add", target_type="user", target_id=user.id, details={"role": role.value})
     db.commit()
     return MemberOut(user_id=user.id, email=user.email, name=user.name, role=role)
 
@@ -123,6 +136,14 @@ def change_member_role(db: Session, ctx: WorkspaceContext, user_id: uuid.UUID, r
     if current == Role.OWNER and role != Role.OWNER and _owner_count(db, ctx) <= 1:
         raise Conflict("A workspace must keep at least one owner", code="last_owner")
     m.role = role.value
+    audit.record_ctx(
+        db,
+        ctx,
+        "member.role_change",
+        target_type="user",
+        target_id=user_id,
+        details={"from": current.value, "to": role.value},
+    )
     db.commit()
     user = db.get(User, user_id)
     assert user is not None
@@ -136,4 +157,5 @@ def remove_member(db: Session, ctx: WorkspaceContext, user_id: uuid.UUID) -> Non
     if current == Role.OWNER and _owner_count(db, ctx) <= 1:
         raise Conflict("A workspace must keep at least one owner", code="last_owner")
     db.delete(m)
+    audit.record_ctx(db, ctx, "member.remove", target_type="user", target_id=user_id, details={"role": current.value})
     db.commit()

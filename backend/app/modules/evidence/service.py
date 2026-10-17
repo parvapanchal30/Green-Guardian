@@ -37,6 +37,7 @@ from app.core.ids import uuid7
 from app.core.pagination import Page, PageParams
 from app.core.timeutil import utcnow
 from app.modules.assets.service import get_asset
+from app.modules.audit import service as audit
 from app.modules.issues.service import get_issue
 from app.modules.observations.service import get_observation
 from app.modules.workspaces.models import Role
@@ -182,6 +183,21 @@ def upload(
         )
         db.add(ev)
         db.flush()
+        audit.record_ctx(
+            db,
+            ctx,
+            "evidence.upload",
+            target_type="evidence",
+            target_id=ev.id,
+            details={
+                "asset_id": asset.id,
+                "observation_id": observation_id,
+                "issue_id": issue_id,
+                "content_type": content_type,
+                "size_bytes": len(data),
+                "sha256": ev.sha256,
+            },
+        )
         db.commit()
     except BaseException:
         db.rollback()
@@ -252,4 +268,7 @@ def delete_evidence(db: Session, ctx: WorkspaceContext, evidence_id: uuid.UUID) 
         raise Forbidden("Only a manager or the uploader can remove evidence", code="insufficient_role")
     ev.deleted_at = utcnow()
     ev.deleted_by = ctx.user.id
+    audit.record_ctx(
+        db, ctx, "evidence.delete", target_type="evidence", target_id=ev.id, details={"asset_id": ev.asset_id}
+    )
     db.commit()

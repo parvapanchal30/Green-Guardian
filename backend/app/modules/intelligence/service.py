@@ -13,6 +13,7 @@ from app.core.deps import WorkspaceContext
 from app.core.errors import Conflict, NotFound, Unprocessable
 from app.core.pagination import Page, PageParams
 from app.core.timeutil import utcnow
+from app.modules.audit import service as audit
 from app.modules.issues.models import IssueCategory, IssueSource, Severity
 from app.modules.issues.schemas import IssueCreate
 from app.modules.issues.service import create_issue_entity
@@ -39,6 +40,14 @@ def get_recommendation(db: Session, ctx: WorkspaceContext, rec_id: uuid.UUID, *,
 
 def run(db: Session, ctx: WorkspaceContext) -> AgentRunOut:
     evaluated, created = runner.evaluate(db, ctx)
+    audit.record_ctx(
+        db,
+        ctx,
+        "agent.run",
+        target_type="workspace",
+        target_id=ctx.workspace_id,
+        details={"assets_evaluated": evaluated, "recommendations_created": len(created)},
+    )
     db.commit()
     cfg = runner.AgentSettings.from_workspace(ctx.workspace.settings)
     return AgentRunOut(
@@ -119,6 +128,14 @@ def accept(db: Session, ctx: WorkspaceContext, rec_id: uuid.UUID, data: AcceptRe
 
     rec.status = RecommendationStatus.ACCEPTED.value
     rec.decided_by, rec.decided_at = ctx.user.id, now
+    audit.record_ctx(
+        db,
+        ctx,
+        "recommendation.accept",
+        target_type="recommendation",
+        target_id=rec.id,
+        details={"rule": rec.rule_key, "created": rec.accepted_entity_type, "created_id": rec.accepted_entity_id},
+    )
     db.commit()
     return RecommendationOut.model_validate(rec)
 
@@ -130,5 +147,13 @@ def dismiss(db: Session, ctx: WorkspaceContext, rec_id: uuid.UUID, data: Dismiss
     rec.status = RecommendationStatus.DISMISSED.value
     rec.dismissed_reason = data.reason
     rec.decided_by, rec.decided_at = ctx.user.id, utcnow()
+    audit.record_ctx(
+        db,
+        ctx,
+        "recommendation.dismiss",
+        target_type="recommendation",
+        target_id=rec.id,
+        details={"rule": rec.rule_key, "reason": data.reason},
+    )
     db.commit()
     return RecommendationOut.model_validate(rec)

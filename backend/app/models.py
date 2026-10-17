@@ -2,9 +2,10 @@
 
 from app.core.orm import Base
 from app.modules.assets.models import AssetState, BiologicalAsset
+from app.modules.audit.models import AuditEvent
 from app.modules.catalog.models import Species
 from app.modules.evidence.models import Evidence
-from app.modules.identity.models import Organization, RefreshTokenRow, User
+from app.modules.identity.models import AuthThrottle, Organization, RefreshTokenRow, User
 from app.modules.intelligence.models import Recommendation
 from app.modules.issues.models import Issue, IssueObservation, IssueStatusHistory
 from app.modules.locations.models import Location
@@ -14,6 +15,8 @@ from app.modules.workspaces.models import Membership, Workspace
 
 __all__ = [
     "AssetState",
+    "AuditEvent",
+    "AuthThrottle",
     "Base",
     "BiologicalAsset",
     "Evidence",

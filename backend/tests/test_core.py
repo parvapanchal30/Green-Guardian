@@ -40,9 +40,20 @@ def test_settings_guards():
         Settings(env="production", jwt_secret="short", **base)
     with pytest.raises(ValueError):
         Settings(env="production", jwt_secret="x" * 40, weather_provider="mock", **base)
-    with pytest.raises(ValueError):
-        Settings(postgis_schema="extensions; DROP TABLE users", **base)
+    with pytest.raises(ValueError, match="POSTGIS_SCHEMA"):
+        Settings(postgis_schema="extensions; DROP TABLE users", jwt_secret="x" * 40, **base)
     assert Settings(env="production", jwt_secret="x" * 40, **base).weather_provider == "open_meteo"
+
+
+def test_a_signing_secret_is_required_outside_tests(monkeypatch):
+    monkeypatch.delenv("JWT_SECRET", raising=False)
+    for env in ("development", "production"):
+        with pytest.raises(ValueError, match="JWT_SECRET must be at least 32"):
+            Settings(env=env, jwt_secret="", _env_file=None)
+        with pytest.raises(ValueError, match="JWT_SECRET must be at least 32"):
+            Settings(env=env, jwt_secret="too-short", _env_file=None)
+    assert Settings(env="development", jwt_secret="x" * 32, _env_file=None).env == "development"
+    assert Settings(env="test", jwt_secret="", _env_file=None).env == "test"  # the test harness may use any key"
 
 
 def test_passwords_and_refresh_tokens():
@@ -63,7 +74,7 @@ def test_capability_overrides_can_only_disable():
 
 
 def test_database_url_rejects_placeholder_brackets_around_password():
-    base = dict(_env_file=None)
+    base = dict(_env_file=None, jwt_secret="x" * 40)
     with pytest.raises(ValueError, match="brackets"):
         Settings(database_url="postgresql://postgres:[my-secret]@db.example.supabase.co:5432/postgres", **base)
     # a password that merely contains brackets in the middle is left alone (URL-encode it if it has specials)
@@ -73,11 +84,11 @@ def test_database_url_rejects_placeholder_brackets_around_password():
 
 def test_db_schema_must_be_a_simple_identifier():
     with pytest.raises(ValueError):
-        Settings(db_schema='x"; DROP SCHEMA public; --', _env_file=None)
+        Settings(db_schema='x"; DROP SCHEMA public; --', jwt_secret="x" * 40, _env_file=None)
 
 
 def test_app_schema_defaults_to_a_dedicated_schema_not_public():
-    s = Settings(_env_file=None)
+    s = Settings(jwt_secret="x" * 40, _env_file=None)
     assert s.db_schema == "greenguardian"
     assert s.db_schema != s.postgis_schema
 

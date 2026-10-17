@@ -8,7 +8,9 @@ from app.core.config import Settings, get_settings
 from app.core.db import get_engine
 from app.core.errors import install_error_handlers
 from app.core.logging import configure_logging
+from app.core.middleware import RequestContextMiddleware
 from app.modules.assets.router import router as assets_router
+from app.modules.audit.router import router as audit_router
 from app.modules.catalog.router import router as catalog_router
 from app.modules.dashboard.router import router as dashboard_router
 from app.modules.evidence.router import router as evidence_router
@@ -51,7 +53,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["X-Request-ID", "Retry-After"],
     )
+    # Added last = outermost: every response (including CORS preflights and errors) carries the request ID.
+    app.add_middleware(RequestContextMiddleware, trusted_proxy_count=settings.trusted_proxy_count)
     install_error_handlers(app)
     validate_weather_provider(settings)
     validate_storage_provider(settings)
@@ -70,6 +75,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         dashboard_router,
         map_router,
         evidence_router,
+        audit_router,
     ):
         app.include_router(r, prefix=API_PREFIX)
 
