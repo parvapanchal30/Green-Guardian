@@ -16,6 +16,10 @@ RUN npm run build
 
 # ---- runtime stage: nginx as a non-root user (uid 101) listening on 8080
 FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime
+# Apply pending OS security fixes that are newer than the base image (the scan in CI gates this), then drop root again.
+USER root
+RUN apk upgrade --no-cache
+USER 101
 # The official image renders /etc/nginx/templates/*.template with the container's environment at start-up.
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
