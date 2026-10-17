@@ -26,8 +26,16 @@ def build_engine(settings: Settings) -> Engine:
         engine = create_engine(url, connect_args={"check_same_thread": False}, **extra)
 
         @event.listens_for(engine, "connect")
-        def _sqlite_fk(dbapi_conn, _):  # pragma: no cover - trivial
+        def _sqlite_connect(dbapi_conn, _):  # pragma: no cover - trivial
             dbapi_conn.execute("PRAGMA foreign_keys=ON")
+            # pysqlite's legacy transaction handling commits silently before SAVEPOINT, which would make a rollback
+            # after a savepoint keep earlier work. Take over BEGIN ourselves so SQLite rolls back like PostgreSQL does
+            # (SQLAlchemy's documented recipe for the pysqlite driver).
+            dbapi_conn.isolation_level = None
+
+        @event.listens_for(engine, "begin")
+        def _sqlite_begin(conn):  # pragma: no cover - trivial
+            conn.exec_driver_sql("BEGIN")
 
         return engine
 
