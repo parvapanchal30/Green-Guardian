@@ -70,6 +70,8 @@ export interface ProblemBody {
   detail: string
   status: number
   errors?: { loc: string[]; msg: string; type: string }[]
+  request_id?: string | null
+  retry_after_s?: number
 }
 
 // ---------------------------------------------------------------- vertical slice (assets -> observations -> issues -> tasks)

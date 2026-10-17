@@ -64,7 +64,7 @@ Conventions: `id uuid` (UUIDv7) PK; `workspace_id uuid NOT NULL REFERENCES works
 - Keyset pagination on `(created_at, id)`.
 - Retention: attachments referenced by history are never auto-deleted.
 
-## Implemented schema (migrations 0001–0004) — what actually exists
+## Implemented schema (migrations 0001–0005) — what actually exists
 
 Source of truth is the migration files and `alembic check` (clean against the live PostgreSQL schema). This section lists decisions that differ from, or refine, the design above.
 
@@ -82,3 +82,7 @@ Source of truth is the migration files and `alembic check` (clean against the li
 - **Indexes:** the ones the queries use are present (see `test_indexes_exist_for_the_real_query_patterns`); the advisor's "unindexed foreign key" INFO notices are accepted for now (see DATABASE_SETUP section 9).
 
 **`evidence` (0004, 2026-10-17):** one row per stored image. Columns: `workspace_id, asset_id` (composite FK, RESTRICT), optional `observation_id` and `issue_id` (composite FKs), `uploaded_by`, `storage_key` (unique, server-generated `{workspace}/{asset}/{id}.{ext}`), `original_filename` (display only), `content_type` (CHECK: jpeg/png/webp), `size_bytes`, `sha256`, `width`, `height`, `caption`, `created_at`, `deleted_at`/`deleted_by` (soft delete). RLS enabled. The bytes are not in the database; they live in the object store behind `ObjectStore`. The older `observations.attachments` JSON column (metadata references) is retained for compatibility and is no longer written by the UI.
+
+**`auth_throttle` (0005):** brute-force counters. `key` (PK; hashed email or address based, never a plaintext email), `failures`, `window_started_at`, `locked_until`, `updated_at`. Global (not tenant-scoped), RLS enabled.
+
+**`audit_events` (0005):** the append-only audit trail. `occurred_at`, nullable `workspace_id` and `actor_id` (foreign keys with RESTRICT: workspaces are archived and users anonymised, never deleted), `action`, `outcome` (CHECK success/failure/denied), `target_type`/`target_id`, `request_id`, `client_ip`, `user_agent`, `details` (JSONB, scrubbed). A `BEFORE UPDATE OR DELETE` trigger (`trg_audit_events_append_only`, the shared `gg_forbid_mutation()` function) rejects any change; indexes on workspace+time, actor+time, action+time, target and request ID. RLS enabled. TRUNCATE is not blocked by a row trigger; restrict it through database role privileges in production.

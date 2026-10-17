@@ -5,12 +5,24 @@ export class ProblemError extends Error {
   status: number
   code: string
   fieldErrors: { loc: string[]; msg: string }[]
-  constructor(status: number, code: string, detail: string, fieldErrors: { loc: string[]; msg: string }[] = []) {
+  /** Correlation ID of the failed request (also in the server logs and audit trail): quote it to support. */
+  requestId: string | null
+  /** For 429 responses: seconds until the caller may try again. */
+  retryAfterS: number | null
+  constructor(
+    status: number,
+    code: string,
+    detail: string,
+    fieldErrors: { loc: string[]; msg: string }[] = [],
+    extra: { requestId?: string | null; retryAfterS?: number | null } = {},
+  ) {
     super(detail)
     this.name = 'ProblemError'
     this.status = status
     this.code = code
     this.fieldErrors = fieldErrors
+    this.requestId = extra.requestId ?? null
+    this.retryAfterS = extra.retryAfterS ?? null
   }
 }
 
@@ -70,6 +82,10 @@ async function parseProblem(res: Response): Promise<ProblemError> {
     body.code ?? 'http_error',
     body.detail ?? res.statusText ?? 'Request failed',
     (body.errors ?? []).map((e) => ({ loc: e.loc, msg: e.msg })),
+    {
+      requestId: body.request_id ?? res.headers.get('X-Request-ID'),
+      retryAfterS: body.retry_after_s ?? (Number(res.headers.get('Retry-After')) || null),
+    },
   )
 }
 

@@ -6,7 +6,7 @@ Legend: done / in progress / next / later. A stage is "done" only when its accep
 
 | Stage | Scope | Depends on | Status |
 |---|---|---|---|
-| A Engineering foundation | auth hardening (throttling, verification, reset), request IDs, audit log, Dockerfiles, deployment and backup/restore docs | none | **partial**: CI, RLS, migrations, tenancy done; items listed open |
+| A Engineering foundation | auth hardening (throttling, verification, reset), request IDs, audit log, Dockerfiles, deployment and backup/restore docs | none | **mostly done**: CI, RLS, migrations, tenancy, throttling, request IDs, audit trail done (A2, 2026-10-17); open: verification/reset, Dockerfiles, deployment and backup docs |
 | B Core operations | assets, observations, issues, tasks, dashboard, map, **evidence (photos)**; still open: inspections and treatments as first-class records, reports, species lifecycle | A (mostly done) | **mostly done**; evidence landed 2026-10-17 |
 | C Botanical Operations Agent | scheduled evaluation, rule configuration and versioning, `irrigation_defer`, outcome verification, execution tracking | B | **partial**: rules and manual runs exist; scheduler next |
 | D Data and ML foundations | dataset catalog and licences, labelling workflow, versioned splits, evaluation harness, data-quality checks | B (evidence), C | **next after C starts**; needs real labelled data decisions |

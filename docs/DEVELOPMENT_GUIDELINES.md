@@ -57,3 +57,12 @@ Frontend + backend + database + validation + error handling + loading/empty stat
 
 ## Testing modes
 `TEST_DATABASE_URL` set → PostgreSQL mode (isolated schema per session, savepoint rollback per test). `GG_TEST_DB=sqlite` → fast logic mode, PostgreSQL-only tests skipped and reported. CI sets `GG_REQUIRE_POSTGRES_TESTS=1` so nothing can be skipped. New database tests must use the `world` / `pg_schema` fixtures, never open their own connection to a shared database.
+
+## Security and observability rules (2026-10-17)
+- **Every service function that changes state records an audit event** (`audit.record_ctx(...)`) before its commit, with an allow-listed `details` payload. Never pass request bodies, tokens, passwords or free-form secrets; changed-field *names* are preferred over values for personal data.
+- A new action name follows `noun.verb` (`asset.update`); add it to `docs/SECURITY.md` and a test that reads it back.
+- Never catch and swallow exceptions around the commit; a failed change must leave no audit row (tests assert this).
+- Log with structlog; the request ID is bound automatically. Do not log credentials or full emails.
+- New authentication-adjacent endpoints must use the throttle and must return identical responses for known and unknown identities.
+- Production proxy setups must set `TRUSTED_PROXY_COUNT`; leaving it at 0 behind a proxy makes every client share one address.
+- Tests that need a signing key use `env="test"`; every other environment requires `JWT_SECRET` (32+ characters).

@@ -26,8 +26,23 @@ export function EmptyState({ title, children, action }: { title: string; childre
   )
 }
 
+/** "5 minutes", "1 minute", "30 seconds" (rounded up so the person never retries too early). */
+export function waitText(seconds: number): string {
+  if (seconds < 60) {
+    const n = Math.max(1, Math.ceil(seconds))
+    return `${n} second${n === 1 ? '' : 's'}`
+  }
+  const m = Math.ceil(seconds / 60)
+  return `${m} minute${m === 1 ? '' : 's'}`
+}
+
 export function errorMessage(e: unknown): string {
-  if (e instanceof ProblemError) return e.message
+  if (e instanceof ProblemError) {
+    if (e.status === 429) return `Too many attempts. Please wait ${e.retryAfterS ? waitText(e.retryAfterS) : 'a little while'} and try again.`
+    // Server-side failures carry a reference the person can quote; it matches the logs and the audit trail.
+    if (e.status >= 500 && e.requestId) return `${e.message} (reference ${e.requestId})`
+    return e.message
+  }
   return e instanceof Error ? e.message : 'Something went wrong'
 }
 

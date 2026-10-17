@@ -101,3 +101,9 @@ Database: a hosted PostgreSQL+PostGIS project (Supabase by default) — see `doc
 - **Transactions:** a service use case ends with one `commit()`; sessions run with `autoflush=False`, so code that must see its own pending changes (projection counts, agent snapshots) flushes explicitly.
 - **Test strategy:** the full API suite runs on PostgreSQL in CI. Locally, `GG_TEST_DB=sqlite` (or no `TEST_DATABASE_URL`) is an explicit, reported fast mode for logic iteration; PostgreSQL-only tests (integrity, RLS, PostGIS, smoke) are skipped visibly there. Against a distant hosted database (~130 ms/round trip) only the database-integrity tests, the migration/RLS tests and a compact end-to-end smoke test are run (ADR-026).
 - **CI:** see `.github/workflows/ci.yml` (ADR-027).
+
+## Cross-cutting services (2026-10-17)
+- **Request context** (`core/request_context.py`, `core/middleware.py`): a pure-ASGI middleware assigns or validates the request ID, resolves the client address (trusting `X-Forwarded-For` only as configured), stores both in `contextvars`, adds `X-Request-ID` to the response, writes one structured access-log line, and converts unhandled exceptions into a generic 500 while the context is still set. Services and loggers read the context without being passed a Request.
+- **Throttling** (`modules/identity/throttle.py`): database-backed counters consulted by the identity service before credential checks.
+- **Audit** (`modules/audit`): `audit.record_ctx(db, ctx, action, ...)` adds a scrubbed row to the caller's session, so it commits atomically with the change. See `SECURITY.md` and ADR-034.
+Flow for a mutating request: `middleware (request id, client ip) -> router (auth, role) -> service (change + audit.record in one transaction) -> commit`.

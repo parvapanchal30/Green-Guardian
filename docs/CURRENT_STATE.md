@@ -12,7 +12,10 @@ Legend: **V** implemented and verified · **I** implemented, verification incomp
 
 | Area | Status | Evidence / notes |
 |---|---|---|
-| Identity: register, login, rotating refresh tokens, argon2id | V | `test_auth`; login throttling, email verification, password reset **not built** (P) |
+| Identity: register, login, rotating refresh tokens, argon2id | V | `test_auth`; email verification and password reset **not built** (P) |
+| Login/refresh/register throttling | V | `test_login_throttle` (16 tests incl. mutation-checked), ADR-032 |
+| Request correlation IDs (header, errors, logs, audit) | V | `test_request_id`, checked live on the dev backend, ADR-033 |
+| Audit trail (append-only, recorded in the business transaction, manager read API) | V | `test_audit_trail`; PostgreSQL trigger test; ADR-034 |
 | Workspaces, roles (viewer/worker/manager/owner), mode selection | V | `test_tenancy` matrix: every `{ws}` route must be listed and isolation-tested |
 | Row-Level Security, composite tenant FKs, append-only history triggers | V | migrations 0002/0004; `test_postgis`, `test_db_integrity` on PostgreSQL |
 | Locations (PostGIS centroid), species catalog, assets, `asset_states` projection | V | `test_assets_api`, `test_postgis` |
@@ -28,7 +31,7 @@ Legend: **V** implemented and verified · **I** implemented, verification incomp
 | Reports, exports, notifications | D | roadmap Stage N |
 | Scheduled worker, `irrigation_defer` rule | D | roadmap Stage C |
 | Dockerfiles, deployment, backup/restore procedure | D | roadmap Stage A/N |
-| Request IDs, audit log table, error tracking | N | only structlog today |
+| Error tracking service, log shipping, metrics | N | structured logs with request IDs only |
 | Datasets, labelling, experiments (Stage D) and every model (E-M) | N | nothing built, no dataset downloaded |
 
 ## Verification (what was actually run)
@@ -37,11 +40,12 @@ Legend: **V** implemented and verified · **I** implemented, verification incomp
 - Not verified: the full API suite on PostgreSQL after migration 0004 in CI; production deployment (none exists); anything involving a trained model (none exists).
 
 ## Environment notes
-Windows dev machine, Python 3.13, Node 24, no Docker and no local PostgreSQL. The dev database is Supabase (PostgreSQL 17, PostGIS 3.3.7 in schema `extensions`, application schema `greenguardian`). **Run `alembic upgrade head` against your dev database to get migration 0004 (`evidence`).** Evidence files are stored under `backend/var/storage` by default (gitignored).
+Windows dev machine, Python 3.13, Node 24, no Docker and no local PostgreSQL. The dev database is Supabase (PostgreSQL 17, PostGIS 3.3.7 in schema `extensions`, application schema `greenguardian`). Migrations through `0005` (evidence, auth throttle, audit trail) are applied to the dev database. `JWT_SECRET` (32+ characters) is now required outside tests. Evidence files are stored under `backend/var/storage` by default (gitignored).
 
 ## Known limitations and defects
-- Auth hardening open (throttling, verification, reset; refresh token in `sessionStorage`).
-- No request correlation IDs or audit-log table; no backup/restore documentation.
+- Auth hardening open: email verification, password reset; refresh token in `sessionStorage`.
+- Audit: no 403 access-denied events, no retention/export, no UI; no backup/restore documentation yet.
+- Behind a reverse proxy `TRUSTED_PROXY_COUNT` must be set, otherwise all clients share one address for throttling and audit.
 - Photos are stored as received (EXIF kept for evidence integrity, including any GPS tags); no thumbnails, so galleries load full images (<= 10 MB each).
 - Soft-deleted evidence keeps its blob until a purge job exists.
 - Map tiles use the public OpenStreetMap server (light use only): set `VITE_MAP_TILE_URL` before production.

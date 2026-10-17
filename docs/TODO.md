@@ -19,7 +19,7 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 ## Phase 1 — Identity & tenancy
 - [x] User/org/workspace/membership models + migrations
 - [x] Register/login/refresh/logout, argon2id, JWT
-- [ ] Auth hardening: login rate limiting, refresh-token reuse grace window or httpOnly cookie (duplicated-tab limitation), email verification, password reset
+- [x] Login rate limiting (2026-10-17); [ ] refresh-token reuse grace window or httpOnly cookie (duplicated-tab limitation), email verification, password reset
 - [x] WorkspaceContext dependency + RBAC + **tenant isolation test suite**
 - [x] Workspace create with mode selection; capabilities endpoint
 - [x] Frontend: auth, workspace switcher, app shell with mode-aware nav + future-surface routes
@@ -63,7 +63,8 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [x] `TEST_DATABASE_URL` (tests use a throwaway schema, never dev data)
 
 ## Next slice candidates (recommended order)
-- [ ] Stage A: login throttling, request IDs, audit log, Dockerfiles, backup/restore doc
+- [x] Stage A2: login throttling, request IDs, audit trail (2026-10-17)
+- [ ] Stage A3: Dockerfiles, deployment doc, backup/restore procedure, audit read UI and retention, 403 access-denied events
 - [ ] Stage C: scheduled agent worker, `irrigation_defer` rule, rule configuration and versioning
 - [x] Full API suite ran on PostgreSQL in CI (run 3)
 - [x] `GET /dashboard` and map read models
