@@ -17,7 +17,7 @@ vi.mock('../lib/auth', () => ({ useAuth: () => ({ user: state.userId ? { id: sta
 vi.mock('../lib/slice', () => ({
   useEvidence: () => state.list,
   useEvidenceBlob: () => state.blob,
-  useUploadEvidence: () => ({ mutate: state.upload, isPending: false, error: null }),
+  useUploadEvidence: () => ({ mutate: state.upload, reset: vi.fn(), isPending: false, error: null }),
   useDeleteEvidence: () => ({ mutate: state.remove, isPending: false, error: null }),
 }))
 
@@ -59,8 +59,11 @@ describe('api client multipart and blobs', () => {
   })
 
   it('fetches protected images as blobs and reports failures as problems', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(new Blob(['img'], { type: 'image/png' }), { status: 200 })))
-    expect(await apiBlob('/workspaces/w1/evidence/e1/content')).toBeInstanceOf(Blob)
+    // A string body keeps the test independent of jsdom's Blob vs Node's (undici) Blob, which differ across Node versions.
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('img', { status: 200, headers: { 'Content-Type': 'image/png' } })))
+    const blob = await apiBlob('/workspaces/w1/evidence/e1/content')
+    expect(blob.size).toBe(3)
+    expect(blob.type).toBe('image/png')
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{"code":"evidence_not_found","detail":"gone"}', { status: 404, headers: { 'Content-Type': 'application/json' } })))
     await expect(apiBlob('/x')).rejects.toMatchObject({ status: 404, code: 'evidence_not_found' })
   })
