@@ -140,20 +140,13 @@ jobs:
         run: |
           docker build -t greenguardian-backend:local ./backend
           docker build -t greenguardian-web:local ./frontend
-      - name: Scan backend image (HIGH/CRITICAL with a fix available)
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: greenguardian-backend:local
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: "1"
-      - name: Scan web image (HIGH/CRITICAL with a fix available)
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: greenguardian-web:local
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: "1"
+      # The scanner runs from its official container image at a pinned release (no third-party action involved).
+      - name: Scan images for known vulnerabilities (HIGH/CRITICAL with a fix available)
+        run: |
+          for img in greenguardian-backend:local greenguardian-web:local; do
+            echo "== $img"
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock ghcr.io/aquasecurity/trivy:0.76.0               image --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 --no-progress "$img"
+          done
       - name: Compose smoke test
         run: bash ops/smoke-compose.sh
 
@@ -187,6 +180,8 @@ jobs:
           sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
-          pg_dump --version
+          # Ubuntu's pg_dump wrapper picks the oldest installed client; put version 17 first explicitly.
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          /usr/lib/postgresql/17/bin/pg_dump --version
       - name: Backup, restore, verify, and prove the safeguards
         run: bash ops/ci-backup-restore.sh

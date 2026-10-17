@@ -68,4 +68,3 @@ def downgrade() -> None:
         "FOR EACH ROW EXECUTE FUNCTION gg_forbid_mutation()"
     )
     op.execute(f"DROP FUNCTION IF EXISTS {FUNCTION}()")
-
