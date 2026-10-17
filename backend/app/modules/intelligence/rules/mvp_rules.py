@@ -6,12 +6,18 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from .base import AssetSnapshot, Finding
+from .base import AssetSnapshot, Finding, Skip
 
 
 @dataclass(frozen=True)
 class InspectionGap:
-    """RULE: no observation for more than `max_days` -> recommend an inspection task."""
+    """RULE (v2): nobody has looked at the asset for more than `max_days` -> recommend an inspection task.
+
+    "Looked at" means the most recent of: an observation, a completed inspection task, or activity on one of the asset's
+    issues (a status change). So work that was done but left no observation, or an issue that is being worked, is not
+    nagged about, while a forgotten open issue does not suppress the reminder forever. Assets registered within the
+    interval and assets with an open inspection task are skipped. The evidence records every date used.
+    """
 
     max_days: int = 21
     key: str = "inspection_gap"
@@ -21,24 +27,47 @@ class InspectionGap:
         for a in assets:
             if a.has_open_inspection_task:
                 continue  # somebody is already on it; do not nag
-            if a.last_observed_at is None:
-                if a.registered_at is not None and (now - a.registered_at) <= timedelta(days=self.max_days):
-                    continue  # registered recently: nothing is overdue yet
-                gap_text = "has never been observed"
-            else:
-                gap = now - a.last_observed_at
+            signals = {
+                "observation": a.last_observed_at,
+                "completed inspection task": a.last_inspection_completed_at,
+                "issue activity": a.last_issue_activity_at,
+            }
+            present = {k: v for k, v in signals.items() if v is not None}
+            if present:
+                basis, last = max(present.items(), key=lambda kv: kv[1])
+                gap = now - last
                 if gap <= timedelta(days=self.max_days):
                     continue
-                gap_text = f"has not been observed for {gap.days} days (limit {self.max_days})"
+                days = gap.days
+                headline = f"has not been looked at for {days} days (limit {self.max_days})"
+                detail = f"last attention: {basis} on {last.date().isoformat()}, {days} days ago"
+            else:
+                if a.registered_at is not None and (now - a.registered_at) <= timedelta(days=self.max_days):
+                    continue  # registered recently: nothing is overdue yet
+                last, days, basis = None, None, "registration"
+                headline = "has never been observed"
+                detail = "no observation, completed inspection or issue activity is recorded"
+            overdue_days = None if days is None else days - self.max_days
             out.append(
                 Finding(
                     rule_key=self.key,
                     method="rule",
                     subject_ids=(a.asset_id,),
-                    title=f"{a.label} {gap_text}",
-                    explanation=f"last_observed_at older than {self.max_days} days",
-                    severity="medium",
+                    title=f"{a.label} {headline}",
+                    explanation=f"{detail}; the inspection interval is {self.max_days} days and no inspection task "
+                    "is open",
+                    severity="high" if days is not None and days > 2 * self.max_days else "medium",
                     proposed_action={"create": "task", "type": "inspect", "asset_id": a.asset_id},
+                    evidence={
+                        "interval_days": self.max_days,
+                        "basis": basis,
+                        "last_attention_at": last.isoformat() if last else None,
+                        "days_since": days,
+                        "days_overdue": overdue_days,
+                        "signals": {k: v.isoformat() for k, v in present.items()},
+                        "open_inspection_task": False,
+                        "open_issues": a.open_issue_count,
+                    },
                 )
             )
         return out
@@ -155,13 +184,23 @@ class CriticalHealth:
 DEFAULT_RULES = (CriticalHealth(), HealthDecline(), InspectionGap(), SymptomCluster())
 
 
-def run_agent(assets: list[AssetSnapshot], now: datetime, rules=DEFAULT_RULES) -> list[Finding]:
-    """Evaluate all rules; drop duplicate dedupe_keys (first wins)."""
+def run_agent_detailed(
+    assets: list[AssetSnapshot], now: datetime, rules=DEFAULT_RULES
+) -> tuple[list[Finding], list[Skip]]:
+    """Evaluate all rules. Returns the findings (duplicate dedupe_keys dropped, first wins; at most one "create issue"
+    proposal per asset) and what rules deliberately skipped (for the run record)."""
     seen: set[str] = set()
-    issue_proposed_for: set[str] = set()  # at most one "create issue" proposal per asset per run
+    issue_proposed_for: set[str] = set()
     out: list[Finding] = []
+    skips: list[Skip] = []
     for rule in rules:
-        for f in rule.evaluate(assets, now):
+        detailed = getattr(rule, "evaluate_detailed", None)
+        if detailed is not None:
+            found, skipped = detailed(assets, now)
+            skips.extend(skipped)
+        else:
+            found = rule.evaluate(assets, now)
+        for f in found:
             if f.dedupe_key in seen:
                 continue
             if f.proposed_action.get("create") == "issue" and len(f.subject_ids) == 1:
@@ -170,4 +209,9 @@ def run_agent(assets: list[AssetSnapshot], now: datetime, rules=DEFAULT_RULES) -
                 issue_proposed_for.add(f.subject_ids[0])
             seen.add(f.dedupe_key)
             out.append(f)
-    return out
+    return out, skips
+
+
+def run_agent(assets: list[AssetSnapshot], now: datetime, rules=DEFAULT_RULES) -> list[Finding]:
+    """Findings only (see `run_agent_detailed`)."""
+    return run_agent_detailed(assets, now, rules)[0]

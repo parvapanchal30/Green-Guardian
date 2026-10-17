@@ -13,6 +13,8 @@ from app.modules.assets.models import BiologicalAsset
 from app.modules.assets.service import get_asset
 from app.modules.assets.state import refresh_counts
 from app.modules.audit import service as audit
+from app.modules.intelligence.models import Outcome
+from app.modules.intelligence.outcomes import record_outcome
 from app.modules.locations.service import get_location
 from app.modules.observations.models import Observation
 from app.modules.observations.schemas import ObservationOut
@@ -390,6 +392,15 @@ def transition(db: Session, ctx: WorkspaceContext, issue_id: uuid.UUID, data: Is
             ctx.workspace_id,
             issue.asset_id,
             resolved_at=now if wf.is_terminal(to_state) and to_state in wf.success else None,
+        )
+    if wf.is_terminal(to_state):  # follow-up for the suggestion behind it
+        record_outcome(
+            db,
+            ctx.workspace_id,
+            issue.recommendation_id,
+            Outcome.ISSUE_RESOLVED if to_state in wf.success else Outcome.ISSUE_CLOSED,
+            detail=f"issue {issue.key} {to_state}",
+            at=now,
         )
     audit.record_ctx(
         db,

@@ -69,6 +69,11 @@ class Settings(BaseSettings):
     # Identical access-denied events (same actor, route and reason) are recorded at most once per this many seconds.
     audit_denied_dedupe_s: int = 60
 
+    # --- background worker (python -m app.worker; app/modules/intelligence/scheduler.py) ---
+    worker_poll_interval_s: int = 60  # how often the worker looks for workspaces whose agent run is due
+    agent_stale_run_s: int = 1800  # a run still "running" after this long is presumed abandoned (crashed worker)
+    housekeeping_interval_s: int = 86_400  # audit retention and idle throttle counters
+
     # --- http ---
     cors_origins: list[str] = ["http://localhost:5173"]
     # Reverse proxies in front of the API. 0 = use the socket peer address; N = trust the Nth entry from the right of

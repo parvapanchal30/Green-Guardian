@@ -38,3 +38,10 @@ class WeatherContextProvider(Protocol):
     def context_for(self, latitude: float, longitude: float, now: datetime) -> WeatherContext | None:
         """Weather context, or None when it cannot be determined (provider down, no coverage). Must not raise."""
         ...
+
+
+def get_weather_context_provider() -> WeatherContextProvider | None:
+    """FastAPI dependency. The agent package imports no weather code (ADR-024), so it cannot build a provider itself:
+    the application's composition root (app/main.py) overrides this to supply the real adapter. With no override the
+    agent simply runs without weather (weather-dependent rules then stay silent)."""
+    return None

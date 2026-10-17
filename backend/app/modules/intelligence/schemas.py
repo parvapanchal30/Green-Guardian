@@ -28,6 +28,12 @@ class RecommendationOut(BaseModel):
     dismissed_reason: str | None
     created_at: datetime
     decided_at: datetime | None
+    # traceability and follow-up
+    agent_run_id: uuid.UUID | None = None
+    rule_version: int | None = None
+    outcome: str | None = None
+    outcome_at: datetime | None = None
+    outcome_detail: str | None = None
 
 
 class AcceptRecommendation(StrictModel):
@@ -49,8 +55,30 @@ class RuleInfo(BaseModel):
     parameters: dict
 
 
+class AgentRunRecord(BaseModel):
+    """One entry of the agent's execution history."""
+
+    id: uuid.UUID
+    trigger: str  # manual | scheduled
+    status: str  # running | succeeded | failed
+    requested_by: uuid.UUID | None
+    worker_id: str | None
+    started_at: datetime
+    finished_at: datetime | None
+    duration_s: float | None
+    evaluated_assets: int
+    findings: int
+    recommendations_created: int
+    recommendations_expired: int
+    rules: list[dict]
+    diagnostics: dict
+    error: str | None
+
+
 class AgentRunOut(BaseModel):
+    run: AgentRunRecord | None = None
     evaluated_assets: int
     created: list[RecommendationOut]
+    expired: int = 0
     rules: list[RuleInfo]
     note: str = "Rule-based checks on recorded data. No machine-learning or language-model output is produced."

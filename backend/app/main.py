@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
@@ -17,14 +17,17 @@ from app.modules.dashboard.router import router as dashboard_router
 from app.modules.evidence.router import router as evidence_router
 from app.modules.evidence.storage import UnknownStorageProvider, available_stores
 from app.modules.identity.router import router as identity_router
+from app.modules.intelligence.ports import WeatherContextProvider, get_weather_context_provider
 from app.modules.intelligence.router import router as intelligence_router
 from app.modules.issues.router import router as issues_router
 from app.modules.locations.router import router as locations_router
 from app.modules.map.router import router as map_router
 from app.modules.observations.router import router as observations_router
 from app.modules.tasks.router import router as tasks_router
+from app.modules.weather.context import ForecastWeatherContext
 from app.modules.weather.registry import UnknownWeatherProvider, available_providers
 from app.modules.weather.router import router as weather_router
+from app.modules.weather.service import WeatherService, get_weather_service
 from app.modules.workspaces.router import router as workspaces_router
 
 API_PREFIX = "/api/v1"
@@ -44,6 +47,12 @@ def validate_storage_provider(settings: Settings) -> None:
         )
 
 
+def _weather_context(service: WeatherService = Depends(get_weather_service)) -> WeatherContextProvider:
+    """Composition root: the agent asks for a WeatherContextProvider (its own port); we answer with the adapter over
+    whichever weather service/provider is configured (tests override `get_weather_service`)."""
+    return ForecastWeatherContext(service)
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level)
@@ -61,6 +70,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     install_error_handlers(app)
     audit_denied.install(app)  # records 403s, then answers exactly as before
     app.state.settings = settings
+    app.dependency_overrides[get_weather_context_provider] = _weather_context
     validate_weather_provider(settings)
     validate_storage_provider(settings)
 

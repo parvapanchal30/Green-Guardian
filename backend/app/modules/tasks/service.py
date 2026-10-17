@@ -12,6 +12,8 @@ from app.core.timeutil import utcnow
 from app.modules.assets.service import get_asset
 from app.modules.assets.state import refresh_counts
 from app.modules.audit import service as audit
+from app.modules.intelligence.models import Outcome
+from app.modules.intelligence.outcomes import record_outcome
 from app.modules.issues.service import get_issue
 from app.modules.locations.service import get_location
 from app.modules.observations.models import ObservationKind
@@ -66,6 +68,24 @@ def detail(db: Session, ctx: WorkspaceContext, task: Task) -> TaskDetail:
             for h in history
         ],
         allowed_transitions=list(workflow.allowed(task.status)),
+    )
+
+
+def reschedule_task(
+    db: Session, ctx: WorkspaceContext, task: Task, due_at, note: str, *, source: str = "manual"
+) -> None:
+    """Move an open task's due date. Recorded in the task history (as a same-status entry, like other field changes) so
+    the change is traceable; the caller commits and audits."""
+    old = task.due_at
+    task.due_at = due_at
+    task.version += 1
+    _history(
+        db,
+        ctx,
+        task,
+        task.status,
+        task.status,
+        f"{note} (due {old.isoformat() if old else 'unset'} -> {due_at.isoformat()})",
     )
 
 
@@ -274,6 +294,15 @@ def transition(db: Session, ctx: WorkspaceContext, task_id: uuid.UUID, data: Tas
         )
     if task.asset_id:
         refresh_counts(db, ctx.workspace_id, task.asset_id)
+    if to_status in (TaskStatus.DONE.value, TaskStatus.CANCELLED.value):  # follow-up for the suggestion behind it
+        record_outcome(
+            db,
+            ctx.workspace_id,
+            task.recommendation_id,
+            Outcome.TASK_COMPLETED if to_status == TaskStatus.DONE.value else Outcome.TASK_CANCELLED,
+            detail=f"task {task.key} {to_status}",
+            at=now,
+        )
     audit.record_ctx(
         db,
         ctx,

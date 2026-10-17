@@ -11,7 +11,15 @@ from app.core.pagination import Page, PageParams, page_params
 
 from . import runner, service
 from .models import RecommendationStatus
-from .schemas import AcceptRecommendation, AgentRunOut, DismissRecommendation, RecommendationOut, RuleInfo
+from .ports import WeatherContextProvider, get_weather_context_provider
+from .schemas import (
+    AcceptRecommendation,
+    AgentRunOut,
+    AgentRunRecord,
+    DismissRecommendation,
+    RecommendationOut,
+    RuleInfo,
+)
 
 router = APIRouter(prefix="/workspaces/{ws}", tags=["botanical-operations-agent"])
 
@@ -24,9 +32,27 @@ def agent_rules(ctx: WorkspaceContext = Depends(viewer_ctx)):
 
 
 @router.post("/agent/run", response_model=AgentRunOut)
-def run_agent(ctx: WorkspaceContext = Depends(manager_ctx), db: Session = Depends(get_db)):
-    """Evaluate every active asset now. Idempotent: an already-open recommendation is never duplicated."""
-    return service.run(db, ctx)
+def run_agent(
+    ctx: WorkspaceContext = Depends(manager_ctx),
+    db: Session = Depends(get_db),
+    weather: WeatherContextProvider | None = Depends(get_weather_context_provider),
+):
+    """Evaluate every active asset now (the same code as a scheduled run, recorded in the run history). Idempotent: an
+    already-open recommendation is never duplicated. 409 while another run is in progress."""
+    return service.run(db, ctx, weather)
+
+
+@router.get("/agent/runs", response_model=Page[AgentRunRecord])
+def list_runs(
+    page: PageParams = Depends(page_params), ctx: WorkspaceContext = Depends(viewer_ctx), db: Session = Depends(get_db)
+):
+    """Execution history (manual and scheduled runs), newest first."""
+    return service.list_runs(db, ctx, page)
+
+
+@router.get("/agent/runs/{run_id}", response_model=AgentRunRecord)
+def get_run(run_id: uuid.UUID, ctx: WorkspaceContext = Depends(viewer_ctx), db: Session = Depends(get_db)):
+    return service.get_run(db, ctx, run_id)
 
 
 @router.get("/recommendations", response_model=Page[RecommendationOut])

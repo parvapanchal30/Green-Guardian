@@ -63,6 +63,8 @@ ENDPOINTS = [
     # botanical operations agent
     ("GET", "/api/v1/workspaces/{ws}/agent/rules", None),
     ("POST", "/api/v1/workspaces/{ws}/agent/run", None),
+    ("GET", "/api/v1/workspaces/{ws}/agent/runs", None),
+    ("GET", "/api/v1/workspaces/{ws}/agent/runs/{run_id}", None),
     ("GET", "/api/v1/workspaces/{ws}/recommendations", None),
     ("POST", "/api/v1/workspaces/{ws}/recommendations/{recommendation_id}/accept", {}),
     ("POST", "/api/v1/workspaces/{ws}/recommendations/{recommendation_id}/dismiss", {"reason": "not now"}),

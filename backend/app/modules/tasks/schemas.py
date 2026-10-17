@@ -68,6 +68,7 @@ class TaskOut(BaseModel):
     priority: Priority
     status: TaskStatus
     source: TaskSource
+    recommendation_id: uuid.UUID | None = None  # the agent recommendation this task came from, if any
     due_at: datetime | None
     started_at: datetime | None
     completed_at: datetime | None

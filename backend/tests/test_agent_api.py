@@ -182,7 +182,7 @@ def test_thresholds_come_from_workspace_settings(api_for, team):
 def test_the_api_is_honest_about_what_the_agent_is(api_for, team):
     viewer = api_for(team.viewer)
     rules = viewer.get("/agent/rules").json()
-    assert {r["key"] for r in rules} == {"critical_health", "health_decline", "inspection_gap"}
+    assert {r["key"] for r in rules} == {"critical_health", "health_decline", "inspection_gap", "irrigation_defer"}
     assert {r["method"] for r in rules} <= {"rule", "statistical"}  # never "model" or "llm"
     run = api_for(team.manager).post("/agent/run").json()
     assert "No machine-learning or language-model output" in run["note"]

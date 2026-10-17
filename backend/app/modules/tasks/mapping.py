@@ -63,6 +63,7 @@ def load_task_outs(db: Session, workspace_id: uuid.UUID, tasks: list[Task]) -> l
             priority=Priority(t.priority),
             status=TaskStatus(t.status),
             source=TaskSource(t.source),
+            recommendation_id=t.recommendation_id,
             due_at=t.due_at,
             started_at=t.started_at,
             completed_at=t.completed_at,
