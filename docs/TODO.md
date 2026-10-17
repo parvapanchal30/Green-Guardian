@@ -68,12 +68,15 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [ ] Take and rehearse the first real backup of the Supabase database (needs PostgreSQL 17 client tools on a machine you control)
 - [ ] S3-compatible storage adapter (needed before running more than one API replica)
 - [ ] Choose a hosting provider and a map tile provider; decide the Open-Meteo commercial question (R-WX-1)
-- [ ] Stage C: scheduled agent worker, `irrigation_defer` rule, rule configuration and versioning
+- [x] Stage C (2026-10-18): scheduled agent worker, run history, `irrigation_defer`, rule versions, recommendation lifecycle (ADR-039..042)
+- [ ] Stage C follow-ups: workspace settings UI for the agent schedule and thresholds; retention for `agent_runs`; wire `symptom_cluster` (needs multi-asset issues); validate irrigation thresholds once irrigation logs or soil sensors exist
+- [ ] Stage D: data and ML foundations (dataset catalog and licences, labelling workflow, versioned splits, evaluation harness): investigate datasets and licensing before any model
 - [x] Full API suite ran on PostgreSQL in CI (run 3)
 - [x] `GET /dashboard` and map read models
 - [x] Photo upload with storage abstraction and validation (2026-10-17); [ ] signed URLs / S3 adapter, thumbnails, purge job
 - [ ] Lifecycle events and templates (read-only `current_stage` today); species lifecycle durations
-- [ ] Worker + scheduler: periodic agent runs, recurring inspection tasks; weather-aware irrigation-deferral rule using the existing port
+- [x] Worker + scheduler: periodic agent runs; weather-aware irrigation-deferral rule using the existing port (Stage C)
+- [ ] Recurring inspection tasks (the agent suggests inspections; recurring task templates are not built)
 - [ ] Member invite/role UI; workspace settings UI for agent thresholds
 - [ ] Reports (analytics/impact, CSV) from records; survival rate once loss/planting records exist
 - [ ] Decide on a local PostgreSQL+PostGIS (or Docker) for developers so the whole suite can run locally on PostgreSQL

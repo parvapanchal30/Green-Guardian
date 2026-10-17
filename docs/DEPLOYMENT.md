@@ -22,7 +22,7 @@ How GreenGuardian is packaged and how a deployment should be built. **Nothing is
 | web | `frontend/Dockerfile` (node build, then unprivileged nginx, uid 101, port 8080) | none | more containers, or host `dist/` on any static host/CDN |
 | api | `backend/Dockerfile` (python 3.12-slim, venv copied from a build stage, uid 10001, port 8000) | none (stateless) | more containers |
 | migrate | the api image, command `alembic upgrade head` | none | run once per release, never per replica |
-| worker | the api image, `python -m app.worker` (arrives with Stage C) | none | one active instance (it will take a database lock) |
+| worker | the api image, `python -m app.worker` (scheduled agent runs and housekeeping) | none (state is in the database) | one is enough; more are safe but redundant (a database index prevents overlapping runs) |
 | database | managed PostgreSQL 15+ with PostGIS (dev: Supabase; local compose: `postgis/postgis:17-3.5`) | all data | provider plan |
 | object store | local volume today (`STORAGE_PROVIDER=local`) | evidence files | see 9 |
 
@@ -70,6 +70,9 @@ Secrets are marked **S**. Names only appear in Git (`backend/.env.example`, `.en
 | `CORS_ORIGINS` | `["http://localhost:5173"]` | JSON list of allowed browser origins (not needed behind the same-origin nginx proxy) |
 | `TRUSTED_PROXY_COUNT` | 0 | reverse proxies in front (controls the client address used for throttling and audit) |
 | `WEATHER_PROVIDER`, `OPEN_METEO_BASE_URL`, `WEATHER_TIMEOUT_S`, `WEATHER_CACHE_TTL_S` | `open_meteo`, ..., 8, 900 | weather context |
+| `WORKER_POLL_INTERVAL_S` | 60 | how often the worker looks for workspaces whose agent run is due |
+| `AGENT_STALE_RUN_S` | 1800 | a run still `running` after this long is presumed abandoned and failed |
+| `HOUSEKEEPING_INTERVAL_S` | 86400 | audit retention and idle throttle counters, run by the worker |
 | `STORAGE_PROVIDER`, `STORAGE_LOCAL_DIR`, `STORAGE_MAX_BYTES`, `STORAGE_MAX_PIXELS` | `local`, `var/storage`, 10 MB, 40 MP | evidence storage |
 
 Frontend (build time, public values only): `VITE_API_BASE_URL` (default `/api/v1`), `VITE_MAP_TILE_URL` (default the public OpenStreetMap server, for light use only: set a provider before production and add its host to the CSP `img-src` in `frontend/nginx.conf.template`). Web container runtime: `API_UPSTREAM` (default `http://backend:8000`).
@@ -107,8 +110,14 @@ Photos are written through the `ObjectStore` interface. The only production-capa
 - **Several API instances** need a shared filesystem, or an S3-compatible adapter, which is **not built yet** (the interface and registry are ready; it is one module plus a dependency). Until then run a single API replica for the API, or accept the shared-volume constraint.
 Include the storage volume in backups (`EVIDENCE_DIR` in `ops/backup.sh`).
 
-## 10. The worker (Stage C)
-The scheduled agent will run as `python -m app.worker` from the same image, as a separate service. It takes a database lock so that only one instance evaluates at a time; running two is safe but wasteful. It also calls the housekeeping job (audit retention, idle throttle counters; today `python -m app.tools.housekeeping`, schedule it daily if you deploy before the worker exists).
+## 10. The worker (Stage C, ADR-039)
+`python -m app.worker` from the same image, as its own service (`worker` in `docker-compose.yml`). Every `WORKER_POLL_INTERVAL_S` it runs the agent for each workspace that is due (default: once a day per workspace; per workspace `settings.agent.schedule_enabled` and `schedule_interval_hours`), fails runs abandoned by a dead worker, and every `HOUSEKEEPING_INTERVAL_S` runs the housekeeping job (audit retention, idle throttle counters; `python -m app.tools.housekeeping` still works on its own).
+- **No queue, no extra service.** The schedule is the `agent_runs` table: restarting or duplicating the worker is safe. A partial unique index allows one running run per workspace, so a manual run, a scheduled run and a second worker never overlap.
+- **Failures** roll back the whole evaluation, are recorded in the run history with a short redacted reason and an audit event, and are retried after 5 minutes, doubling per consecutive failure but never beyond the normal interval. One failing workspace does not stop the others.
+- **Shutdown:** SIGTERM/SIGINT let the run in progress finish, then the process exits 0 (`stop_grace_period: 60s` in compose; give your platform at least as long).
+- **Health:** `python -m app.worker --healthcheck` exits 0 while the heartbeat file (`WORKER_HEARTBEAT_FILE`, default in the temp directory) is fresh. It proves the loop is alive, not that the database or the weather provider is reachable; alert on `agent_run_failed` log events and `agent.run` audit events with outcome `failure`.
+- **Weather:** requested only for assets that have an open watering task, one request per ~11 km grid cell per run; nothing is requested when the irrigation rule is switched off. With `WEATHER_PROVIDER=open_meteo` the worker makes outbound HTTPS calls; open the egress if you restrict it. Open-Meteo's free tier is non-commercial (R-WX-1).
+- `--once` runs a single pass and exits, for cron-style platforms.
 
 ## 11. Go-live checklist
 TLS at the edge with HSTS; `ENV=production`; unique `JWT_SECRET` from a secret store; `TRUSTED_PROXY_COUNT` matches the proxy chain; `CORS_ORIGINS` is the real origin only; database TLS verified; backups scheduled and one restore rehearsed; storage durable; tile provider chosen and in the CSP; weather licence decided; log shipping and alerts on; `SECURITY.md` open items reviewed (email verification, password reset); a named person owns the on-call and the backup schedule.
@@ -116,7 +125,7 @@ TLS at the edge with HSTS; `ENV=production`; unique `JWT_SECRET` from a secret s
 ## 12. What is verified, and what is not
 | Claim | Evidence |
 |---|---|
-| Images build, run as non-root, hold no secrets, start without root; compose stack serves the app through nginx; registration, login, a located asset, the PostGIS map query, a photo upload and byte-exact download work through the proxy; migrations apply in a PostGIS container | `ops/smoke-compose.sh`, run by CI job `containers` (passed in run 39065411514; 28 checks) |
+| Images build, run as non-root, hold no secrets, start without root; compose stack serves the app through nginx; registration, login, a located asset, the PostGIS map query, a photo upload and byte-exact download work through the proxy; migrations apply in a PostGIS container | `ops/smoke-compose.sh`, run by CI job `containers` (passed in run 39070024954; 29 checks, including the worker: healthy heartbeat, a scheduled run recorded, uid 10001, exit 0 on SIGTERM) |
 | Dockerfiles pass hadolint; images have no HIGH/CRITICAL fixable vulnerabilities | CI job `containers` (Trivy 0.76.0; the first web base image failed this gate with 41 findings and was replaced) |
 | The production Content-Security-Policy does not break the app (login, map with tiles, uploads, blob images, viewer) | checked by hand in a real browser against the production build and the exact header from `nginx.conf.template` |
 | Not verified: running the containers on your machine (no Docker installed here), any real hosting provider, TLS termination, S3 storage (not built), multi-replica behaviour, load |  |

@@ -68,8 +68,9 @@ GET   /workspaces/{ws}/recommendations         ?status=open&severity=&subject_id
 POST  /workspaces/{ws}/recommendations/{id}/accept    → creates issue/task per proposed_action; returns entity ref
 POST  /workspaces/{ws}/recommendations/{id}/dismiss   {reason}
 GET   /workspaces/{ws}/agent/rules             list + params;  PATCH /agent/rules/{key} enable/thresholds
-POST  /workspaces/{ws}/agent/run               admin: trigger sweep now
-GET   /workspaces/{ws}/agent/runs              run history
+POST  /workspaces/{ws}/agent/run               manager: run now (409 `agent_run_in_progress` while another run is active; response includes the recorded run)
+GET   /workspaces/{ws}/agent/runs              execution history, manual and scheduled, newest first (member; paginated)
+GET   /workspaces/{ws}/agent/runs/{run_id}     one run: counts, rules and versions, diagnostics, error
 GET   /workspaces/{ws}/predictions             reserved → returns [] + capability.available=false in MVP
 GET   /workspaces/{ws}/capabilities            [{key,label,technique,stage:mvp|v2|v3|v4,available,reason}] — implemented
 ```
@@ -121,7 +122,7 @@ All paths are under `/api/v1/workspaces/{ws}`. Lists return `{items, total, limi
 | Map | `GET /map/layers`, `GET /map/layers/{layer}?filter&location_id&kind&bbox&limit` | member | one layer registry; only `assets` is served (GeoJSON points, filtered/clipped in the database: PostGIS `ST_Intersects` on the GiST-indexed `centroid` columns). Chip filters: all, healthy, at_risk, critical, open_issues, tasks; chip counts and `unlocated` in the response. An asset without coordinates is drawn at its location's centre (`position_source`). Planned layers (disease_hotspots, soil_moisture, irrigation, growth, canopy, survival_risk, yield) are listed with `available: false` and return `501 capability_unavailable` |
 | Evidence | `POST /evidence` (multipart: `asset_id`, `file`, `caption?`, `observation_id?`, `issue_id?`), `GET /evidence?asset_id&observation_id&issue_id`, `GET /evidence/{id}`, `GET /evidence/{id}/content`, `DELETE /evidence/{id}` | worker (upload, delete own) / member (read) / manager (delete any) | JPEG, PNG, WebP up to `STORAGE_MAX_BYTES`; type decided from the bytes (415), corrupt (422), oversized (413), pixel limit (422); links must share the asset; `content` is authenticated (fetch with the bearer token); delete is soft |
 | Audit | `GET /audit?action&actor_id&target_type&target_id&request_id&since&until`, `GET /audit/meta` (actions and target types present, retention policy for the filter UI) | manager / owner | read-only, newest first, workspace-scoped; `action` is a prefix (`issue.`); no endpoint creates, changes or deletes audit records |
-| Agent | `GET /agent/rules`, `POST /agent/run`, `GET /recommendations?status&asset_id`, `POST /recommendations/{id}/accept|dismiss` | member / manager | rule-based only; accepting creates an issue/task through the normal services |
+| Agent | `GET /agent/rules`, `POST /agent/run`, `GET /agent/runs`, `GET /agent/runs/{id}`, `GET /recommendations?status&asset_id`, `POST /recommendations/{id}/accept|dismiss` | member / manager | rule-based only; accepting creates an issue/task, or (irrigation advice) moves a watering task's due date, through the normal services; recommendations expose `agent_run_id`, `rule_version`, `outcome*`; tasks expose `recommendation_id` |
 
 **Conventions:** request bodies reject unknown fields; JSON blobs ≤ 10 KB; attachments are metadata (https URL or storage key, image types only, ≤ 10); `observed_at` may be back-dated but not future; `409` for illegal transitions (`allowed` lists the legal ones), open tasks blocking resolution (`open_tasks`), duplicates; `422` for validation and business-rule violations; `403` for role violations.
 Still design only: `GET /dashboard`, `GET /map`, reports, bulk import, predictions (`501 capability_unavailable` is reserved). The Home dashboard currently composes counts from list totals.

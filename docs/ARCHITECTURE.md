@@ -109,4 +109,4 @@ Database: a hosted PostgreSQL+PostGIS project (Supabase by default) — see `doc
 Flow for a mutating request: `middleware (request id, client ip) -> router (auth, role) -> service (change + audit.record in one transaction) -> commit`.
 
 ## Packaging, deployment and recovery (2026-10-18)
-Two images (`backend/Dockerfile`, `frontend/Dockerfile`), a local compose stack (`docker-compose.yml`: PostGIS, one-shot migration, API, nginx web), a deployment guide (`DEPLOYMENT.md`: topology, environments, variables, release steps, rollback) and a backup and recovery guide with tested scripts (`BACKUP_RECOVERY.md`, `ops/`). The worker (Stage C) will reuse the API image with a different command.
+Two images (`backend/Dockerfile`, `frontend/Dockerfile`), a local compose stack (`docker-compose.yml`: PostGIS, one-shot migration, API, nginx web), a deployment guide (`DEPLOYMENT.md`: topology, environments, variables, release steps, rollback) and a backup and recovery guide with tested scripts (`BACKUP_RECOVERY.md`, `ops/`). The worker (`python -m app.worker`, Stage C, ADR-039) reuses the API image with a different command and is a `worker` service in the compose stack.

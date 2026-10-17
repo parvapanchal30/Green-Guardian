@@ -59,6 +59,7 @@ Report
 - Observation rows are immutable; corrections are new rows referencing `supersedes_id`.
 - Health score ∈ [0,100]; growth percent ∈ [0,100] (or null).
 - Recommendation dedupe key unique among *open* recommendations.
+- At most one `AgentRun` with status `running` per workspace (partial unique index); a recommendation's `agent_run_id`, if set, names a run of the same workspace (composite FK).
 
 ## Implemented in the first vertical slice (2026-10-07)
 
@@ -69,4 +70,6 @@ Report
 - **Issue** lifecycle is defined by a *workflow* chosen by category and workspace mode (plant health, field disease, infrastructure, harvest readiness). Reopening clears the resolution; history keeps everything.
 - **Task** has its own status workflow; completing a task may record a follow-up observation, which is how acting on an issue changes the asset's state.
 - **Recommendation** is produced only by rules (`method` ∈ rule/statistical), de-duplicated, explained, and acted on by a person.
+- **AgentRun** (Stage C) is one evaluation of one workspace, manual or scheduled: trigger, status (`running`, `succeeded`, `failed`), who or which worker ran it, start/finish, counts (assets evaluated, findings, recommendations created and expired), the rules in force with their versions and parameters, diagnostics (weather status, skipped cases with reasons) and a redacted error. It is the agent's execution history and the scheduler's only state.
+- **Recommendation lifecycle** (ADR-041): `open` → `accepted` | `dismissed` | `expired`. It records the producing run and rule version, structured evidence (`evaluated_at`, rule, inputs), and later an **outcome** (`task_completed`, `task_cancelled`, `issue_resolved`, `issue_closed`, `deferral_applied`; the first one wins). `proposed_action.create` is `issue`, `task` or `defer_task` (move a not-yet-started watering task's due date; irrigation advice only).
 - Invariants now enforced by the database: tenant-consistent links (composite FKs), immutable history (triggers), one open recommendation per dedupe key, consistent issue resolution columns, health score 0–100.
