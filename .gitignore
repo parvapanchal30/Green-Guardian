@@ -12,3 +12,5 @@ pitch/_work/
 ~$*
 pitch/*.generated.pptx
 backend/var/
+.env.compose
+backups/

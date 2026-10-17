@@ -24,7 +24,7 @@ jobs:
       # Real PostgreSQL + PostGIS (no TLS, no stored password: the container only exists for this job and is
       # reachable only from the runner, hence trust auth; nothing here is a credential).
       postgres:
-        image: postgis/postgis:16-3.4
+        image: postgis/postgis:17-3.5  # same major version as the hosted dev database (Supabase: PostgreSQL 17)
         env:
           POSTGRES_HOST_AUTH_METHOD: trust
         ports: ["5432:5432"]
@@ -96,3 +96,97 @@ jobs:
       - run: npx oxlint
       - run: npm test
       - run: npm run build
+
+  # Dependency vulnerability checks (production dependencies). A new advisory fails the build so it is seen and handled.
+  supply-chain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Python dependencies (pip-audit)
+        run: |
+          pip install ./backend pip-audit
+          pip-audit --skip-editable --progress-spinner off
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Node dependencies (npm audit, production)
+        working-directory: frontend
+        run: |
+          npm ci
+          npm audit --omit=dev --audit-level=high
+
+  # Container images: lint the Dockerfiles, build, scan for known vulnerabilities, then run the whole stack
+  # (PostGIS + migrations + API + nginx) and exercise the real application through the proxy.
+  containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint backend Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: backend/Dockerfile
+          failure-threshold: warning
+      - name: Lint frontend Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: frontend/Dockerfile
+          failure-threshold: warning
+      - name: Build images
+        run: |
+          docker build -t greenguardian-backend:local ./backend
+          docker build -t greenguardian-web:local ./frontend
+      - name: Scan backend image (HIGH/CRITICAL with a fix available)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: greenguardian-backend:local
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Scan web image (HIGH/CRITICAL with a fix available)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: greenguardian-web:local
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Compose smoke test
+        run: bash ops/smoke-compose.sh
+
+  # Prove the backup and restore procedure: dump a migrated, populated PostGIS database, restore it into a scratch
+  # database, compare against the manifest, and show that tampering and unsafe targets are rejected.
+  backup-restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: pip install -e "backend[dev]"
+      - name: Install PostgreSQL 17 client tools (pg_dump must be at least as new as the server)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl ca-certificates
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+          pg_dump --version
+      - name: Backup, restore, verify, and prove the safeguards
+        run: bash ops/ci-backup-restore.sh
