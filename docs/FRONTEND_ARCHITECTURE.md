@@ -54,3 +54,18 @@ Verified in the browser pane against a local dev API: register, login, create an
 Live pages: **Assets** (list with search/type/health filters, register form with species/zone/coordinates/crop-batch population, add zone/field), **Asset profile** (current state, record observation with optional photo *reference*, suggestions with Why?/Accept/Dismiss, issues, tasks, chronological history), **Botanical issues** (open/closed/all, severity, search), **Issue detail** (workflow stepper showing only stages actually visited, legal transitions only, resolution form with outcome/notes and an explicit "cancel open tasks" choice, evidence, tasks with add-task form, full history), **Tasks** (My tasks / All open / Done; start, block, resume, complete with an optional follow-up health check, manager-only reopen/cancel), **Agent** (rules with parameters and method labels, run checks, open suggestions), **Home** (counts from recorded data, attention inbox, capability table). Buttons that the server would reject for the user's role are hidden; the server remains the authority.
 Verified in a real browser against a running API on a throwaway database: the whole loop (register → observe → suggestion → issue → task → complete with follow-up → resolve), the blocked close with an open task, 300 concurrent API requests (no errors), and 375 px layouts for all new pages without horizontal scroll. Component/unit tests: 30.
 Known limits: no screenshot-based visual review yet; observation photo upload (reference only); no map; dashboard figures are list totals until `GET /dashboard` exists.
+
+## Screen status (2026-10-17)
+| Screen | Status |
+|---|---|
+| Sign-in, register, workspaces | Fully working |
+| Home dashboard (both modes), filters | Fully working |
+| Assets list, asset profile (observation form, issues, tasks, history, **photos**) | Fully working |
+| Botanical issues list and detail (workflow, tasks, **photos**) | Fully working |
+| Tasks | Fully working |
+| Botanical Operations Agent (suggestions, rules in force) | Fully working (manual runs; no scheduler) |
+| Map | Fully working (basemap tiles: public OSM, set `VITE_MAP_TILE_URL` for production) |
+| Weather | Fully working (live Open-Meteo; non-commercial tier) |
+| Members | Partially working (list; invite/role UI missing) |
+| Trees, Plants, Species, Fields and zones, Inspections, Health, Growth, Reports | Planned or in development (placeholder pages, no fabricated data) |
+| Irrigation, Disease Detection, Growth/Survival Prediction, Crop Recommendation, Yield, Harvest | Planned: "Coming soon", gated by `CapabilityGate`, no predictions shown |

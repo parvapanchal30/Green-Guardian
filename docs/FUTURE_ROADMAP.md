@@ -1,6 +1,29 @@
 # Future Roadmap
 
-Evolution (ADR-012; matches the Stage-2 deck):
+## Living roadmap: stages A-N (dependency-aware; status as of 2026-10-17)
+
+Legend: done / in progress / next / later. A stage is "done" only when its acceptance criteria are verified.
+
+| Stage | Scope | Depends on | Status |
+|---|---|---|---|
+| A Engineering foundation | auth hardening (throttling, verification, reset), request IDs, audit log, Dockerfiles, deployment and backup/restore docs | none | **partial**: CI, RLS, migrations, tenancy done; items listed open |
+| B Core operations | assets, observations, issues, tasks, dashboard, map, **evidence (photos)**; still open: inspections and treatments as first-class records, reports, species lifecycle | A (mostly done) | **mostly done**; evidence landed 2026-10-17 |
+| C Botanical Operations Agent | scheduled evaluation, rule configuration and versioning, `irrigation_defer`, outcome verification, execution tracking | B | **partial**: rules and manual runs exist; scheduler next |
+| D Data and ML foundations | dataset catalog and licences, labelling workflow, versioned splits, evaluation harness, data-quality checks | B (evidence), C | **next after C starts**; needs real labelled data decisions |
+| E Disease detection | image to candidate condition with confidence, human review, issue and task | D, evidence | later; **not started, no model, no dataset** |
+| F Growth prediction | baselines first, then models | D (history) | later |
+| G Survival and risk | calibrated probabilities, survival analysis | D, F | later |
+| H Crop recommendation | agronomic suitability, then economics | D, soil/climate data | later |
+| I Irrigation intelligence | advisory rule, then water-demand estimate, then optimisation | C, weather, soil data | later |
+| J Yield prediction | transparent baselines, then models with intervals | D, F | later |
+| K Harvest prediction | window, readiness, confirmed readiness, outcome | J | later |
+| L Canopy, coverage, environmental intelligence | needs imagery and validation data | D | later |
+| M Financial and resource optimisation | needs real cost and price inputs | H, I, J | later |
+| N Reporting, integrations, production readiness | exports, notifications, monitoring, security review | all | ongoing |
+
+Rule for every stage: working software, tests, documentation and a written technical explanation before the next stage; no stage claims a model that was not trained and evaluated.
+
+## Product evolution (ADR-012; matches the Stage-2 deck)
 
 ```
 MVP  Operational foundation   →   V2  Prediction   →   V3  Recommendation   →   V4  Optimization

@@ -1,50 +1,54 @@
 # Current State
 
-_Last updated: 2026-10-07_
+_Last reconciled with the repository: 2026-10-17. Verified against code, tests and the GitHub Actions run, not against older docs._
 
-## Repository
-- GitHub: `parvapanchal30/Green-Guardian` — **was empty** (no commits) at start. Cloned to `D:\college\GreenGuardian`.
-- Contents now: `docs/` (project memory + PRD), `pitch/` (Stage-2 review deck + generator), and a small proof of concept: `backend/app/modules/intelligence/rules/` (rules engine) with `backend/tests/` (5 passing tests) and `backend/poc_run.py` (synthetic data run). (superseded: see Implementation below)
+## Where the project is
+GreenGuardian has a working operational core for both operating modes (Green Management and Agricultural Production share one model): register assets, record observations, get rule-based suggestions, turn them into issues and tasks, follow them to resolution, see the state on a dashboard and a map, and keep photo evidence. **No machine-learning model exists yet**; the agent is rules and statistics only, and every future intelligence surface is shown as "Coming soon".
 
-## Audit result
-| Question | Answer |
-|---|---|
-| What works? | Nothing to run — greenfield |
-| Retain? | N/A |
-| Refactor/remove? | N/A |
-| Missing? | Everything: backend, frontend, DB, infra, CI, tests |
-| Architectural risks | See ARCHITECTURE §14 |
+Repository: `parvapanchal30/Green-Guardian`, working branch `ci/first-run` (not merged to `main`; nothing has been pushed to `main`).
 
-## Environment (dev machine)
-Python 3.13.3, Node 24.14.0 present. **Docker not installed.** PostGIS availability is the first setup blocker (ADR-007). Git identity: the repository owner's configured name and email.
+## Status by capability
+Legend: **V** implemented and verified · **I** implemented, verification incomplete · **P** partial · **D** designed, not built · **N** not yet designed.
 
-## Decisions made
-ADR-001..011 in DECISION_LOG.md (stack, monolith, asset model, append-only history, jobs, modes, PostGIS, capability-gated future surfaces, rules-first agent, auth, template-driven workflows).
+| Area | Status | Evidence / notes |
+|---|---|---|
+| Identity: register, login, rotating refresh tokens, argon2id | V | `test_auth`; login throttling, email verification, password reset **not built** (P) |
+| Workspaces, roles (viewer/worker/manager/owner), mode selection | V | `test_tenancy` matrix: every `{ws}` route must be listed and isolation-tested |
+| Row-Level Security, composite tenant FKs, append-only history triggers | V | migrations 0002/0004; `test_postgis`, `test_db_integrity` on PostgreSQL |
+| Locations (PostGIS centroid), species catalog, assets, `asset_states` projection | V | `test_assets_api`, `test_postgis` |
+| Observations (append-only), health bands | V | `test_observations_api` |
+| Botanical issues (workflow, history, evidence, resolution) | V | `test_issues_api` |
+| Tasks (workflow, assignment, follow-up observation) | V | `test_tasks_api` |
+| Rule-based agent: `critical_health`, `health_decline`, `inspection_gap`, de-duplication, dismissal suppression | V | `test_mvp_rules`, `test_agent_api`; manual "Run checks" only, **no scheduler** (P) |
+| `symptom_cluster` rule | P | in the rules library, not wired |
+| Weather behind provider boundary (Open-Meteo, mock) | V | `test_weather*`, AST boundary test; live path verified manually; free tier is non-commercial (R-WX-1) |
+| Dashboard read model (DB aggregates, both modes) | V | `test_dashboard_api`, statement-count test |
+| Map read model (PostGIS, layer registry) + Leaflet UI | V / I | `test_map_api` incl. GiST plan test; the UI verified manually in a browser, no automated end-to-end test (I) |
+| **Evidence / photo storage** (upload, validation, storage abstraction, gallery) | V | ADR-031; 27 backend tests, 9 frontend tests, real-browser upload; **no thumbnails, no purge job, no cloud storage adapter** (P) |
+| Reports, exports, notifications | D | roadmap Stage N |
+| Scheduled worker, `irrigation_defer` rule | D | roadmap Stage C |
+| Dockerfiles, deployment, backup/restore procedure | D | roadmap Stage A/N |
+| Request IDs, audit log table, error tracking | N | only structlog today |
+| Datasets, labelling, experiments (Stage D) and every model (E-M) | N | nothing built, no dataset downloaded |
 
-## Next
-See `TODO.md` — Phase 0 scaffold, then vertical slices per MVP_SCOPE build order.
+## Verification (what was actually run)
+- **CI (GitHub Actions, run 3, head `278e2b9`): success.** Backend job: ruff, format check, mypy, `alembic upgrade head`, `alembic check` (no drift), `check_db`, downgrade to base and upgrade again, full pytest with PostgreSQL tests forbidden to skip, request profile. Frontend job: `npm ci`, tsc, oxlint, vitest, build.
+- **Since that run (evidence slice, local):** backend 321 passed, 25 PostgreSQL-only skipped in SQLite fast mode; on PostgreSQL (Supabase throwaway schema) 54 passed for evidence, PostGIS/RLS, DB-integrity and migration suites; frontend 48 tests, type-check, lint, build. **The evidence commit has not yet run in GitHub Actions.**
+- Not verified: the full API suite on PostgreSQL after migration 0004 in CI; production deployment (none exists); anything involving a trained model (none exists).
 
-## Must-not-break (once code exists)
-Tenant scoping on all queries · append-only history tables · honest AI labelling · no mock data in prod builds.
+## Environment notes
+Windows dev machine, Python 3.13, Node 24, no Docker and no local PostgreSQL. The dev database is Supabase (PostgreSQL 17, PostGIS 3.3.7 in schema `extensions`, application schema `greenguardian`). **Run `alembic upgrade head` against your dev database to get migration 0004 (`evidence`).** Evidence files are stored under `backend/var/storage` by default (gitignored).
 
-## Stage-2 presentation (2026-10-06)
-`pitch/GreenGuardian-Stage2-Review.pptx` — 11 slides following the college template (source was a PDF; rebuilt). Regenerate: `cd pitch && npm install && node build_stage2.js`. Slide content mirrors PRD/MVP_SCOPE; solid = MVP, dashed = planned. **Still blank by design:** student names/IEN/guide (slide 1), team member names (slide 9), signed industry approval letter (slide 11). Gantt uses relative weeks W1–W12 with an assumed Stage 3/4 split at W6.
+## Known limitations and defects
+- Auth hardening open (throttling, verification, reset; refresh token in `sessionStorage`).
+- No request correlation IDs or audit-log table; no backup/restore documentation.
+- Photos are stored as received (EXIF kept for evidence integrity, including any GPS tags); no thumbnails, so galleries load full images (<= 10 MB each).
+- Soft-deleted evidence keeps its blob until a purge job exists.
+- Map tiles use the public OpenStreetMap server (light use only): set `VITE_MAP_TILE_URL` before production.
+- Demo data and credentials used for screenshots live only in `pitch/_work` (gitignored) and a throwaway SQLite file.
 
-## Implementation (2026-10-07)
-**Backend** (`backend/`): FastAPI + SQLAlchemy 2 + Alembic. Implemented and tested: config (env only), DB layer (pool modes, `search_path`, UUIDv7), problem+json errors, argon2id + JWT auth with rotating refresh tokens and reuse detection, orgs/workspaces/memberships with RBAC, the tenant-isolation route matrix, capability registry, weather behind a provider interface (Open-Meteo adapter verified against the live API; mock for dev/test), migration `0001`, `app.tools.check_db`. 58 tests pass, 2 PostGIS tests are **skipped** (no `TEST_DATABASE_URL`), ruff and mypy clean.
-**Frontend** (`frontend/`): see FRONTEND_ARCHITECTURE "Implementation status". 19 tests pass; type-check, lint and production build clean.
-**CI** (`.github/workflows/ci.yml`): backend (PostGIS service container; fails if the PostGIS tests are skipped) and frontend jobs. **Not yet run**: the first push will be its first execution.
-**Database:** hosted PostgreSQL+PostGIS (Supabase by default) is documented (`docs/DATABASE_SETUP.md`) but **not provisioned**: that needs the team's account and credentials. Until `DATABASE_URL`/`TEST_DATABASE_URL` point at a real PostGIS database, PostgreSQL-specific behaviour (extension install, `search_path`, geometry) is unverified; everything else was tested on SQLite.
-**Not built yet:** locations, species/lifecycle, assets, observations, issues, tasks, agent wiring (the rules library exists), map, dashboards with real KPIs, reports, worker/jobs, Dockerfiles.
-**Git:** nothing pushed; all work is local commits on `main` pending an explicit instruction to push.
+## Decisions
+ADR-001 to ADR-031 in `DECISION_LOG.md`.
 
-## Database status (2026-10-07)
-Supabase project `greenguardian` provisioned; PostgreSQL 17.11, PostGIS 3.3.7 in `extensions`; migration `0001` applied to schema `greenguardian`; `check_db` OK (TLS on); backend suite **73 passed, 0 skipped**, including 6 PostGIS tests that ran against the real database. See DATABASE_SETUP section 9. Open decision: enable RLS as defence-in-depth (optional).
-
-## Update 2026-10-07 (RLS, CI, weather boundary, first vertical slice)
-- **Database (Supabase, real):** migrations `0001`–`0003` applied; `alembic check` clean; 17 tables in `greenguardian`, RLS on all, API roles locked out, append-only triggers, generated PostGIS centroids, 11 seeded species; `check_db` OK; advisors: only INFO.
-- **Backend:** vertical slice implemented (assets, observations, issues, tasks, rule-based agent) — see API_SPECIFICATION. Tests: **239 passed + 23 PostgreSQL-only skipped** in fast mode; PostgreSQL mode on Supabase: migration/RLS/PostGIS tests, 12 database-integrity tests and the end-to-end smoke test (see TODO for the last verified counts).
-- **Frontend:** slice pages live; 30 tests; verified in a real browser.
-- **CI:** rewritten, `actionlint` clean, steps reproduced locally; **not yet run on GitHub**.
-- **Deck:** `pitch/GreenGuardian-Stage2-Review.pptx` contains the team's own edits (names, IEN, guide, letter images); left uncommitted; the generator now writes `*.generated.pptx`.
-- **Git:** local commits only; nothing pushed.
+## Must-not-break
+Tenant scoping on every query and an isolation test for every route; append-only history; honest AI labelling (no mock predictions, `CapabilityGate` for future features); no secrets in Git; no AI attribution in commits.

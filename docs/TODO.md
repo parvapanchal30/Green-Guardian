@@ -11,7 +11,7 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [x] **Human step done 2026-10-07:** create the Supabase project, enable PostGIS in schema `extensions`, set `DATABASE_URL` + `TEST_DATABASE_URL` (docs/DATABASE_SETUP.md), run `alembic upgrade head` and `python -m app.tools.check_db`, then `pytest` so the PostGIS tests actually run
 - [x] Monorepo scaffold (backend + frontend done; `/infra` Dockerfiles still to do): `/backend` (FastAPI, uv/pip, ruff, mypy, pytest), `/frontend` (Vite React TS Tailwind shadcn), `/infra` (compose, Dockerfiles)
 - [x] `.gitignore`, `.env.example`, READMEs
-- [~] CI written (`.github/workflows/ci.yml`), unverified until first run; OpenAPI client drift check still to add
+- [x] CI green on GitHub (run 3, 2026-10-17); OpenAPI client drift check still to add
 - [x] Alembic baseline + PostGIS extension migration (PostGIS step unverified without a real DB)
 - [x] Core: config, logging, error model, DB session
 - [ ] Core: event bus, job runner skeleton
@@ -26,23 +26,23 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [ ] Frontend: member invite/role UI, screenshot-based visual review
 
 ## Phase 2 — Assets
-- [ ] Locations (PostGIS), species/lifecycle seed data (both modes), assets + lifecycle events
-- [ ] Asset list (table/map split), asset profile, create/edit, archive
+- [x] Locations (PostGIS), species seed data, assets; [ ] lifecycle events and templates
+- [x] Asset list, asset profile, create/edit, archive; map is a separate page
 
 ## Phase 3 — Monitoring
-- [ ] Observations + attachments (storage abstraction, validation), health/growth records, `asset_state` projection + rebuild job
+- [x] Observations, `asset_state` projection, evidence upload (storage abstraction, validation); [ ] health/growth record series, projection rebuild job, thumbnails
 - [ ] Charts, timeline, observation form (mobile-first)
 
 ## Phase 4 — Operations
-- [ ] Workflow engine + Issues (history, evidence, resolution)
-- [ ] Tasks (history, recurrence), treatments, harvest records
+- [x] Workflow engine + Issues (history, evidence, resolution)
+- [x] Tasks (history); [ ] recurrence, treatments, harvest records
 
 ## Phase 5 — Agent
-- [ ] Rule interface + MVP rules with table-driven tests, dedupe/suppression, recommendations API, inbox UI, run history, rule settings
+- [x] Rule interface, 3 rules, tests, dedupe/suppression, recommendations API, inbox UI; [ ] run history, rule settings UI, scheduler
 
 ## Phase 6 — Map & dashboards
-- [ ] `/map` GeoJSON + layer registry, MapLibre UI, draw tools
-- [ ] `/dashboard` (green + agri), KPI availability semantics
+- [x] `/map` GeoJSON + layer registry, Leaflet UI; [ ] draw tools
+- [x] `/dashboard` (green + agri), KPI availability semantics
 
 ## Phase 7 — Reports, weather, surfaces, polish
 - [ ] Reports (analytics, impact, CSV), weather provider
@@ -58,14 +58,16 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 3. ~~Deployment~~ decided: static frontend hosting/CDN, containerized FastAPI, managed PostgreSQL+PostGIS, containerized workers when needed. Dockerfiles still to write.
 
 ## Database follow-ups
-- [ ] Decide on enabling RLS (defence-in-depth) for `greenguardian.*` (SQL in DATABASE_SETUP section 9)
+- [x] RLS enabled on every table (migrations 0002, 0004)
 - [ ] Optional: a separate Supabase project/branch for tests if the team wants hard separation
-- [ ] Set `TEST_DATABASE_URL` in `backend/.env` (recommended: same as `DATABASE_URL`)
+- [x] `TEST_DATABASE_URL` (tests use a throwaway schema, never dev data)
 
 ## Next slice candidates (recommended order)
-- [ ] Run the full API suite on PostgreSQL in CI (first push) and fix anything it finds
-- [ ] `GET /dashboard` and `GET /map` read models; MapLibre map with asset/health/issue/task layers (PostGIS `centroid` is ready)
-- [ ] Photo upload: storage abstraction, validation, signed URLs (attachments are metadata only today)
+- [ ] Stage A: login throttling, request IDs, audit log, Dockerfiles, backup/restore doc
+- [ ] Stage C: scheduled agent worker, `irrigation_defer` rule, rule configuration and versioning
+- [x] Full API suite ran on PostgreSQL in CI (run 3)
+- [x] `GET /dashboard` and map read models
+- [x] Photo upload with storage abstraction and validation (2026-10-17); [ ] signed URLs / S3 adapter, thumbnails, purge job
 - [ ] Lifecycle events and templates (read-only `current_stage` today); species lifecycle durations
 - [ ] Worker + scheduler: periodic agent runs, recurring inspection tasks; weather-aware irrigation-deferral rule using the existing port
 - [ ] Member invite/role UI; workspace settings UI for agent thresholds
