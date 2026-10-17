@@ -52,6 +52,27 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  # Scheduled Botanical Operations Agent + housekeeping (audit retention, idle throttle counters). Same image as the API,
+  # different command. All state is in the database, so it can be stopped, restarted or duplicated freely: overlapping
+  # runs are impossible (one running row per workspace), a second worker is just redundant.
+  worker:
+    image: greenguardian-backend:local
+    command: ["python", "-m", "app.worker"]
+    environment:
+      <<: *api-env
+      WORKER_POLL_INTERVAL_S: ${WORKER_POLL_INTERVAL_S:-60}
+    healthcheck:   # the worker writes a heartbeat file every pass; the image's HTTP check does not apply to it
+      test: ["CMD", "python", "-m", "app.worker", "--healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    stop_grace_period: 60s   # SIGTERM lets the run in progress finish before the process exits
+    depends_on:
+      backend:
+        condition: service_healthy   # the image is built by `backend`; migrations are done by then
+    restart: unless-stopped
+
   web:
     build: ./frontend
     image: greenguardian-web:local

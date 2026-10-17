@@ -35,6 +35,7 @@ API="http://127.0.0.1:${BACKEND_PORT:-8000}"
 J='content-type: application/json'
 
 echo "== build and start"
+export WORKER_POLL_INTERVAL_S=3   # the worker looks for due agent runs every 3 s here (60 s by default)
 dc up -d --build
 for i in $(seq 1 90); do
   if curl -fsS "$API/healthz" >/dev/null 2>&1 && curl -fsS "$WEB/healthz" >/dev/null 2>&1; then break; fi
@@ -82,6 +83,26 @@ EV=$(curl -fsS -X POST "$WEB/api/v1/workspaces/$WS/evidence" -H "$A" -F "asset_i
 curl -fsS "$WEB/api/v1/workspaces/$WS/evidence/$EV/content" -H "$A" -o /tmp/smoke-back.png
 cmp /tmp/smoke.png /tmp/smoke-back.png && pass "the photo comes back byte for byte" || fail "photo bytes differ"
 dc exec -T backend sh -c 'test -n "$(find /data/storage -type f | head -1)"' && pass "the file is on the storage volume" || fail "no stored file"
+
+echo "== the background worker runs the agent on a schedule"
+for i in $(seq 1 60); do
+  [ "$(docker inspect "$(dc ps -q worker)" --format '{{.State.Health.Status}}')" = "healthy" ] && break
+  sleep 2
+  [ "$i" = "60" ] && fail "worker did not become healthy in 120 s"
+done
+pass "worker container is healthy (its heartbeat is fresh)"
+for i in $(seq 1 30); do
+  RUNS=$(curl -fsS "$WEB/api/v1/workspaces/$WS/agent/runs" -H "$A")
+  echo "$RUNS" | jq -e '[.items[] | select(.trigger == "scheduled" and .status == "succeeded")] | length >= 1' >/dev/null && break
+  sleep 2
+  [ "$i" = "30" ] && fail "no scheduled agent run appeared for the new workspace within 60 s"
+done
+pass "a scheduled agent run was executed and recorded for the new workspace"
+echo "$RUNS" | jq -e '.items[0].worker_id | length > 0' >/dev/null && pass "the run names the worker that executed it" || fail "run content"
+[ "$(dc exec -T worker id -u)" = "10001" ] && pass "worker runs as uid 10001" || fail "worker runs as root"
+dc stop -t 30 worker >/dev/null
+code=$(docker inspect "$(dc ps -aq worker)" --format '{{.State.ExitCode}}')
+[ "$code" = "0" ] && pass "worker shuts down cleanly on SIGTERM (exit 0)" || fail "worker exit code $code on SIGTERM"
 
 echo "== containers run as non-root and hold no secrets"
 [ "$(dc exec -T backend id -u)" = "10001" ] && pass "API runs as uid 10001" || fail "API runs as root"
