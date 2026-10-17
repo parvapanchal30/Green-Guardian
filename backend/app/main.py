@@ -11,6 +11,8 @@ from app.core.logging import configure_logging
 from app.modules.assets.router import router as assets_router
 from app.modules.catalog.router import router as catalog_router
 from app.modules.dashboard.router import router as dashboard_router
+from app.modules.evidence.router import router as evidence_router
+from app.modules.evidence.storage import UnknownStorageProvider, available_stores
 from app.modules.identity.router import router as identity_router
 from app.modules.intelligence.router import router as intelligence_router
 from app.modules.issues.router import router as issues_router
@@ -32,6 +34,13 @@ def validate_weather_provider(settings: Settings) -> None:
         )
 
 
+def validate_storage_provider(settings: Settings) -> None:
+    if settings.storage_provider not in available_stores():
+        raise UnknownStorageProvider(
+            f"STORAGE_PROVIDER={settings.storage_provider!r} is not registered; available: {available_stores()}"
+        )
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level)
@@ -45,6 +54,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     install_error_handlers(app)
     validate_weather_provider(settings)
+    validate_storage_provider(settings)
 
     for r in (
         identity_router,
@@ -59,6 +69,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         intelligence_router,
         dashboard_router,
         map_router,
+        evidence_router,
     ):
         app.include_router(r, prefix=API_PREFIX)
 

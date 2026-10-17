@@ -2,20 +2,24 @@ import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import type { ObservationCreated } from '../api/types'
 import { useWorkspaceCtx } from '../app/WorkspaceLayout'
+import { EvidenceGallery } from '../components/EvidenceGallery'
 import { RecommendationCard } from '../components/RecommendationCard'
 import { Field, HealthChip, PageHeader, SeverityChip, StateChip, TaskStatusChip, btn, btnPrimary, input } from '../components/domain'
 import { ErrorState, LoadingBlock, errorMessage } from '../components/states'
 import { StatusChip } from '../components/StatusChip'
 import { ProblemError } from '../api/client'
+import { checkImageFile } from '../lib/evidence'
 import { atLeast, fmtDateTime, label, relative } from '../lib/format'
-import { useAsset, useCreateIssue, useCreateObservation, useIssues, useObservations, useRecommendations, useTasks, useTimeline } from '../lib/slice'
+import { useAsset, useCreateIssue, useCreateObservation, useIssues, useObservations, useRecommendations, useTasks, useTimeline, useUploadEvidence } from '../lib/slice'
 
 const CATEGORIES = ['disease', 'pest', 'nutrient', 'water_stress', 'irrigation_failure', 'physical_damage', 'growth_anomaly', 'harvest_readiness', 'maintenance', 'other']
 
 function ObservationForm({ ws, assetId, onCreated }: { ws: string; assetId: string; onCreated: (r: ObservationCreated) => void }) {
   // Suggestions made by the rules arrive through the (refreshed) open-suggestions list, not from this response.
   const create = useCreateObservation(ws)
+  const upload = useUploadEvidence(ws)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -27,15 +31,31 @@ function ObservationForm({ ws, assetId, onCreated }: { ws: string; assetId: stri
     const symptoms = text('symptoms').split(',').map((s) => s.trim()).filter(Boolean)
     if (symptoms.length) body.symptoms = symptoms
     if (text('notes')) body.notes = text('notes')
-    if (text('photo_url')) {
-      body.attachments = [{ name: text('photo_name') || 'photo', content_type: text('photo_type') || 'image/jpeg', url: text('photo_url'), caption: text('photo_caption') || undefined }]
+    const file = (form.elements.namedItem('photo') as HTMLInputElement | null)?.files?.[0] ?? null
+    if (!body.health_score && body.health_score !== 0 && !symptoms.length && !body.notes) {
+      setError('Record at least a health score, symptoms or notes (a photo can accompany them).')
+      return
     }
-    if (!body.health_score && body.health_score !== 0 && !symptoms.length && !body.notes && !body.attachments) {
-      setError('Record at least a health score, symptoms, notes or a photo reference.')
+    const problem = file ? checkImageFile(file) : null
+    if (problem) {
+      setError(problem)
       return
     }
     setError(null)
-    create.mutate(body, { onSuccess: (r) => { form.reset(); onCreated(r) } })
+    setNotice(null)
+    create.mutate(body, {
+      onSuccess: (r) => {
+        form.reset()
+        onCreated(r)
+        // Observations are immutable, so a failed photo cannot undo the saved record: say exactly what happened.
+        if (file) {
+          upload.mutate(
+            { assetId, file, caption: text('photo_caption'), observationId: r.observation.id },
+            { onError: (err) => setNotice(`Observation saved, but the photo was not uploaded: ${errorMessage(err)} Upload it again below.`) },
+          )
+        }
+      },
+    })
   }
 
   const serverError = create.error instanceof ProblemError ? create.error.message : create.error ? errorMessage(create.error) : null
@@ -53,19 +73,15 @@ function ObservationForm({ ws, assetId, onCreated }: { ws: string; assetId: stri
       <Field id="notes" label="Notes">
         <textarea id="notes" name="notes" rows={2} maxLength={5000} className={input} />
       </Field>
-      <details className="text-sm">
-        <summary className="cursor-pointer text-ink-2">Attach photo reference (optional)</summary>
-        <div className="mt-2 grid gap-3 sm:grid-cols-2">
-          <Field id="photo_url" label="Photo URL (https)" hint="File upload arrives with the storage feature; for now only a reference is stored.">
-            <input id="photo_url" name="photo_url" type="url" className={input} placeholder="https://…" />
-          </Field>
-          <Field id="photo_caption" label="Caption"><input id="photo_caption" name="photo_caption" className={input} /></Field>
-          <input type="hidden" name="photo_name" value="photo" />
-          <input type="hidden" name="photo_type" value="image/jpeg" />
-        </div>
-      </details>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field id="photo" label="Photo (optional)" hint="JPEG, PNG or WebP, up to 10 MB. Stored with this observation.">
+          <input id="photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" className={input} />
+        </Field>
+        <Field id="photo_caption" label="Photo caption"><input id="photo_caption" name="photo_caption" maxLength={500} className={input} /></Field>
+      </div>
       {(error || serverError) && <p role="alert" className="text-sm text-critical">{error ?? serverError}</p>}
-      <button className={btnPrimary} disabled={create.isPending}>{create.isPending ? 'Saving…' : 'Save observation'}</button>
+      {notice && <p role="alert" className="text-sm text-at-risk">{notice}</p>}
+      <button className={btnPrimary} disabled={create.isPending || upload.isPending}>{create.isPending ? 'Saving…' : upload.isPending ? 'Uploading photo…' : 'Save observation'}</button>
     </form>
   )
 }
@@ -181,6 +197,17 @@ export function AssetProfilePage() {
           ) : <p className="text-sm text-ink-3">No tasks for this asset.</p>}
         </section>
       </div>
+
+      <section aria-labelledby="photos">
+        <h2 id="photos" className="mb-2 font-semibold">Photos</h2>
+        <EvidenceGallery
+          ws={ws}
+          assetId={a.id}
+          canUpload={canObserve}
+          isManager={canDecide}
+          issueOptions={issues.data?.items.filter((i) => i.is_open).map((i) => ({ id: i.id, label: `${i.key} · ${i.title}` }))}
+        />
+      </section>
 
       <section aria-labelledby="hist">
         <h2 id="hist" className="mb-2 font-semibold">History</h2>

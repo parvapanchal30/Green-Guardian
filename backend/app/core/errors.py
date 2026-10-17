@@ -42,6 +42,14 @@ class Conflict(AppError):
     status, code = 409, "conflict"
 
 
+class PayloadTooLarge(AppError):
+    status, code = 413, "payload_too_large"
+
+
+class UnsupportedMediaType(AppError):
+    status, code = 415, "unsupported_media_type"
+
+
 class CapabilityUnavailable(AppError):
     status, code = 501, "capability_unavailable"
 

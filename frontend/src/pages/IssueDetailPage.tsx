@@ -4,6 +4,7 @@ import { ProblemError } from '../api/client'
 import type { IssueDetail, Workflow } from '../api/types'
 import { useWorkspaceCtx } from '../app/WorkspaceLayout'
 import { Field, PageHeader, SeverityChip, StateChip, TaskStatusChip, btn, btnPrimary, input } from '../components/domain'
+import { EvidenceGallery } from '../components/EvidenceGallery'
 import { ErrorState, LoadingBlock, errorMessage } from '../components/states'
 import { atLeast, fmtDateTime, label, relative, toIsoOrUndefined } from '../lib/format'
 import { useCreateTask, useIssue, useTransitionIssue, useWorkflows } from '../lib/slice'
@@ -176,6 +177,8 @@ export function IssueDetailPage() {
               {o.attachments.map((a) => <p key={a.name + (a.url ?? '')} className="text-xs text-ink-3">Photo: {a.caption ?? a.name}</p>)}
             </li>))}</ul>
         )}
+        <h3 className="mb-2 mt-4 text-sm font-semibold">Photos</h3>
+        <EvidenceGallery ws={ws} assetId={i.asset_id ?? undefined} issueId={i.id} canUpload={atLeast(workspace.role, 'worker') && i.is_open} isManager={atLeast(workspace.role, 'manager')} />
       </section>
 
       <section aria-labelledby="hs">

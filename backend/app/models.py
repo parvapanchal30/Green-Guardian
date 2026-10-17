@@ -3,6 +3,7 @@
 from app.core.orm import Base
 from app.modules.assets.models import AssetState, BiologicalAsset
 from app.modules.catalog.models import Species
+from app.modules.evidence.models import Evidence
 from app.modules.identity.models import Organization, RefreshTokenRow, User
 from app.modules.intelligence.models import Recommendation
 from app.modules.issues.models import Issue, IssueObservation, IssueStatusHistory
@@ -15,6 +16,7 @@ __all__ = [
     "AssetState",
     "Base",
     "BiologicalAsset",
+    "Evidence",
     "Issue",
     "IssueObservation",
     "IssueStatusHistory",

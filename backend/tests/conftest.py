@@ -19,6 +19,7 @@ from app.core.db import build_engine, get_db  # noqa: E402
 from app.core.security import create_access_token  # noqa: E402
 from app.main import create_app  # noqa: E402
 from app.models import Base  # noqa: E402
+from app.modules.evidence.storage import MemoryObjectStore, get_object_store  # noqa: E402
 from app.modules.identity.models import Organization, User  # noqa: E402
 from app.modules.weather.mock import MockWeatherProvider  # noqa: E402
 from app.modules.weather.service import WeatherService, get_weather_service  # noqa: E402
@@ -215,6 +216,7 @@ class World:
     team: Team
     maker: sessionmaker
     mode: str
+    store: MemoryObjectStore | None = None
 
     def db(self) -> Session:
         """A raw session for arranging/inspecting data (same connection as the app in PostgreSQL mode)."""
@@ -257,8 +259,10 @@ def world(request):
     application.dependency_overrides[get_db] = _db
     application.dependency_overrides[get_settings] = lambda: settings
     application.dependency_overrides[get_weather_service] = lambda: WeatherService(MockWeatherProvider(), 60)
+    store = MemoryObjectStore()
+    application.dependency_overrides[get_object_store] = lambda: store
     try:
-        yield World(app=application, settings=settings, team=team, maker=maker, mode=mode)
+        yield World(app=application, settings=settings, team=team, maker=maker, mode=mode, store=store)
     finally:
         if PG_MODE:
             outer.rollback()

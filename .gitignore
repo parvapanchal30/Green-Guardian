@@ -11,3 +11,4 @@ pitch/_work/
 *.db
 ~$*
 pitch/*.generated.pptx
+backend/var/

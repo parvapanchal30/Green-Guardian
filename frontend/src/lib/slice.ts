@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
-import { api } from '../api/client'
+import { api, apiBlob } from '../api/client'
 import type {
-  AgentRun, Asset, Dashboard, MapFeatureCollection, MapLayerInfo, Issue, IssueDetail, LocationItem, Observation, ObservationCreated, Page, Recommendation, RuleInfo,
+  AgentRun, Asset, Dashboard, Evidence, MapFeatureCollection, MapLayerInfo, Issue, IssueDetail, LocationItem, Observation, ObservationCreated, Page, Recommendation, RuleInfo,
   SpeciesItem, TaskDetail, Task, TimelineEvent, Workflow,
 } from '../api/types'
 
@@ -19,7 +19,7 @@ export function qs(params: Params = {}): string {
 const base = (ws: string, path: string, params?: Params) => `/workspaces/${ws}${path}${qs(params)}`
 
 /** Everything that can change after an observation, issue, task or recommendation action. */
-const DATA = new Set(['assets', 'asset', 'timeline', 'observations', 'issues', 'issue', 'tasks', 'task', 'recommendations', 'dashboard', 'map'])
+const DATA = new Set(['assets', 'asset', 'timeline', 'observations', 'issues', 'issue', 'tasks', 'task', 'recommendations', 'dashboard', 'map', 'evidence'])
 export function refreshWorkspaceData(qc: QueryClient, ws: string) {
   return qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === ws && DATA.has(String(q.queryKey[1])) })
 }
@@ -75,6 +75,13 @@ export const useMapLayers = (ws: string) =>
 export const useMapLayer = (ws: string, layer: string, params: Params) =>
   useQuery({ queryKey: [ws, 'map', layer, params], queryFn: () => api<MapFeatureCollection>(base(ws, `/map/layers/${layer}`, params)) })
 
+export const useEvidence = (ws: string, params: Params) =>
+  useQuery({ queryKey: [ws, 'evidence', params], queryFn: () => api<Page<Evidence>>(base(ws, '/evidence', params)) })
+
+/** The image itself: protected, so fetched with the token and cached by (immutable) evidence id. */
+export const useEvidenceBlob = (ws: string, ev: Evidence) =>
+  useQuery({ queryKey: [ws, 'evidence-blob', ev.id], queryFn: () => apiBlob(ev.content_path), staleTime: Infinity, gcTime: 600_000 })
+
 // ------------------------------------------------------------------ writes (each refreshes the affected workspace data)
 function useWsMutation<TIn, TOut>(ws: string, fn: (input: TIn) => Promise<TOut>) {
   const qc = useQueryClient()
@@ -120,3 +127,17 @@ export const useAcceptRecommendation = (ws: string) =>
 export const useDismissRecommendation = (ws: string) =>
   useWsMutation(ws, (v: { id: string; reason: string }) =>
     api<Recommendation>(base(ws, `/recommendations/${v.id}/dismiss`), { method: 'POST', body: { reason: v.reason } }))
+
+export const useUploadEvidence = (ws: string) =>
+  useWsMutation(ws, (input: { assetId: string; file: File; caption?: string; observationId?: string; issueId?: string }) => {
+    const f = new FormData()
+    f.set('asset_id', input.assetId)
+    f.set('file', input.file)
+    if (input.caption?.trim()) f.set('caption', input.caption.trim())
+    if (input.observationId) f.set('observation_id', input.observationId)
+    if (input.issueId) f.set('issue_id', input.issueId)
+    return api<Evidence>(base(ws, '/evidence'), { method: 'POST', body: f })
+  })
+
+export const useDeleteEvidence = (ws: string) =>
+  useWsMutation(ws, (id: string) => api<void>(base(ws, `/evidence/${id}`), { method: 'DELETE' }))

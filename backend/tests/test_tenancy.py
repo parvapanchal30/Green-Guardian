@@ -51,6 +51,11 @@ ENDPOINTS = [
     ("PATCH", "/api/v1/workspaces/{ws}/tasks/{task_id}", {"title": "x"}),
     ("POST", "/api/v1/workspaces/{ws}/tasks/{task_id}/transitions", {"to_status": "in_progress"}),
     ("GET", "/api/v1/workspaces/{ws}/dashboard", None),
+    ("GET", "/api/v1/workspaces/{ws}/evidence", None),
+    ("POST", "/api/v1/workspaces/{ws}/evidence", {}),
+    ("GET", "/api/v1/workspaces/{ws}/evidence/{evidence_id}", None),
+    ("GET", "/api/v1/workspaces/{ws}/evidence/{evidence_id}/content", None),
+    ("DELETE", "/api/v1/workspaces/{ws}/evidence/{evidence_id}", None),
     ("GET", "/api/v1/workspaces/{ws}/map/layers", None),
     ("GET", "/api/v1/workspaces/{ws}/map/layers/{layer}", None),
     # botanical operations agent

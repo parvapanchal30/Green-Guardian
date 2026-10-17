@@ -75,7 +75,8 @@ async function parseProblem(res: Response): Promise<ProblemError> {
 
 async function raw(path: string, init: RequestInit & { auth?: boolean }): Promise<Response> {
   const headers = new Headers(init.headers)
-  if (init.body !== undefined) headers.set('Content-Type', 'application/json')
+  // JSON by default; multipart bodies (FormData) must keep the browser-generated boundary header.
+  if (init.body !== undefined && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   if (init.auth !== false && accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
   try {
     return await fetch(`${baseUrl}${path}`, { ...init, headers })
@@ -104,14 +105,10 @@ export function refreshSession(): Promise<void> {
   return refreshing
 }
 
-export async function api<T>(path: string, opts: { method?: string; body?: unknown; auth?: boolean } = {}): Promise<T> {
-  const init: RequestInit & { auth?: boolean } = {
-    method: opts.method ?? 'GET',
-    body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
-    auth: opts.auth,
-  }
+/** Send a request, refreshing the session once on an expired token. Returns the raw Response (errors not yet thrown). */
+async function send(path: string, init: RequestInit & { auth?: boolean }): Promise<Response> {
   let res = await raw(path, init)
-  if (res.status === 401 && opts.auth !== false) {
+  if (res.status === 401 && init.auth !== false) {
     const problem = await parseProblem(res.clone())
     if (AUTH_CODES.has(problem.code) && tokenStore.refresh) {
       await refreshSession()
@@ -119,6 +116,17 @@ export async function api<T>(path: string, opts: { method?: string; body?: unkno
     }
   }
   if (!res.ok) throw await parseProblem(res)
+  return res
+}
+
+export async function api<T>(path: string, opts: { method?: string; body?: unknown; auth?: boolean } = {}): Promise<T> {
+  const body = opts.body === undefined ? undefined : opts.body instanceof FormData ? opts.body : JSON.stringify(opts.body)
+  const res = await send(path, { method: opts.method ?? 'GET', body, auth: opts.auth })
   if (res.status === 204) return undefined as T
   return (await res.json()) as T
+}
+
+/** Fetch a protected binary (an image) with the bearer token; the caller turns it into a blob URL. */
+export async function apiBlob(path: string): Promise<Blob> {
+  return (await send(path, { method: 'GET' })).blob()
 }

@@ -60,6 +60,14 @@ class Settings(BaseSettings):
     weather_timeout_s: float = 8.0
     weather_cache_ttl_s: int = 900
 
+    # --- evidence / object storage (behind an abstraction; see app/modules/evidence/storage.py) ---
+    # Key of a registered store: "local" (disk, development and single-node), "memory" (tests only).
+    storage_provider: str = "local"
+    storage_local_dir: str = "var/storage"
+    storage_max_bytes: int = 10 * 1024 * 1024
+    # Decoded-size guard against decompression bombs (width x height).
+    storage_max_pixels: int = 40_000_000
+
     @field_validator("database_url")
     @classmethod
     def _norm_url(cls, v: str) -> str:
@@ -93,6 +101,8 @@ class Settings(BaseSettings):
                 raise ValueError("JWT_SECRET must be at least 32 characters in production")
             if self.weather_provider == "mock":
                 raise ValueError("WEATHER_PROVIDER=mock is not allowed in production")
+            if self.storage_provider == "memory":
+                raise ValueError("STORAGE_PROVIDER=memory is not allowed in production")
         return self
 
 

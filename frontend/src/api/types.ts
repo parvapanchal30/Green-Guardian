@@ -322,3 +322,10 @@ export interface MapFeatureCollection {
   type: 'FeatureCollection'; layer: string; filter: MapFilter; features: MapFeature[]; counts: MapCounts
   bbox: [number, number, number, number] | null; truncated: boolean
 }
+
+// ------------------------------------------------------------------ evidence (photos)
+export interface Evidence {
+  id: string; asset_id: string; observation_id: string | null; issue_id: string | null; uploaded_by: string
+  original_filename: string | null; content_type: string; size_bytes: number; sha256: string; width: number; height: number
+  caption: string | null; created_at: string; content_path: string
+}
