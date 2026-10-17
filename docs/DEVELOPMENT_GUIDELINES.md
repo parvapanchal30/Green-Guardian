@@ -66,3 +66,6 @@ Frontend + backend + database + validation + error handling + loading/empty stat
 - New authentication-adjacent endpoints must use the throttle and must return identical responses for known and unknown identities.
 - Production proxy setups must set `TRUSTED_PROXY_COUNT`; leaving it at 0 behind a proxy makes every client share one address.
 - Tests that need a signing key use `env="test"`; every other environment requires `JWT_SECRET` (32+ characters).
+
+## Before you push (CI runs all of this)
+Backend: `ruff check .`, `ruff format --check .` (the WHOLE backend, including `migrations/`), `mypy app`, `alembic check`, `pytest`. Frontend: `npx tsc -b`, `npx oxlint`, `npm test`, `npm run build`. Shell scripts and Dockerfiles must keep LF line endings (`.gitattributes` enforces it). New Dockerfile instructions must pass hadolint; base images are tracked by minor version and CI's Trivy scan decides when one is too old. Never write backups, dumps or `.env*` files into the repository (`backups/` and `.env.compose` are ignored; `ops/backup.sh` refuses unsafe destinations).

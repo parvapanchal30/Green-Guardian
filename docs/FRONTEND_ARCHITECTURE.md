@@ -67,5 +67,6 @@ Known limits: no screenshot-based visual review yet; observation photo upload (r
 | Map | Fully working (basemap tiles: public OSM, set `VITE_MAP_TILE_URL` for production) |
 | Weather | Fully working (live Open-Meteo; non-commercial tier) |
 | Members | Partially working (list; invite/role UI missing) |
+| Audit log (Settings; managers and owners; filters, pagination, request IDs, retention note) | Fully working |
 | Trees, Plants, Species, Fields and zones, Inspections, Health, Growth, Reports | Planned or in development (placeholder pages, no fabricated data) |
 | Irrigation, Disease Detection, Growth/Survival Prediction, Crop Recommendation, Yield, Harvest | Planned: "Coming soon", gated by `CapabilityGate`, no predictions shown |

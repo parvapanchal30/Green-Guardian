@@ -64,7 +64,7 @@ Conventions: `id uuid` (UUIDv7) PK; `workspace_id uuid NOT NULL REFERENCES works
 - Keyset pagination on `(created_at, id)`.
 - Retention: attachments referenced by history are never auto-deleted.
 
-## Implemented schema (migrations 0001–0005) — what actually exists
+## Implemented schema (migrations 0001–0006) — what actually exists
 
 Source of truth is the migration files and `alembic check` (clean against the live PostgreSQL schema). This section lists decisions that differ from, or refine, the design above.
 
@@ -86,3 +86,5 @@ Source of truth is the migration files and `alembic check` (clean against the li
 **`auth_throttle` (0005):** brute-force counters. `key` (PK; hashed email or address based, never a plaintext email), `failures`, `window_started_at`, `locked_until`, `updated_at`. Global (not tenant-scoped), RLS enabled.
 
 **`audit_events` (0005):** the append-only audit trail. `occurred_at`, nullable `workspace_id` and `actor_id` (foreign keys with RESTRICT: workspaces are archived and users anonymised, never deleted), `action`, `outcome` (CHECK success/failure/denied), `target_type`/`target_id`, `request_id`, `client_ip`, `user_agent`, `details` (JSONB, scrubbed). A `BEFORE UPDATE OR DELETE` trigger (`trg_audit_events_append_only`, the shared `gg_forbid_mutation()` function) rejects any change; indexes on workspace+time, actor+time, action+time, target and request ID. RLS enabled. TRUNCATE is not blocked by a row trigger; restrict it through database role privileges in production.
+
+**Migration 0006 (audit retention guard):** replaces the audit table's trigger function with `gg_audit_guard()`. UPDATE is always rejected; DELETE is allowed only when the transaction set `gg.audit_purge = on` and the row is older than 30 days. No table changes. Downgrade restores the original `gg_forbid_mutation()` trigger.

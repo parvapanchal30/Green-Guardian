@@ -64,7 +64,10 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 
 ## Next slice candidates (recommended order)
 - [x] Stage A2: login throttling, request IDs, audit trail (2026-10-17)
-- [ ] Stage A3: Dockerfiles, deployment doc, backup/restore procedure, audit read UI and retention, 403 access-denied events
+- [x] Stage A3 (2026-10-18): Dockerfiles and compose stack, deployment doc, backup/restore procedure with CI proof, audit log UI and retention, 403 access-denied events
+- [ ] Take and rehearse the first real backup of the Supabase database (needs PostgreSQL 17 client tools on a machine you control)
+- [ ] S3-compatible storage adapter (needed before running more than one API replica)
+- [ ] Choose a hosting provider and a map tile provider; decide the Open-Meteo commercial question (R-WX-1)
 - [ ] Stage C: scheduled agent worker, `irrigation_defer` rule, rule configuration and versioning
 - [x] Full API suite ran on PostgreSQL in CI (run 3)
 - [x] `GET /dashboard` and map read models

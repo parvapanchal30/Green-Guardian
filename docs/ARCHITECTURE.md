@@ -107,3 +107,6 @@ Database: a hosted PostgreSQL+PostGIS project (Supabase by default) — see `doc
 - **Throttling** (`modules/identity/throttle.py`): database-backed counters consulted by the identity service before credential checks.
 - **Audit** (`modules/audit`): `audit.record_ctx(db, ctx, action, ...)` adds a scrubbed row to the caller's session, so it commits atomically with the change. See `SECURITY.md` and ADR-034.
 Flow for a mutating request: `middleware (request id, client ip) -> router (auth, role) -> service (change + audit.record in one transaction) -> commit`.
+
+## Packaging, deployment and recovery (2026-10-18)
+Two images (`backend/Dockerfile`, `frontend/Dockerfile`), a local compose stack (`docker-compose.yml`: PostGIS, one-shot migration, API, nginx web), a deployment guide (`DEPLOYMENT.md`: topology, environments, variables, release steps, rollback) and a backup and recovery guide with tested scripts (`BACKUP_RECOVERY.md`, `ops/`). The worker (Stage C) will reuse the API image with a different command.

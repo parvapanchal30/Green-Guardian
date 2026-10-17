@@ -116,7 +116,9 @@ TLS at the edge with HSTS; `ENV=production`; unique `JWT_SECRET` from a secret s
 ## 12. What is verified, and what is not
 | Claim | Evidence |
 |---|---|
-| Images build, run as non-root, hold no secrets, start without root; compose stack serves the app through nginx; registration, login, a located asset, the PostGIS map query, a photo upload and byte-exact download work through the proxy; migrations apply in a PostGIS container | `ops/smoke-compose.sh`, run by CI job `containers` (status recorded in CURRENT_STATE.md) |
-| Dockerfiles pass hadolint; images have no HIGH/CRITICAL fixable vulnerabilities | CI job `containers` |
+| Images build, run as non-root, hold no secrets, start without root; compose stack serves the app through nginx; registration, login, a located asset, the PostGIS map query, a photo upload and byte-exact download work through the proxy; migrations apply in a PostGIS container | `ops/smoke-compose.sh`, run by CI job `containers` (passed in run 39065411514; 28 checks) |
+| Dockerfiles pass hadolint; images have no HIGH/CRITICAL fixable vulnerabilities | CI job `containers` (Trivy 0.76.0; the first web base image failed this gate with 41 findings and was replaced) |
 | The production Content-Security-Policy does not break the app (login, map with tiles, uploads, blob images, viewer) | checked by hand in a real browser against the production build and the exact header from `nginx.conf.template` |
 | Not verified: running the containers on your machine (no Docker installed here), any real hosting provider, TLS termination, S3 storage (not built), multi-replica behaviour, load |  |
+
+Base images: `python:3.12-slim-bookworm`, `node:22-alpine` (build only) and `nginxinc/nginx-unprivileged:1.30-alpine` track a minor version, not a digest. Rebuild and redeploy regularly (at least monthly, immediately for a scanner finding) to pick up OS patches; CI's Trivy gate fails the build when a base image becomes too old.
