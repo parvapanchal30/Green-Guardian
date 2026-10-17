@@ -15,7 +15,7 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL VITE_MAP_TILE_URL=$VITE_MAP_TILE_URL
 RUN npm run build
 
 # ---- runtime stage: nginx as a non-root user (uid 101) listening on 8080
-FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime
 # The official image renders /etc/nginx/templates/*.template with the container's environment at start-up.
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
