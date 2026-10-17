@@ -331,3 +331,11 @@ export interface Evidence {
   original_filename: string | null; content_type: string; size_bytes: number; sha256: string; width: number; height: number
   caption: string | null; created_at: string; content_path: string
 }
+
+// ------------------------------------------------------------------ audit trail (read-only)
+export interface AuditEvent {
+  id: string; occurred_at: string; actor_id: string | null; actor_name: string | null; action: string
+  outcome: 'success' | 'failure' | 'denied'; target_type: string | null; target_id: string | null
+  request_id: string | null; client_ip: string | null; details: Record<string, unknown>
+}
+export interface AuditMeta { actions: string[]; target_types: string[]; retention_days: number; min_retention_days: number }

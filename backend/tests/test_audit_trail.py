@@ -294,7 +294,7 @@ def test_each_workspace_sees_only_its_own_trail_and_never_pre_login_events(api_f
 
 def test_there_is_no_api_to_create_change_or_delete_audit_records(api_for, team, app):
     paths = {p: set(ops) for p, ops in app.openapi()["paths"].items() if "/audit" in p}
-    assert paths == {"/api/v1/workspaces/{ws}/audit": {"get"}}
+    assert paths == {"/api/v1/workspaces/{ws}/audit": {"get"}, "/api/v1/workspaces/{ws}/audit/meta": {"get"}}
     o = api_for(team.owner)
     ev_id = str(uuid.uuid4())
     for call in (

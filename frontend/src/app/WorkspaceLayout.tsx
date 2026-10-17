@@ -42,7 +42,7 @@ export function WorkspaceLayout() {
 
   const workspace = wsQuery.data
   const vocab = VOCABULARY[workspace.mode]
-  const groups = navFor(workspace.mode)
+  const groups = navFor(workspace.mode, workspace.role)
 
   return (
     <div className="min-h-screen md:grid md:grid-cols-[17rem_1fr]">

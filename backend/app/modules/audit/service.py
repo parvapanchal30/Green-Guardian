@@ -21,7 +21,7 @@ from app.core.request_context import current_client_ip, current_request_id, curr
 from app.modules.identity.models import User
 
 from .models import AuditEvent
-from .schemas import AuditEventOut
+from .schemas import AuditEventOut, AuditMeta
 
 if TYPE_CHECKING:  # deps imports identity.service, which records audit events: avoid the import cycle
     from app.core.deps import WorkspaceContext
@@ -164,3 +164,20 @@ def list_events(
         for e, name in rows
     ]
     return Page[AuditEventOut](items=items, total=total, limit=page.limit, offset=page.offset)
+
+
+def meta(db: Session, ctx: WorkspaceContext, retention_days: int, min_retention_days: int) -> AuditMeta:
+    base = AuditEvent.workspace_id == ctx.workspace_id
+    actions = db.scalars(select(AuditEvent.action).where(base).distinct().order_by(AuditEvent.action)).all()
+    targets = db.scalars(
+        select(AuditEvent.target_type)
+        .where(base, AuditEvent.target_type.is_not(None))
+        .distinct()
+        .order_by(AuditEvent.target_type)
+    ).all()
+    return AuditMeta(
+        actions=[a for a in actions if a],
+        target_types=[t for t in targets if t],
+        retention_days=retention_days,
+        min_retention_days=min_retention_days,
+    )

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { api, apiBlob } from '../api/client'
 import type {
-  AgentRun, Asset, Dashboard, Evidence, MapFeatureCollection, MapLayerInfo, Issue, IssueDetail, LocationItem, Observation, ObservationCreated, Page, Recommendation, RuleInfo,
+  AgentRun, Asset, AuditEvent, AuditMeta, Dashboard, Evidence, MapFeatureCollection, MapLayerInfo, Issue, IssueDetail, LocationItem, Observation, ObservationCreated, Page, Recommendation, RuleInfo,
   SpeciesItem, TaskDetail, Task, TimelineEvent, Workflow,
 } from '../api/types'
 
@@ -81,6 +81,13 @@ export const useEvidence = (ws: string, params: Params) =>
 /** The image itself: protected, so fetched with the token and cached by (immutable) evidence id. */
 export const useEvidenceBlob = (ws: string, ev: Evidence) =>
   useQuery({ queryKey: [ws, 'evidence-blob', ev.id], queryFn: () => apiBlob(ev.content_path), staleTime: Infinity, gcTime: 600_000 })
+
+/** `enabled` keeps people who cannot read the audit log from issuing requests that the server would refuse anyway. */
+export const useAuditMeta = (ws: string, enabled = true) =>
+  useQuery({ queryKey: [ws, 'audit-meta'], queryFn: () => api<AuditMeta>(base(ws, '/audit/meta')), retry: false, enabled })
+
+export const useAudit = (ws: string, params: Params, enabled = true) =>
+  useQuery({ queryKey: [ws, 'audit', params], queryFn: () => api<Page<AuditEvent>>(base(ws, '/audit', params)), retry: false, enabled })
 
 // ------------------------------------------------------------------ writes (each refreshes the affected workspace data)
 function useWsMutation<TIn, TOut>(ws: string, fn: (input: TIn) => Promise<TOut>) {

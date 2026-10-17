@@ -1,4 +1,5 @@
-import type { Stage, WorkspaceMode } from '../api/types'
+import type { Role, Stage, WorkspaceMode } from '../api/types'
+import { atLeast } from '../lib/format'
 
 /**
  * Navigation registry (docs/PRD.md section 16).
@@ -18,6 +19,8 @@ export interface NavRoute {
   status: RouteStatus
   /** only shown for these modes; omitted = all modes */
   modes?: WorkspaceMode[]
+  /** minimum workspace role that sees this entry in the navigation (the server enforces it independently) */
+  minRole?: Role
   /** backend capability key that gates a `soon` surface */
   capability?: string
   stage?: Stage
@@ -64,12 +67,13 @@ export const ROUTES: NavRoute[] = [
   { path: 'reports/financials', label: 'Financials', group: 'Reports', status: 'soon', modes: [A], capability: 'profitability', stage: 'v3', technique: 'Financial model', summary: 'Yield, cost and market price in; revenue and profit ranges out.' },
 
   { path: 'settings/members', label: 'Members', group: 'Settings', status: 'live', summary: 'People and roles in this workspace.' },
+  { path: 'settings/audit', label: 'Audit log', group: 'Settings', status: 'live', minRole: 'manager', summary: 'Who did what, when, from where. Read-only.' },
 ]
 
 export const GROUP_ORDER: NavRoute['group'][] = ['Home', 'Assets', 'Work', 'Monitor', 'AI', 'Reports', 'Settings']
 
-export function navFor(mode: WorkspaceMode): { group: NavRoute['group']; items: NavRoute[] }[] {
-  const visible = ROUTES.filter((r) => !r.modes || r.modes.includes(mode))
+export function navFor(mode: WorkspaceMode, role: Role = 'owner'): { group: NavRoute['group']; items: NavRoute[] }[] {
+  const visible = ROUTES.filter((r) => (!r.modes || r.modes.includes(mode)) && (!r.minRole || atLeast(role, r.minRole)))
   return GROUP_ORDER.map((group) => ({ group, items: visible.filter((r) => r.group === group) })).filter((g) => g.items.length)
 }
 

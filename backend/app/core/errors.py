@@ -87,15 +87,19 @@ def _problem(request: Request, status: int, code: str, detail: str, **extra) -> 
     return JSONResponse(body, status_code=status, media_type=PROBLEM, headers=headers)
 
 
+def app_error_response(request: Request, exc: AppError) -> JSONResponse:
+    headers = {"WWW-Authenticate": "Bearer"} if exc.status == 401 else None
+    resp = _problem(request, exc.status, exc.code, exc.detail, **exc.extra)
+    if headers:
+        resp.headers.update(headers)
+    resp.headers.update(exc.headers)
+    return resp
+
+
 def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def _app_error(request: Request, exc: AppError):
-        headers = {"WWW-Authenticate": "Bearer"} if exc.status == 401 else None
-        resp = _problem(request, exc.status, exc.code, exc.detail, **exc.extra)
-        if headers:
-            resp.headers.update(headers)
-        resp.headers.update(exc.headers)
-        return resp
+        return app_error_response(request, exc)
 
     @app.exception_handler(RequestValidationError)
     async def _validation(request: Request, exc: RequestValidationError):

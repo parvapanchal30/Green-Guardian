@@ -18,3 +18,12 @@ class AuditEventOut(BaseModel):
     request_id: str | None
     client_ip: str | None
     details: dict
+
+
+class AuditMeta(BaseModel):
+    """What the audit page needs to build its filters, and the retention policy it should state."""
+
+    actions: list[str]
+    target_types: list[str]
+    retention_days: int  # 0 = kept forever
+    min_retention_days: int

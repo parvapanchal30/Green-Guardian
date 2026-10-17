@@ -63,6 +63,12 @@ class Settings(BaseSettings):
     auth_register_max_per_ip: int = 10  # attempts per `auth_register_window_s`
     auth_register_window_s: int = 3600
 
+    # Audit retention (modules/audit/retention.py). Records older than this many days may be purged by the housekeeping
+    # job; 0 keeps them forever. The database refuses to delete anything younger than 30 days whatever this says.
+    audit_retention_days: int = 730
+    # Identical access-denied events (same actor, route and reason) are recorded at most once per this many seconds.
+    audit_denied_dedupe_s: int = 60
+
     # --- http ---
     cors_origins: list[str] = ["http://localhost:5173"]
     # Reverse proxies in front of the API. 0 = use the socket peer address; N = trust the Nth entry from the right of
@@ -94,6 +100,13 @@ class Settings(BaseSettings):
                 "DATABASE_URL password is wrapped in [brackets]: remove them (they are only a placeholder "
                 "marker in provider dashboards). Passwords with special characters must be URL-encoded."
             )
+        return v
+
+    @field_validator("audit_retention_days")
+    @classmethod
+    def _retention(cls, v: int) -> int:
+        if v != 0 and v < 30:
+            raise ValueError("AUDIT_RETENTION_DAYS must be 0 (keep forever) or at least 30")
         return v
 
     @field_validator("db_schema")

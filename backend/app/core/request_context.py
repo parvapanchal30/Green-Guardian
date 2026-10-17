@@ -24,6 +24,9 @@ _VALID_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,63}$")
 _request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
 _client_ip: ContextVar[str | None] = ContextVar("client_ip", default=None)
 _user_agent: ContextVar[str | None] = ContextVar("user_agent", default=None)
+# A mutable holder created per request. Synchronous dependencies run in a worker thread with a COPY of the context, so
+# assigning a ContextVar there would be invisible to the exception handlers; mutating a shared dict is not.
+_identity: ContextVar[dict | None] = ContextVar("identity", default=None)
 
 
 def new_request_id() -> str:
@@ -55,13 +58,33 @@ def client_ip_from_scope(scope: Mapping[str, Any], trusted_proxy_count: int) -> 
 
 def set_context(request_id: str, client_ip: str | None, user_agent: str | None):
     """Returns the tokens needed to reset the variables."""
-    return (_request_id.set(request_id), _client_ip.set(client_ip), _user_agent.set((user_agent or "")[:300] or None))
+    return (
+        _request_id.set(request_id),
+        _client_ip.set(client_ip),
+        _user_agent.set((user_agent or "")[:300] or None),
+        _identity.set({}),
+    )
 
 
 def reset_context(tokens) -> None:
     _request_id.reset(tokens[0])
     _client_ip.reset(tokens[1])
     _user_agent.reset(tokens[2])
+    _identity.reset(tokens[3])
+
+
+def note_identity(*, actor_id=None, workspace_id=None) -> None:
+    """Remember who the caller is for this request (read later by the access-denied recorder)."""
+    holder = _identity.get()
+    if holder is not None:
+        if actor_id is not None:
+            holder["actor_id"] = actor_id
+        if workspace_id is not None:
+            holder["workspace_id"] = workspace_id
+
+
+def current_identity() -> dict:
+    return dict(_identity.get() or {})
 
 
 def current_request_id() -> str | None:

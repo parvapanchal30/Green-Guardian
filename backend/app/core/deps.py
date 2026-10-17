@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.core.db import get_db
 from app.core.errors import Forbidden, NotFound, Unauthorized
+from app.core.request_context import note_identity
 from app.core.security import decode_access_token
 from app.modules.identity.models import User
 from app.modules.identity.service import get_user
@@ -34,7 +35,9 @@ def current_user(
 ) -> User:
     if creds is None or creds.scheme.lower() != "bearer":
         raise Unauthorized("Missing bearer token", code="missing_token")
-    return get_user(db, decode_access_token(creds.credentials, settings))
+    user = get_user(db, decode_access_token(creds.credentials, settings))
+    note_identity(actor_id=user.id)
+    return user
 
 
 @dataclass(frozen=True)
@@ -65,6 +68,7 @@ def workspace_ctx(
     if row is None:
         raise NotFound("Workspace not found", code="workspace_not_found")
     workspace, role = row
+    note_identity(actor_id=user.id, workspace_id=workspace.id)
     return WorkspaceContext(workspace=workspace, user=user, role=Role(role))
 
 

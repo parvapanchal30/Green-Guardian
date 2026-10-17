@@ -10,6 +10,7 @@ from app.core.errors import install_error_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware
 from app.modules.assets.router import router as assets_router
+from app.modules.audit import denied as audit_denied
 from app.modules.audit.router import router as audit_router
 from app.modules.catalog.router import router as catalog_router
 from app.modules.dashboard.router import router as dashboard_router
@@ -58,6 +59,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Added last = outermost: every response (including CORS preflights and errors) carries the request ID.
     app.add_middleware(RequestContextMiddleware, trusted_proxy_count=settings.trusted_proxy_count)
     install_error_handlers(app)
+    audit_denied.install(app)  # records 403s, then answers exactly as before
+    app.state.settings = settings
     validate_weather_provider(settings)
     validate_storage_provider(settings)
 

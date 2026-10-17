@@ -2,6 +2,7 @@ import { Link, Navigate, createBrowserRouter, type RouteObject } from 'react-rou
 import { AuthProvider } from '../lib/auth'
 import { AgentPage } from '../pages/AgentPage'
 import { AssetProfilePage } from '../pages/AssetProfilePage'
+import { AuditPage } from '../pages/AuditPage'
 import { AssetsPage } from '../pages/AssetsPage'
 import { HomePage } from '../pages/HomePage'
 import { IssueDetailPage } from '../pages/IssueDetailPage'
@@ -48,6 +49,7 @@ const LIVE: Record<string, () => React.JSX.Element> = {
   'monitor/map': MapPage,
   'monitor/weather': WeatherPage,
   'settings/members': MembersPage,
+  'settings/audit': AuditPage,
 }
 
 // Detail pages are reachable by link, not from the sidebar.
