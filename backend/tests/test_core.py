@@ -99,7 +99,14 @@ def test_build_engine_pins_sslmode_and_search_path(monkeypatch):
     monkeypatch.setattr(db, "create_engine", fake_create_engine)
     monkeypatch.setattr(db.event, "listens_for", lambda *a, **k: lambda f: f)
     # Hermetic: CI exports DB_SSLMODE=disable for its TLS-less container; this test is about the defaults.
-    for var in ("DB_SSLMODE", "DB_CONNECT_TIMEOUT_S", "DB_POOL_PRE_PING", "DB_SCHEMA", "POSTGIS_SCHEMA", "DB_POOL_MODE"):
+    for var in (
+        "DB_SSLMODE",
+        "DB_CONNECT_TIMEOUT_S",
+        "DB_POOL_PRE_PING",
+        "DB_SCHEMA",
+        "POSTGIS_SCHEMA",
+        "DB_POOL_MODE",
+    ):
         monkeypatch.delenv(var, raising=False)
     base = dict(_env_file=None, env="test", jwt_secret="x" * 40)
     db.build_engine(Settings(database_url="postgresql://u:p@h:5432/d", **base))
