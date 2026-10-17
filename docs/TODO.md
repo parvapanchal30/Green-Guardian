@@ -82,3 +82,5 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [ ] Decide on a local PostgreSQL+PostGIS (or Docker) for developers so the whole suite can run locally on PostgreSQL
 - [ ] Revisit the advisor's unindexed-foreign-key notices with real query statistics before production
 - [ ] Open-Meteo commercial licence decision (R-WX-1) before any commercial deployment
+
+- [ ] Stage D (investigation done, see DATASETS.md): decide acceptable dataset licences and the label reviewer; then build the dataset catalog record, grouped-split evaluation harness and data-quality checks; verify licences at source before any download
