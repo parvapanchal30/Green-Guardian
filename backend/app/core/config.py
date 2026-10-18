@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import parse_qs, urlparse
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -19,6 +20,29 @@ def normalize_database_url(url: str) -> str:
     if url.startswith("postgresql://"):
         url = "postgresql+psycopg://" + url[len("postgresql://") :]
     return url
+
+
+def _cors_origin_problem(origin: str) -> str | None:
+    """Production allows only exact https origins: no wildcard, no localhost, no path (a browser's Origin header has
+    none, so an entry with a path or trailing slash would silently never match)."""
+    if "*" in origin:
+        return "wildcards are not allowed in production; list each origin exactly"
+    u = urlparse(origin)
+    if u.scheme != "https" or not u.hostname:
+        return "must be an https origin such as https://app.example.org"
+    if u.hostname == "localhost" or u.hostname.startswith("127.") or u.hostname in ("0.0.0.0", "::1"):
+        return "a local address is not a production origin"
+    if u.path or u.params or u.query or u.fragment or u.username or u.password:
+        return "must be a bare origin (scheme, host and optional port; no path, trailing slash or credentials)"
+    return None
+
+
+def _effective_sslmode(database_url: str, default: str) -> str:
+    """The sslmode that will actually be used: an explicit ?sslmode= in the URL wins over DB_SSLMODE."""
+    try:
+        return parse_qs(urlparse(database_url).query).get("sslmode", [default])[0]
+    except ValueError:
+        return default
 
 
 class Settings(BaseSettings):
@@ -141,6 +165,15 @@ class Settings(BaseSettings):
                 raise ValueError("WEATHER_PROVIDER=mock is not allowed in production")
             if self.storage_provider == "memory":
                 raise ValueError("STORAGE_PROVIDER=memory is not allowed in production")
+            for origin in self.cors_origins:
+                problem = _cors_origin_problem(origin)
+                if problem:
+                    raise ValueError(f"CORS_ORIGINS entry {origin!r}: {problem}")
+            if _effective_sslmode(self.database_url, self.db_sslmode) in ("disable", "allow", "prefer"):
+                raise ValueError(
+                    "the database connection must use TLS in production: set DB_SSLMODE=require (or verify-full), "
+                    "or put sslmode=require in DATABASE_URL"
+                )
         return self
 
 

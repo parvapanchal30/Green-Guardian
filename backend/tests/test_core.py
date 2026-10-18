@@ -42,7 +42,12 @@ def test_settings_guards():
         Settings(env="production", jwt_secret="x" * 40, weather_provider="mock", **base)
     with pytest.raises(ValueError, match="POSTGIS_SCHEMA"):
         Settings(postgis_schema="extensions; DROP TABLE users", jwt_secret="x" * 40, **base)
-    assert Settings(env="production", jwt_secret="x" * 40, **base).weather_provider == "open_meteo"
+    assert (
+        Settings(
+            env="production", jwt_secret="x" * 40, cors_origins=["https://app.example.org"], **base
+        ).weather_provider
+        == "open_meteo"
+    )
 
 
 def test_a_signing_secret_is_required_outside_tests(monkeypatch):
@@ -143,3 +148,80 @@ def test_test_database_url_is_read_from_dotenv_when_not_in_the_environment(tmp_p
     assert _load_test_database_url(tmp_path / "missing.env") == ""
     monkeypatch.setenv("TEST_DATABASE_URL", "postgresql://env:p@h/d")
     assert _load_test_database_url(env) == "postgresql://env:p@h/d"  # the real environment wins
+
+
+# ------------------------------------------------------------------------------------------------ production hosting guards
+PROD = dict(env="production", jwt_secret="x" * 40, _env_file=None)
+
+
+@pytest.mark.parametrize(
+    ("origin", "fragment"),
+    [
+        ("*", "wildcards"),
+        ("https://*.example.org", "wildcards"),
+        ("http://app.example.org", "https origin"),
+        ("app.example.org", "https origin"),
+        ("https://localhost", "local address"),
+        ("https://127.0.0.1:8443", "local address"),
+        ("https://app.example.org/", "bare origin"),
+        ("https://app.example.org/path", "bare origin"),
+        ("https://user:pw@app.example.org", "bare origin"),
+    ],
+)
+def test_production_refuses_unsafe_cors_origins(origin, fragment):
+    with pytest.raises(ValueError, match=fragment):
+        Settings(cors_origins=[origin], **PROD)
+
+
+def test_production_accepts_exact_https_origins_and_the_default_localhost_origin_is_refused():
+    ok = Settings(cors_origins=["https://app.example.org", "https://staging.example.org:8443"], **PROD)
+    assert ok.cors_origins == ["https://app.example.org", "https://staging.example.org:8443"]
+    with pytest.raises(ValueError, match="CORS_ORIGINS"):
+        Settings(**PROD)  # the development default (http://localhost:5173) must be replaced explicitly
+
+
+def test_development_keeps_its_localhost_default():
+    assert Settings(env="development", jwt_secret="x" * 40, _env_file=None).cors_origins == ["http://localhost:5173"]
+
+
+@pytest.mark.parametrize("mode", ["disable", "allow", "prefer"])
+def test_production_requires_tls_to_the_database_via_the_url(mode):
+    with pytest.raises(ValueError, match="must use TLS"):
+        Settings(cors_origins=["https://app.example.org"], database_url=f"postgresql://u:p@h/db?sslmode={mode}", **PROD)
+
+
+@pytest.mark.parametrize("mode", ["disable", "prefer"])
+def test_production_requires_tls_to_the_database_via_the_setting(mode):
+    with pytest.raises(ValueError, match="must use TLS"):
+        Settings(cors_origins=["https://app.example.org"], db_sslmode=mode, **PROD)
+
+
+def test_a_tls_setting_in_the_url_overrides_a_weaker_default_and_vice_versa():
+    origins = ["https://app.example.org"]
+    assert Settings(
+        cors_origins=origins, db_sslmode="disable", database_url="postgresql://u:p@h/db?sslmode=require", **PROD
+    )
+    assert Settings(cors_origins=origins, db_sslmode="verify-full", **PROD).db_sslmode == "verify-full"
+    with pytest.raises(ValueError, match="must use TLS"):
+        Settings(
+            cors_origins=origins, db_sslmode="require", database_url="postgresql://u:p@h/db?sslmode=disable", **PROD
+        )
+
+
+def test_cors_answers_only_the_configured_origin_and_never_allows_credentials(client):
+    allowed = client.options(
+        "/api/v1/me",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "authorization",
+        },
+    )
+    assert allowed.headers.get("access-control-allow-origin") == "http://localhost:5173"
+    assert "access-control-allow-credentials" not in allowed.headers  # tokens travel in a header, never in cookies
+    for origin in ("https://evil.example", "http://localhost:5174", "null"):
+        refused = client.options("/api/v1/me", headers={"Origin": origin, "Access-Control-Request-Method": "GET"})
+        assert "access-control-allow-origin" not in refused.headers, origin
+    assert "x-request-id" in {
+        k.lower() for k in client.get("/healthz", headers={"Origin": "http://localhost:5173"}).headers
+    }

@@ -96,6 +96,14 @@ jobs:
       - run: npx oxlint
       - run: npm test
       - run: npm run build
+      # The build Vercel runs: refuses a missing/local/non-https API URL, adds the CSP, then checks the bundle. The URL is a
+      # placeholder on a reserved domain (nothing is contacted); it proves the configured origin reaches the bundle and CSP.
+      - name: Hosted-style build and bundle verification
+        env:
+          VERCEL: "1"
+          VERCEL_ENV: preview
+          VITE_API_BASE_URL: https://api.ci.example/api/v1
+        run: npm run build && npm run verify:dist
 
   # Dependency vulnerability checks (production dependencies). A new advisory fails the build so it is seen and handled.
   supply-chain:
