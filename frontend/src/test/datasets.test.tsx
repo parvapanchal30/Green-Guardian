@@ -29,6 +29,8 @@ vi.mock('../lib/datasets', () => ({
   useTransitionDataset: () => state.mut.transition,
   useReviewSample: () => state.mut.review,
   useCreateSplit: () => state.mut.split,
+  useImportSamples: () => state.mut.import,
+  useRegisterSample: () => state.mut.register,
 }))
 
 import { DatasetDetailPage } from '../pages/DatasetDetailPage'
@@ -84,7 +86,7 @@ beforeEach(() => {
     splits: ok([]),
     claims: ok({ allowed: false, blockers: [], split_version: null, note: 'Engineering gate.' }),
   }
-  state.mut = { create: idle(), evidence: idle(), transition: idle(), review: idle(), split: idle() }
+  state.mut = { create: idle(), evidence: idle(), transition: idle(), review: idle(), split: idle(), import: idle(), register: idle() }
 })
 
 describe('datasets catalog', () => {

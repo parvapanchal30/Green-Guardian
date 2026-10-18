@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type {
-  AgreementReport, ClaimReadiness, DatasetDetailRecord, DatasetItem, DatasetSampleRecord, LabelReviewRecord, LicencePolicy, Page,
+  AgreementReport, ClaimReadiness, DatasetDetailRecord, DatasetItem, DatasetSampleRecord, ImportReport, LabelReviewRecord, LicencePolicy, Page,
   QualityReport, ReviewSummary, SplitRecord,
 } from '../api/types'
 import { qs } from './slice'
@@ -65,6 +65,15 @@ export const useTransitionDataset = (ws: string, id: string) =>
 export const useReviewSample = (ws: string, id: string) =>
   useDatasetMutation(ws, (v: { sampleId: string; body: Record<string, unknown> }) =>
     api<LabelReviewRecord>(base(ws, `/${id}/samples/${v.sampleId}/reviews`), { method: 'POST', body: v.body }))
+
+/** Validate (commit=false) or import (commit=true) a CSV. The server validates everything; the client never decides. */
+export const useImportSamples = (ws: string, id: string) =>
+  useDatasetMutation(ws, (body: { csv_text: string; commit: boolean }) =>
+    api<ImportReport>(base(ws, `/${id}/samples/import`), { method: 'POST', body }))
+
+export const useRegisterSample = (ws: string, id: string) =>
+  useDatasetMutation(ws, (body: { samples: Record<string, unknown>[] }) =>
+    api<{ registered: number }>(base(ws, `/${id}/samples`), { method: 'POST', body }))
 
 export const useCreateSplit = (ws: string, id: string) =>
   useDatasetMutation(ws, (body: Record<string, unknown>) => api<SplitRecord>(base(ws, `/${id}/splits`), { method: 'POST', body }))

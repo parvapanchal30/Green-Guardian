@@ -5,6 +5,7 @@ import { useDatasetSamples, useReviewSample, useReviewSummary, useSampleReviews 
 import { Field, Pagination, btn, btnPrimary, input } from '../domain'
 import { EmptyState, ErrorState, LoadingBlock, errorMessage } from '../states'
 import { StatusChip } from '../StatusChip'
+import { ImportPanel } from './ImportPanel'
 import { LabelStatusChip, UNVERIFIED_NOTE, short } from './shared'
 
 const PAGE = 25
@@ -111,6 +112,7 @@ export function SamplesTab({ ws, d, role }: { ws: string; d: DatasetDetailRecord
   return (
     <div className="space-y-4">
       <p className="rounded-lg border border-line bg-surface p-3 text-sm text-ink-2">{UNVERIFIED_NOTE}</p>
+      {atLeast(role, 'manager') ? <ImportPanel ws={ws} d={d} /> : <p className="text-xs text-ink-3">Only managers can add samples.</p>}
       {summary.error ? <ErrorState error={summary.error} /> : summary.data && (
         <div aria-label="Review summary" className="flex flex-wrap items-center gap-2 text-sm">
           {Object.entries(summary.data.by_status).map(([k, v]) => <StatusChip key={k} tone="neutral">{label(k)}: {v}</StatusChip>)}
@@ -129,7 +131,7 @@ export function SamplesTab({ ws, d, role }: { ws: string; d: DatasetDetailRecord
       {list.error && <ErrorState error={list.error} onRetry={() => list.refetch()} />}
       {list.data && list.data.total === 0 && (
         <EmptyState title={status ? 'No samples with that status' : 'No samples are registered'}>
-          {d.kind === 'real' && d.status !== 'approved' ? 'Samples of a real dataset can only be registered once it is approved.' : 'Samples are registered through the API.'}
+          {d.kind === 'real' && d.status !== 'approved' ? 'Samples of a real dataset can only be registered once it is approved.' : 'Add samples with a CSV file or one at a time.'}
         </EmptyState>
       )}
       <ul className="space-y-2">{list.data?.items.map((s) => <Row key={s.id} ws={ws} d={d} s={s} role={role} />)}</ul>

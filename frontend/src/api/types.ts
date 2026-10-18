@@ -547,3 +547,22 @@ export interface ProtocolSignoffRecord {
 }
 export interface ProtocolDetailRecord extends ProtocolSummaryRecord { content: ProtocolContentRecord; signoffs: ProtocolSignoffRecord[] }
 export interface ProtocolTemplate { content: ProtocolContentRecord; note: string; required_roles: ProtocolRole[] }
+
+export interface ImportIssue { row: number | null; external_id?: string | null; column?: string; code: string; message: string }
+export interface ImportWarning { code: string; message: string; count: number; rows: number[] }
+export interface ImportReport {
+  status: 'preview' | 'imported' | 'already_imported'
+  ok: boolean
+  csv_sha256: string
+  columns: string[]
+  rows_total: number
+  rows_with_errors: number
+  to_create: number
+  unchanged: number
+  error_count: number
+  errors: ImportIssue[]
+  errors_truncated: boolean
+  warnings: ImportWarning[]
+  label_status_after_import: 'unreviewed'
+  note: string
+}
