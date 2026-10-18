@@ -10,9 +10,18 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
+from app.modules.audit import denied
 from app.modules.datasets.models import DatasetSample, DatasetSplit
 from tests.conftest import requires_pg_mode
 from tests.helpers import ago
+
+
+@pytest.fixture(autouse=True)
+def _fresh_denial_dedupe():
+    """Denied-access events are de-duplicated per process; start each test with an empty window."""
+    denied.reset_dedupe()
+    yield
+    denied.reset_dedupe()
 
 
 def real(**over) -> dict:
