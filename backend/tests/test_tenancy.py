@@ -68,6 +68,16 @@ ENDPOINTS = [
     ("GET", "/api/v1/workspaces/{ws}/recommendations", None),
     ("POST", "/api/v1/workspaces/{ws}/recommendations/{recommendation_id}/accept", {}),
     ("POST", "/api/v1/workspaces/{ws}/recommendations/{recommendation_id}/dismiss", {"reason": "not now"}),
+    # evaluation protocols (Stage D3)
+    ("GET", "/api/v1/workspaces/{ws}/evaluation-protocols/template", None),
+    ("GET", "/api/v1/workspaces/{ws}/evaluation-protocols", None),
+    ("POST", "/api/v1/workspaces/{ws}/evaluation-protocols", {"key": "p-dis-1", "content": {}}),
+    ("GET", "/api/v1/workspaces/{ws}/evaluation-protocols/{protocol_id}", None),
+    (
+        "POST",
+        "/api/v1/workspaces/{ws}/evaluation-protocols/{protocol_id}/signoffs",
+        {"role": "data_owner", "decision": "approve", "note": "a long enough note"},
+    ),
     # datasets (Stage D)
     ("GET", "/api/v1/workspaces/{ws}/datasets/licence-policy", None),
     ("GET", "/api/v1/workspaces/{ws}/datasets", None),

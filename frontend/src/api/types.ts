@@ -521,3 +521,29 @@ export interface LicencePolicy {
   approval_requires: string[]
   download_rule: string
 }
+
+// ------------------------------------------------------------------ evaluation protocols (Stage D3)
+export type ProtocolRole = 'plant_pathologist' | 'data_owner' | 'independent_evaluator'
+export interface ProtocolStatus { state: string; blockers: string[]; signed_roles: string[] }
+export interface ProtocolSummaryRecord {
+  id: string; key: string; version: number; title: string; content_sha256: string
+  created_by: string | null; created_at: string; status: ProtocolStatus; is_proposal_only: boolean
+}
+export interface ProtocolThreshold {
+  id: string; metric: string; scope: string; comparator: 'ge' | 'le' | 'gt' | 'lt'; value: number | null
+  basis: string; requires_domain_expertise: boolean; status: 'proposed' | 'pending_domain_approval'; justification: string
+}
+export interface ProtocolContentRecord {
+  title: string; intended_use: string; not_for: string[]; target_population: string; species: string[]; disease_classes: string[]
+  inclusion_criteria: string[]; exclusion_criteria: string[]; dataset_requirements: string[]; label_requirements: string[]
+  grouping: { hierarchy: string[]; test_split_unit: string; claim_downgrade_if_no_site: string }
+  methodology: string[]; baselines: string[]; metrics: string[]; confidence_and_calibration: string[]
+  error_costs: { false_negative: string; false_positive: string; operating_point: string }
+  thresholds: ProtocolThreshold[]; required_signoffs: ProtocolRole[]; prohibited_claims: string[]; limitations: string[]
+}
+export interface ProtocolSignoffRecord {
+  id: string; role: ProtocolRole; decision: 'approve' | 'reject'; signer_id: string
+  declared_qualification: string | null; qualification_verified: boolean; note: string; at: string
+}
+export interface ProtocolDetailRecord extends ProtocolSummaryRecord { content: ProtocolContentRecord; signoffs: ProtocolSignoffRecord[] }
+export interface ProtocolTemplate { content: ProtocolContentRecord; note: string; required_roles: ProtocolRole[] }

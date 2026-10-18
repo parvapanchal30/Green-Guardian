@@ -24,6 +24,7 @@ from app.modules.issues.router import router as issues_router
 from app.modules.locations.router import router as locations_router
 from app.modules.map.router import router as map_router
 from app.modules.observations.router import router as observations_router
+from app.modules.protocols.router import router as protocols_router
 from app.modules.tasks.router import router as tasks_router
 from app.modules.weather.context import ForecastWeatherContext
 from app.modules.weather.registry import UnknownWeatherProvider, available_providers
@@ -91,6 +92,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         evidence_router,
         audit_router,
         datasets_router,
+        protocols_router,
     ):
         app.include_router(r, prefix=API_PREFIX)
 

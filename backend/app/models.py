@@ -18,6 +18,7 @@ from app.modules.intelligence.models import AgentRun, Recommendation
 from app.modules.issues.models import Issue, IssueObservation, IssueStatusHistory
 from app.modules.locations.models import Location
 from app.modules.observations.models import Observation
+from app.modules.protocols.models import EvaluationProtocol, ProtocolSignoff
 from app.modules.tasks.models import Task, TaskStatusHistory
 from app.modules.workspaces.models import Membership, Workspace
 
@@ -34,12 +35,14 @@ __all__ = [
     "LabelReview",
     "BiologicalAsset",
     "Evidence",
+    "EvaluationProtocol",
     "Issue",
     "IssueObservation",
     "IssueStatusHistory",
     "Location",
     "Membership",
     "Observation",
+    "ProtocolSignoff",
     "Organization",
     "AgentRun",
     "Recommendation",

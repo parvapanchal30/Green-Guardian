@@ -88,3 +88,11 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [ ] Owner: read the official licence pages of the candidates in `docs/datasets/candidates.json` and record the evidence; decide how PlantDoc's scraped images are treated (written confirmation from the authors, or keep it excluded)
 - [ ] Evaluation-protocol registry (needs the owner's acceptance criteria and field-domain test data); a qualified, verifiable plant-health reviewer
 - [ ] Label import/export (CSV) with provenance; retention policy for dataset records
+
+- [x] Stage D1 (2026-10-18): licence evidence verified at official sources for six candidates; worksheet importer (ADR-045)
+- [x] Stage D2: Datasets UI (catalog, evidence, blockers, approval workflow, review queue, quality, splits, agreement, claim gate) (ADR-046)
+- [x] Stage D3: evaluation-protocol proposal P-DIS-1 and registry with sign-offs (ADR-047)
+- [ ] Owner: decide the open image-origin questions (Cassava, Irish potato, PlantNet), reject PlantVillage in the catalog, and confirm the pending protocol thresholds with a qualified plant pathologist
+- [ ] A qualification-verification mechanism (needed before any protocol can be approved)
+- [ ] Cluster bootstrap and risk-coverage metrics in the evaluation harness; align the claim gate's size thresholds with the protocol (139 per class)
+- [ ] Sample registration and CSV import in the UI

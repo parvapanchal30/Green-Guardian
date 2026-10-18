@@ -15,6 +15,7 @@ from app.core.errors import Conflict, Forbidden, NotFound, Unprocessable
 from app.core.pagination import Page, PageParams
 from app.core.timeutil import utcnow
 from app.modules.audit import service as audit
+from app.modules.protocols.service import has_approved_protocol
 from app.modules.workspaces.models import Role
 
 from . import agreement, evaluation, licences, quality, review, splits
@@ -622,6 +623,7 @@ def claim_readiness(db: Session, ctx: WorkspaceContext, dataset_id: uuid.UUID) -
             test_per_class_min=per_class_min,
             leakage_violations=leakage,
             quality_passed=bool(report.get("passed")),
+            evaluation_protocol_registered=has_approved_protocol(db, ctx.workspace_id),
         )  # fmt: skip
     )
     result["split_version"] = split.version if split else None

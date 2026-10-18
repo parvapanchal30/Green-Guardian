@@ -56,6 +56,7 @@ export const ROUTES: NavRoute[] = [
 
   { path: 'ai/agent', label: 'Botanical Operations Agent', group: 'AI', status: 'live', summary: 'Rule-based checks that turn recorded observations into explained suggestions.' },
   { path: 'ai/datasets', label: 'Datasets', group: 'AI', status: 'live', summary: 'Catalog of data sources with licence evidence, label review, quality checks and the claim gate. No model is trained here.' },
+  { path: 'ai/protocols', label: 'Evaluation protocols', group: 'AI', status: 'live', summary: 'Plans for evaluating a future model, fixed before training, with sign-offs. None is approved.' },
   { path: 'ai/crop-recommendation', label: 'Crop Recommendation', group: 'AI', status: 'soon', modes: [A], capability: 'crop_recommendation', stage: 'v3', technique: 'Recommendation engine', summary: 'Soil, weather, location, water, season and market in; ranked crops with yield, cost and profit ranges out.' },
   { path: 'ai/disease-detection', label: 'Disease Detection', group: 'AI', status: 'soon', capability: 'disease_detection', stage: 'v2', technique: 'Computer vision', summary: 'Image in; possible condition, confidence and severity out; one click to create a botanical issue.' },
   { path: 'ai/growth-prediction', label: 'Growth Prediction', group: 'AI', status: 'soon', capability: 'growth_prediction', stage: 'v2', technique: 'Machine learning', summary: 'Historical observations plus environment in; predicted growth trajectory with an uncertainty band out.' },
