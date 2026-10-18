@@ -45,7 +45,8 @@ export function LicenceVerdictChip({ verdict }: { verdict: string }) {
   return <StatusChip tone="neutral">Synthetic fixture</StatusChip>
 }
 
-export const short = (id: string | null | undefined) => (id ? id.slice(0, 8) : '—')
+/** Last 8 characters: identifiers are time-ordered UUIDs whose first characters are shared by everything created together. */
+export const short = (id: string | null | undefined) => (id ? id.slice(-8) : '—')
 
 /** Only https links are rendered as links; anything else is shown as plain text. */
 export function SafeUrl({ url }: { url: string }) {

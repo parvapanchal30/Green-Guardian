@@ -432,7 +432,25 @@ def agreement_of(db: Session, ctx: WorkspaceContext, dataset_id: uuid.UUID) -> d
         agreement.Decision(str(r.sample_id), str(r.reviewer_id), r.to_status, r.from_label, r.to_label, r.at)
         for r in rows
     ]
-    return agreement.agreement_report(decisions)
+    report = agreement.agreement_report(decisions)
+    # name the disagreeing samples by their own identifier: time-ordered UUIDs share a prefix and are useless on screen
+    wanted = [uuid.UUID(x["sample_id"]) for x in report["disagreements"]]
+    names = (
+        dict(
+            db.execute(
+                select(DatasetSample.id, DatasetSample.external_id).where(
+                    DatasetSample.workspace_id == ctx.workspace_id,
+                    DatasetSample.dataset_id == dataset_id,
+                    DatasetSample.id.in_(wanted),
+                )
+            ).all()
+        )
+        if wanted
+        else {}
+    )
+    for x in report["disagreements"]:
+        x["external_id"] = names.get(uuid.UUID(x["sample_id"]))
+    return report
 
 
 def review_summary(db: Session, ctx: WorkspaceContext, dataset_id: uuid.UUID) -> ReviewQueueSummary:

@@ -487,7 +487,7 @@ export interface AgreementReport {
   reviewers: number
   observed_agreement: number | null
   cohens_kappa: number | null
-  disagreements: { sample_id: string; verdicts: string[] }[]
+  disagreements: { sample_id: string; external_id?: string | null; verdicts: string[] }[]
   caveats: string[]
 }
 

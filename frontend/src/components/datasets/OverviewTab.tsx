@@ -100,7 +100,7 @@ function EvidenceForm({ ws, d }: { ws: string; d: DatasetDetailRecord }) {
 }
 
 export function OverviewTab({ ws, d, role }: { ws: string; d: DatasetDetailRecord; role: Role }) {
-  const editable = d.status === 'proposed' || d.status === 'under_review'
+  const editable = d.kind === 'real' && (d.status === 'proposed' || d.status === 'under_review')
   return (
     <div className="space-y-6">
       <section aria-labelledby="ov-status" className="space-y-2">

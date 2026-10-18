@@ -125,7 +125,7 @@ export function AgreementTab({ ws, d }: { ws: string; d: DatasetDetailRecord }) 
       {r.disagreements.length > 0 && (
         <section aria-labelledby="agr-dis">
           <h3 id="agr-dis" className="font-medium">Disagreements</h3>
-          <ul className="mt-1 space-y-1 text-sm">{r.disagreements.map((x) => <li key={x.sample_id}>sample {short(x.sample_id)}: {x.verdicts.join(' vs ')}</li>)}</ul>
+          <ul className="mt-1 space-y-1 text-sm">{r.disagreements.map((x) => <li key={x.sample_id}>sample {x.external_id ?? short(x.sample_id)}: {x.verdicts.join(' vs ')}</li>)}</ul>
         </section>
       )}
     </div>

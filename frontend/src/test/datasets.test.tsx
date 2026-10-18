@@ -252,6 +252,7 @@ describe('dataset detail: licence, evidence and approval', () => {
     detail('admin')
     expect(screen.getAllByText(/not biological data/i).length).toBeGreaterThan(0)
     expect(screen.getByText('Synthetic fixtures need no approval.')).toBeInTheDocument()
+    expect(screen.queryByRole('form', { name: 'Record licence evidence' })).not.toBeInTheDocument() // the server refuses evidence for fixtures
   })
 
   it('shows loading, error and permission-denied states for the dataset', () => {
@@ -400,13 +401,13 @@ describe('dataset detail: quality, splits, agreement and claims', () => {
   })
 
   it('shows measured agreement and the disagreements', async () => {
-    state.q.agreement = ok({ samples_with_a_decision: 5, samples_with_two_reviewers: 4, reviewers: 2, observed_agreement: 0.75, cohens_kappa: 0.4, caveats: ['agreement measures consistency, not correctness'], disagreements: [{ sample_id: 'abcdef1234', verdicts: ['a', 'b'] }] })
+    state.q.agreement = ok({ samples_with_a_decision: 5, samples_with_two_reviewers: 4, reviewers: 2, observed_agreement: 0.75, cohens_kappa: 0.4, caveats: ['agreement measures consistency, not correctness'], disagreements: [{ sample_id: 'abcdef1234', external_id: 'item-0042', verdicts: ['a', 'b'] }] })
     detail('viewer')
     await openTab('Reviewer agreement')
     expect(screen.getByText('0.40')).toBeInTheDocument()
     expect(screen.getByText('75%')).toBeInTheDocument()
     expect(screen.getByText(/consistency, not correctness/)).toBeInTheDocument()
-    expect(screen.getByText(/abcdef12: a vs b/)).toBeInTheDocument()
+    expect(screen.getByText(/sample item-0042: a vs b/)).toBeInTheDocument()
   })
 
   it('keeps performance claims blocked and flags the blockers the application cannot clear', async () => {

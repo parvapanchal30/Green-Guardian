@@ -368,6 +368,8 @@ def test_agreement_between_two_reviewers_is_computed_from_the_history(api_for, t
     out = api_for(team.viewer).get(f"/datasets/{ds['id']}/agreement").json()
     assert out["samples_with_two_reviewers"] == 4 and out["reviewers"] == 2 and out["observed_agreement"] == 0.75
     assert [d["sample_id"] for d in out["disagreements"]] == [ids[0]] and out["cohens_kappa"] is not None
+    first = next(s for s in manager.get(f"/datasets/{ds['id']}/samples").json()["items"] if s["id"] == ids[0])
+    assert out["disagreements"][0]["external_id"] == first["external_id"]  # named by the sample's own identifier
     assert any("not verified as qualified" in c for c in out["caveats"])
 
 
