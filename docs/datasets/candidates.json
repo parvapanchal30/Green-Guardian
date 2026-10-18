@@ -1,10 +1,25 @@
 {
-  "purpose": "Worksheet of candidate datasets, ready to be entered through POST /workspaces/{ws}/datasets (and /evidence) by a person who has read the official source. Nothing here is approved and nothing was downloaded. 'read_directly' says whether the evidence below was read from the page itself in this project (true) or only seen in a search result (false).",
+  "purpose": "Worksheet of candidate datasets with the licence evidence verified so far, in the exact shape the dataset API accepts. Nothing here is approved and nothing was downloaded. Load it into a workspace with `python -m app.tools.dataset_worksheet` (dry run by default), which uses the same service code as the API; do not paste candidate URLs into the app expecting it to fetch them (it never fetches).",
   "prepared": "2026-10-18",
+  "how_evidence_was_verified": {
+    "read_in_full_text": "The text was extracted locally from the document (pdftotext) and read; quotes are exact.",
+    "page_reader_tool_quote": "A page-reading tool summarised the page and returned fragments inside quotation marks; only those fragments are quoted here, and they were not compared against the raw HTML. Treat as official-source evidence that a person should re-confirm before relying on it for approval.",
+    "api_json_field": "A field of the host's machine-readable record (for example the Zenodo API), reproduced as returned."
+  },
+  "owner_decisions": ["PlantDoc remains excluded (2026-10-18); its authors are not to be contacted and it is not to be approved unless the owner explicitly authorises that later."],
   "entries": [
     {
-      "read_directly": true,
-      "notes": "Repository README and sidebar state CC BY 4.0 for the dataset. The paper (arXiv 1911.10317) says the images were scraped from Google Images and Ecosia and says nothing about copyright or licensing, so the right to license the IMAGES is not established. The annotations (bounding boxes) have no separate licence statement; the repository-level statement is assumed to cover them. LICENSE.txt itself was not read. Commercial use and redistribution are not stated on the pages read.",
+      "id": "plantdoc",
+      "outcome": "EXCLUDED by owner decision; also blocked by image origin",
+      "verified": [
+        "The official repository README states 'Creative Commons Attribution 4.0 International' for the dataset.",
+        "The paper (arXiv 1911.10317) says the images were scraped from Google Images and Ecosia and does not discuss copyright or licensing."
+      ],
+      "unresolved": [
+        "The authors' right to license scraped third-party images (a hosting repository's licence is not proof of that)",
+        "Commercial use and redistribution are not stated on the pages read",
+        "LICENSE.txt was not read"
+      ],
       "catalog": {
         "name": "PlantDoc",
         "version": "github-main",
@@ -20,7 +35,7 @@
         "attribution_text": null,
         "commercial_use": "unknown",
         "redistribution": "unknown",
-        "intended_use": "Possible field-image baseline for leaf-condition classification, evaluation only after approval"
+        "intended_use": "Not to be used: excluded by owner decision"
       },
       "evidence": [
         {
@@ -30,60 +45,269 @@
           "licence_spdx": "CC-BY-4.0",
           "excerpt": "License: Creative Commons Attribution 4.0 International",
           "official": true,
-          "accessed_at": "2026-10-18T00:00:00Z"
+          "accessed_at": "2026-10-18T00:00:00Z",
+          "verified_how": "page_reader_tool_quote"
         }
       ]
     },
     {
-      "read_directly": false,
-      "notes": "Sources conflict: CC0 1.0 (a derived-dataset repository), CC BY-SA 3.0 with a share-alike clause reaching trained algorithms (the dataset paper), Kaggle derivatives under Kaggle's terms. The publisher's current statement has not been read.",
+      "id": "plantvillage",
+      "outcome": "EXCLUDED by policy: the creators' own terms are CC BY-SA 3.0 with a clause extending it to trained algorithms",
+      "recommended_action": "An owner or admin should reject this dataset in the catalog.",
+      "verified": [
+        "The dataset paper by the creators (Hughes and Salathe, arXiv 1511.08060, read in full text) states the licence as CC BY-SA 3.0 with the clarification that algorithms trained on the data fall under the same licence.",
+        "The same paper says all images were taken at experimental research stations associated with Land Grant Universities in the USA, with a camera, against paper backgrounds (lab-like conditions): the images are the creators' own.",
+        "PlantVillage's own terms of service say its content is licensed under CC BY-SA 3.0 unless marked otherwise (tool-reported quote).",
+        "The widely used GitHub mirror (spMohanty/PlantVillage-Dataset) states no licence and is not the creators' site, so it is not evidence of any licence."
+      ],
+      "unresolved": [
+        "Whether PlantVillage has since re-licensed the data: no such statement was found on the official pages read, and the terms page offers no downloadable dataset",
+        "Whether CC0 claims on derived copies have any basis (none found at the source)"
+      ],
       "catalog": {
         "name": "PlantVillage",
-        "version": "unspecified",
+        "version": "2016-paper",
         "kind": "real",
         "source_url": "https://arxiv.org/abs/1511.08060",
-        "licence_spdx": "unknown",
-        "images_licence_spdx": "unknown",
+        "accessed_at": "2026-10-18T00:00:00Z",
+        "licence_spdx": "CC-BY-SA-3.0",
+        "images_licence_spdx": "CC-BY-SA-3.0",
         "has_annotations": false,
-        "image_origin": "unknown",
-        "intended_use": "Not intended for use unless the licence is resolved; lab imagery overstates field accuracy"
+        "image_origin": "publisher_created",
+        "attribution_required": true,
+        "attribution_text": "Hughes, D. P. and Salathe, M. (2015). An open access repository of images on plant health to enable the development of mobile disease diagnostics. arXiv:1511.08060",
+        "commercial_use": "unknown",
+        "redistribution": "unknown",
+        "intended_use": "Not to be used: share-alike licence is excluded by policy; lab imagery also overstates field performance"
       },
-      "evidence": []
+      "evidence": [
+        {
+          "url": "https://arxiv.org/pdf/1511.08060",
+          "kind": "paper",
+          "scope": "both",
+          "licence_spdx": "CC-BY-SA-3.0",
+          "excerpt": "openly accessible and released under the Creative Commons Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0), with the clarification that algorithms trained on the data fall under the same license.",
+          "official": true,
+          "accessed_at": "2026-10-18T00:00:00Z",
+          "verified_how": "read_in_full_text"
+        },
+        {
+          "url": "https://plantvillage.psu.edu/tos",
+          "kind": "other",
+          "scope": "both",
+          "licence_spdx": "CC-BY-SA-3.0",
+          "excerpt": "\"All Content (other than computer software) made available by PlantVillage\" ... \"licensed under the Creative Commons Attribution-ShareAlike 3.0 License, unless marked otherwise.\"",
+          "official": true,
+          "accessed_at": "2026-10-18T00:00:00Z",
+          "verified_how": "page_reader_tool_quote"
+        }
+      ]
     },
     {
-      "read_directly": false,
-      "notes": "Licence not seen. Field images of one crop (cassava).",
+      "id": "cassava-mendeley",
+      "outcome": "BLOCKED: licence verified; image origin (who photographed, with what permission) unresolved",
+      "verified": [
+        "Mendeley Data (the host) shows the licence 'CC BY 4.0' for this dataset (DOI 10.17632/3832tx2cb2.1), authors L G Divyanth, Peeyush Soni, Rajendra Machavaram, IIT Kharagpur, published 30 November 2021 (tool-reported).",
+        "The record says the images were 'collected manually from different commercial agricultural fields in western Tamil Nadu, India' using a handheld camera.",
+        "Creative Commons states that CC BY 4.0 allows copying, redistribution and adaptation 'for any purpose, even commercially', with credit required.",
+        "The Mendeley footer says all rights are reserved including text and data mining and AI training, and, on another page of the same site, 'For all open access content, the Creative Commons licensing terms apply.' The two sentences are not reconciled on the pages read; the dataset-level CC BY 4.0 label governs open-access datasets according to that second sentence."
+      ],
+      "unresolved": [
+        "Who took the photographs and whether the owners of the commercial fields permitted publication (the page does not name the photographer)",
+        "No associated paper was found that would document collection and labelling; label provenance and quality are undocumented",
+        "The site-wide text-and-data-mining reservation sits beside the CC BY label: ask Mendeley or the authors how the two interact before training a model"
+      ],
       "catalog": {
         "name": "Cassava Leaf Disease Dataset (Mendeley)",
         "version": "1",
         "kind": "real",
         "source_url": "https://data.mendeley.com/datasets/3832tx2cb2",
-        "licence_spdx": "unknown",
-        "images_licence_spdx": "unknown",
+        "accessed_at": "2026-10-18T00:00:00Z",
+        "licence_spdx": "CC-BY-4.0",
+        "images_licence_spdx": "CC-BY-4.0",
         "has_annotations": false,
         "image_origin": "unknown",
-        "intended_use": "Single-crop disease classification baseline, only if licence and origin are confirmed"
+        "attribution_required": true,
+        "attribution_text": "L G Divyanth, Peeyush Soni, Rajendra Machavaram. Cassava Leaf Disease Dataset. Mendeley Data, V1, 2021. DOI 10.17632/3832tx2cb2.1. Licensed under CC BY 4.0.",
+        "commercial_use": "yes",
+        "redistribution": "yes",
+        "intended_use": "Single-crop (cassava) leaf-condition classification baseline, only once image origin is resolved"
       },
-      "evidence": []
+      "evidence": [
+        {
+          "url": "https://data.mendeley.com/datasets/3832tx2cb2",
+          "kind": "archive_record",
+          "scope": "both",
+          "licence_spdx": "CC-BY-4.0",
+          "excerpt": "Licence: \"CC BY 4.0\"",
+          "official": true,
+          "accessed_at": "2026-10-18T00:00:00Z",
+          "verified_how": "page_reader_tool_quote"
+        },
+        {
+          "url": "https://creativecommons.org/licenses/by/4.0/",
+          "kind": "licence_page",
+          "scope": "both",
+          "licence_spdx": "CC-BY-4.0",
+          "excerpt": "\"copy and redistribute the material in any medium or format for any purpose, even commercially.\" \"You must give appropriate credit, provide a link to the license, and indicate if changes were made.\"",
+          "official": true,
+          "accessed_at": "2026-10-18T00:00:00Z",
+          "verified_how": "page_reader_tool_quote"
+        }
+      ]
     },
     {
-      "read_directly": false,
-      "notes": "Code is BSD-2-Clause; the dataset licence was reported as CC BY 4.0 by a redistributor only. Species identification, not health.",
+      "id": "plantnet-300k",
+      "outcome": "BLOCKED: dataset-level CC BY 4.0 verified; licences of the individual contributed images not established; species identification, not disease",
+      "verified": [
+        "The Zenodo record's machine-readable metadata gives the licence {\"id\": \"cc-by-4.0\"}; access 'open'; creators Garcin, Joly, Bonnet, Affouard, Lombardo, Chouet, Servajean, Lorieul, Salmon; version 1.1; DOI 10.5281/zenodo.5645731.",
+        "The record says the dataset is 'built from the database of Pl@ntNet citizen observatory' and asks users to cite the NeurIPS 2021 paper.",
+        "The code repository is BSD-2-Clause (code only) and says the metadata file maps each image to information including 'author, license' (per-image licences exist in the data but their values were not read).",
+        "Neither the Zenodo record nor the Pl@ntNet open-data page states commercial-use terms, redistribution terms beyond the licence, or per-image licences."
+      ],
+      "unresolved": [
+        "The licence of each contributed image (the metadata file would answer this; it is inside the dataset download, which is not permitted before approval)",
+        "Whether the creators could license contributors' images under CC BY 4.0 for the whole dataset",
+        "Relevance: species identification, not plant health"
+      ],
       "catalog": {
         "name": "PlantNet-300K",
         "version": "1.1",
         "kind": "real",
         "source_url": "https://zenodo.org/records/5645731",
-        "licence_spdx": "unknown",
+        "accessed_at": "2026-10-18T00:00:00Z",
+        "licence_spdx": "CC-BY-4.0",
         "images_licence_spdx": "unknown",
         "has_annotations": false,
         "image_origin": "unknown",
-        "intended_use": "Species identification only, if the licence and image origin are confirmed at the Zenodo record"
+        "attribution_required": true,
+        "attribution_text": "Garcin et al. Pl@ntNet-300K: a plant image dataset with high label ambiguity and a long-tailed distribution. NeurIPS 2021 Datasets and Benchmarks. DOI 10.5281/zenodo.5645731.",
+        "commercial_use": "unknown",
+        "redistribution": "unknown",
+        "intended_use": "Species identification only, if per-image licences are established"
       },
-      "evidence": []
+      "evidence": [
+        {
+          "url": "https://zenodo.org/api/records/5645731",
+          "kind": "archive_record",
+          "scope": "both",
+          "licence_spdx": "CC-BY-4.0",
+          "excerpt": "metadata.license: {\"id\": \"cc-by-4.0\"}",
+          "official": true,
+          "accessed_at": "2026-10-18T00:00:00Z",
+          "verified_how": "api_json_field"
+        }
+      ]
+    },
+    {
+      "id": "irish-potato-tanzania",
+      "outcome": "BLOCKED: dataset-level CC BY 4.0 verified at the host; image origin and contributors' consent to open release not documented",
+      "verified": [
+        "The Zenodo record's metadata gives the licence {\"id\": \"cc-by-4.0\"}; access 'open'; version 01; published 2023-08-26; DOI 10.5281/zenodo.8286529; creators from Mbeya University of Science and Technology, NM-AIST, DevData Analytics, Makerere AI Lab, TARI and SCAAP.",
+        "The Zenodo record's description has no statement about licence, consent or restrictions.",
+        "The associated article (PMC12020891; the article itself is CC BY) reports 58,709 field images of potato leaves (healthy, early blight, late blight) captured by researchers, farmers and agricultural extension officers with smartphones on farms in Tanzania's Southern Highlands from 22 November 2022 to 8 April 2023, with class labels validated by plant pathologists, and says data was collected with informed consent (tool-reported, paraphrased).",
+        "The article's limitations: two diseases only, mostly well-lit images, mainly one variety."
+      ],
+      "unresolved": [
+        "Whether every photograph was taken by the project team or by farmers, and whether the farmers' consent covers publication under CC BY 4.0 (the article speaks of consent for data collection)",
+        "Commercial-use and redistribution statements beyond the CC BY 4.0 licence itself",
+        "The label-validation procedure is described only briefly; no inter-rater agreement is reported"
+      ],
+      "catalog": {
+        "name": "Irish Potato Imagery Dataset for Early Detection of Crop Diseases",
+        "version": "01",
+        "kind": "real",
+        "source_url": "https://zenodo.org/records/8286529",
+        "accessed_at": "2026-10-18T00:00:00Z",
+        "licence_spdx": "CC-BY-4.0",
+        "images_licence_spdx": "CC-BY-4.0",
+        "has_annotations": false,
+        "image_origin": "unknown",
+        "attribution_required": true,
+        "attribution_text": "Laizer, Mduma, Machuve, Lyimo, Babirye, Swai, Siwingwa. Irish Potato Imagery Dataset for Early Detection of Crop Diseases. Zenodo, 2023. DOI 10.5281/zenodo.8286529. CC BY 4.0.",
+        "commercial_use": "yes",
+        "redistribution": "yes",
+        "intended_use": "Field-image potato blight classification baseline, only once image origin is resolved"
+      },
+      "evidence": [
+        {
+          "url": "https://zenodo.org/api/records/8286529",
+          "kind": "archive_record",
+          "scope": "both",
+          "licence_spdx": "CC-BY-4.0",
+          "excerpt": "metadata.license: {\"id\": \"cc-by-4.0\"}",
+          "official": true,
+          "accessed_at": "2026-10-18T00:00:00Z",
+          "verified_how": "api_json_field"
+        },
+        {
+          "url": "https://creativecommons.org/licenses/by/4.0/",
+          "kind": "licence_page",
+          "scope": "both",
+          "licence_spdx": "CC-BY-4.0",
+          "excerpt": "\"copy and redistribute the material in any medium or format for any purpose, even commercially.\" \"You must give appropriate credit, provide a link to the license, and indicate if changes were made.\"",
+          "official": true,
+          "accessed_at": "2026-10-18T00:00:00Z",
+          "verified_how": "page_reader_tool_quote"
+        }
+      ]
+    },
+    {
+      "id": "tomato-greenhouse-mendeley",
+      "outcome": "BLOCKED: the host says CC BY 4.0 but the associated article is CC BY-NC; the conflict is unresolved; creator affiliation absent",
+      "verified": [
+        "Mendeley Data shows the licence 'CC BY 4.0' for dataset DOI 10.17632/c2x8rynybg.1 (published 22 July 2025; one contributor, Yongbo Liu; no institution given).",
+        "The record says images were 'captured from multiple angles and distances' and manually annotated with LabelImg under plant pathology expert guidance (leaves, fruits and stems; XML files).",
+        "The associated Data in Brief article (PMC12553018) states 'This is an open access article under the CC BY-NC license'. It describes a single greenhouse source, class imbalance and RGB-only images, and says the images were taken with an iPhone 14 in a greenhouse; it does not name the photographer."
+      ],
+      "unresolved": [
+        "Which licence governs the data: the article's CC BY-NC covers the article text, but the conflict with the dataset label has not been resolved by the creators (a non-commercial licence anywhere on the work is excluded by policy until clarified)",
+        "Who took and owns the photographs; the record names one contributor and no institution",
+        "Labels were produced by unnamed 'plant pathology specialists'"
+      ],
+      "catalog": {
+        "name": "Common tomato diseases, greenhouse (Mendeley)",
+        "version": "1",
+        "kind": "real",
+        "source_url": "https://data.mendeley.com/datasets/c2x8rynybg/1",
+        "accessed_at": "2026-10-18T00:00:00Z",
+        "licence_spdx": "CC-BY-4.0",
+        "images_licence_spdx": "CC-BY-4.0",
+        "annotations_licence_spdx": "CC-BY-4.0",
+        "has_annotations": true,
+        "image_origin": "unknown",
+        "attribution_required": true,
+        "attribution_text": null,
+        "commercial_use": "unknown",
+        "redistribution": "unknown",
+        "intended_use": "Greenhouse tomato classification and detection experiments, only once the licence conflict and image origin are resolved"
+      },
+      "evidence": [
+        {
+          "url": "https://data.mendeley.com/datasets/c2x8rynybg/1",
+          "kind": "archive_record",
+          "scope": "both",
+          "licence_spdx": "CC-BY-4.0",
+          "excerpt": "Licence: \"CC BY 4.0\"",
+          "official": true,
+          "accessed_at": "2026-10-18T00:00:00Z",
+          "verified_how": "page_reader_tool_quote"
+        },
+        {
+          "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12553018",
+          "kind": "paper",
+          "scope": "both",
+          "licence_spdx": "CC-BY-NC-4.0",
+          "excerpt": "\"This is an open access article under the CC BY-NC license\"",
+          "official": true,
+          "accessed_at": "2026-10-18T00:00:00Z",
+          "verified_how": "page_reader_tool_quote"
+        }
+      ]
     }
   ],
   "not_listed": [
-    "Plant Pathology 2021 (Kaggle FGVC8): no source was found; competition rules usually restrict use, so it is not entered until its terms are read."
+    "Plant Pathology 2021 (Kaggle FGVC8): the competition rules and data pages could not be retrieved by the research tools (the page content is rendered by script), so no licence evidence was obtained. Unresolved, not entered.",
+    "Common bean (Phaseolus vulgaris) Tanzania dataset (Data in Brief 2026, DOI 10.1016/j.dib.2026.112909): a promising field-image lead (article is CC BY; images taken in farm fields; reviewed by extension officers and plant pathologists), but its Zenodo record was not identified and no dataset licence was read. Not entered."
   ]
 }
