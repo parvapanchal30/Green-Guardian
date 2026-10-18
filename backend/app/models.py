@@ -4,6 +4,14 @@ from app.core.orm import Base
 from app.modules.assets.models import AssetState, BiologicalAsset
 from app.modules.audit.models import AuditEvent
 from app.modules.catalog.models import Species
+from app.modules.datasets.models import (
+    Dataset,
+    DatasetEvidence,
+    DatasetSample,
+    DatasetSplit,
+    DatasetStatusHistory,
+    LabelReview,
+)
 from app.modules.evidence.models import Evidence
 from app.modules.identity.models import AuthThrottle, Organization, RefreshTokenRow, User
 from app.modules.intelligence.models import AgentRun, Recommendation
@@ -18,6 +26,12 @@ __all__ = [
     "AuditEvent",
     "AuthThrottle",
     "Base",
+    "Dataset",
+    "DatasetEvidence",
+    "DatasetSample",
+    "DatasetSplit",
+    "DatasetStatusHistory",
+    "LabelReview",
     "BiologicalAsset",
     "Evidence",
     "Issue",

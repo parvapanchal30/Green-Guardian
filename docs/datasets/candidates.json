@@ -1,0 +1,89 @@
+{
+  "purpose": "Worksheet of candidate datasets, ready to be entered through POST /workspaces/{ws}/datasets (and /evidence) by a person who has read the official source. Nothing here is approved and nothing was downloaded. 'read_directly' says whether the evidence below was read from the page itself in this project (true) or only seen in a search result (false).",
+  "prepared": "2026-10-18",
+  "entries": [
+    {
+      "read_directly": true,
+      "notes": "Repository README and sidebar state CC BY 4.0 for the dataset. The paper (arXiv 1911.10317) says the images were scraped from Google Images and Ecosia and says nothing about copyright or licensing, so the right to license the IMAGES is not established. The annotations (bounding boxes) have no separate licence statement; the repository-level statement is assumed to cover them. LICENSE.txt itself was not read. Commercial use and redistribution are not stated on the pages read.",
+      "catalog": {
+        "name": "PlantDoc",
+        "version": "github-main",
+        "kind": "real",
+        "source_url": "https://github.com/pratikkayal/PlantDoc-Dataset",
+        "accessed_at": "2026-10-18T00:00:00Z",
+        "licence_spdx": "CC-BY-4.0",
+        "images_licence_spdx": "CC-BY-4.0",
+        "annotations_licence_spdx": "CC-BY-4.0",
+        "has_annotations": true,
+        "image_origin": "third_party_scraped",
+        "attribution_required": true,
+        "attribution_text": null,
+        "commercial_use": "unknown",
+        "redistribution": "unknown",
+        "intended_use": "Possible field-image baseline for leaf-condition classification, evaluation only after approval"
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/pratikkayal/PlantDoc-Dataset",
+          "kind": "readme",
+          "scope": "both",
+          "licence_spdx": "CC-BY-4.0",
+          "excerpt": "License: Creative Commons Attribution 4.0 International",
+          "official": true,
+          "accessed_at": "2026-10-18T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "read_directly": false,
+      "notes": "Sources conflict: CC0 1.0 (a derived-dataset repository), CC BY-SA 3.0 with a share-alike clause reaching trained algorithms (the dataset paper), Kaggle derivatives under Kaggle's terms. The publisher's current statement has not been read.",
+      "catalog": {
+        "name": "PlantVillage",
+        "version": "unspecified",
+        "kind": "real",
+        "source_url": "https://arxiv.org/abs/1511.08060",
+        "licence_spdx": "unknown",
+        "images_licence_spdx": "unknown",
+        "has_annotations": false,
+        "image_origin": "unknown",
+        "intended_use": "Not intended for use unless the licence is resolved; lab imagery overstates field accuracy"
+      },
+      "evidence": []
+    },
+    {
+      "read_directly": false,
+      "notes": "Licence not seen. Field images of one crop (cassava).",
+      "catalog": {
+        "name": "Cassava Leaf Disease Dataset (Mendeley)",
+        "version": "1",
+        "kind": "real",
+        "source_url": "https://data.mendeley.com/datasets/3832tx2cb2",
+        "licence_spdx": "unknown",
+        "images_licence_spdx": "unknown",
+        "has_annotations": false,
+        "image_origin": "unknown",
+        "intended_use": "Single-crop disease classification baseline, only if licence and origin are confirmed"
+      },
+      "evidence": []
+    },
+    {
+      "read_directly": false,
+      "notes": "Code is BSD-2-Clause; the dataset licence was reported as CC BY 4.0 by a redistributor only. Species identification, not health.",
+      "catalog": {
+        "name": "PlantNet-300K",
+        "version": "1.1",
+        "kind": "real",
+        "source_url": "https://zenodo.org/records/5645731",
+        "licence_spdx": "unknown",
+        "images_licence_spdx": "unknown",
+        "has_annotations": false,
+        "image_origin": "unknown",
+        "intended_use": "Species identification only, if the licence and image origin are confirmed at the Zenodo record"
+      },
+      "evidence": []
+    }
+  ],
+  "not_listed": [
+    "Plant Pathology 2021 (Kaggle FGVC8): no source was found; competition rules usually restrict use, so it is not entered until its terms are read."
+  ]
+}

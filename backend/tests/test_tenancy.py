@@ -68,6 +68,32 @@ ENDPOINTS = [
     ("GET", "/api/v1/workspaces/{ws}/recommendations", None),
     ("POST", "/api/v1/workspaces/{ws}/recommendations/{recommendation_id}/accept", {}),
     ("POST", "/api/v1/workspaces/{ws}/recommendations/{recommendation_id}/dismiss", {"reason": "not now"}),
+    # datasets (Stage D)
+    ("GET", "/api/v1/workspaces/{ws}/datasets/licence-policy", None),
+    ("GET", "/api/v1/workspaces/{ws}/datasets", None),
+    (
+        "POST",
+        "/api/v1/workspaces/{ws}/datasets",
+        {"name": "x", "version": "1", "source_url": "https://x.example.org", "licence_spdx": "CC0-1.0"},
+    ),
+    ("GET", "/api/v1/workspaces/{ws}/datasets/{dataset_id}", None),
+    ("POST", "/api/v1/workspaces/{ws}/datasets/{dataset_id}/evidence", {}),
+    ("POST", "/api/v1/workspaces/{ws}/datasets/{dataset_id}/transitions", {"to_status": "under_review"}),
+    ("POST", "/api/v1/workspaces/{ws}/datasets/{dataset_id}/samples", {"samples": []}),
+    ("GET", "/api/v1/workspaces/{ws}/datasets/{dataset_id}/samples", None),
+    (
+        "POST",
+        "/api/v1/workspaces/{ws}/datasets/{dataset_id}/samples/{sample_id}/reviews",
+        {"to_status": "under_review"},
+    ),
+    ("GET", "/api/v1/workspaces/{ws}/datasets/{dataset_id}/samples/{sample_id}/reviews", None),
+    ("GET", "/api/v1/workspaces/{ws}/datasets/{dataset_id}/review-summary", None),
+    ("GET", "/api/v1/workspaces/{ws}/datasets/{dataset_id}/quality", None),
+    ("GET", "/api/v1/workspaces/{ws}/datasets/{dataset_id}/agreement", None),
+    ("POST", "/api/v1/workspaces/{ws}/datasets/{dataset_id}/splits", {}),
+    ("GET", "/api/v1/workspaces/{ws}/datasets/{dataset_id}/splits", None),
+    ("GET", "/api/v1/workspaces/{ws}/datasets/{dataset_id}/splits/{version}", None),
+    ("GET", "/api/v1/workspaces/{ws}/datasets/{dataset_id}/claim-readiness", None),
 ]
 
 

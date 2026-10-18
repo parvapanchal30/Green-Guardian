@@ -14,6 +14,7 @@ from app.modules.audit import denied as audit_denied
 from app.modules.audit.router import router as audit_router
 from app.modules.catalog.router import router as catalog_router
 from app.modules.dashboard.router import router as dashboard_router
+from app.modules.datasets.router import router as datasets_router
 from app.modules.evidence.router import router as evidence_router
 from app.modules.evidence.storage import UnknownStorageProvider, available_stores
 from app.modules.identity.router import router as identity_router
@@ -89,6 +90,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         map_router,
         evidence_router,
         audit_router,
+        datasets_router,
     ):
         app.include_router(r, prefix=API_PREFIX)
 
