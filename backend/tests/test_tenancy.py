@@ -91,6 +91,7 @@ ENDPOINTS = [
     ("POST", "/api/v1/workspaces/{ws}/datasets/{dataset_id}/transitions", {"to_status": "under_review"}),
     ("POST", "/api/v1/workspaces/{ws}/datasets/{dataset_id}/samples", {"samples": []}),
     ("GET", "/api/v1/workspaces/{ws}/datasets/{dataset_id}/samples", None),
+    ("POST", "/api/v1/workspaces/{ws}/datasets/{dataset_id}/samples/import", {"csv_text": "external_id\n"}),
     (
         "POST",
         "/api/v1/workspaces/{ws}/datasets/{dataset_id}/samples/{sample_id}/reviews",

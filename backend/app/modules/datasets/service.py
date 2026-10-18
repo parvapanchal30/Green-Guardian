@@ -3,6 +3,7 @@ workspace of the caller. Nothing here downloads, trains or evaluates a model."""
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from typing import Any
 
@@ -18,7 +19,7 @@ from app.modules.audit import service as audit
 from app.modules.protocols.service import has_approved_protocol
 from app.modules.workspaces.models import Role
 
-from . import agreement, evaluation, licences, quality, review, splits
+from . import agreement, evaluation, importer, licences, quality, review, splits
 from .models import Dataset, DatasetEvidence, DatasetSample, DatasetSplit, DatasetStatusHistory, LabelReview
 from .schemas import (
     DatasetCreate,
@@ -30,6 +31,7 @@ from .schemas import (
     ReviewIn,
     ReviewOut,
     ReviewQueueSummary,
+    SampleImport,
     SampleOut,
     SamplesCreate,
     SplitCreate,
@@ -338,6 +340,92 @@ def register_samples(db: Session, ctx: WorkspaceContext, dataset_id: uuid.UUID, 
     return {"registered": len(ids)}
 
 
+IMPORT_COMPARED = ("group_key", "label", "content_sha256", "phash", "file_status", "width", "height")
+MAX_REPORTED_ERRORS = 200
+
+
+def import_samples(db: Session, ctx: WorkspaceContext, dataset_id: uuid.UUID, data: SampleImport) -> dict[str, Any]:
+    """Validate (and with commit=true, register) samples from a CSV. All or nothing: any file or row error means nothing
+    is written. Retrying the same file is safe: rows that already exist with identical values are reported as unchanged and
+    skipped; a row that exists with DIFFERENT values is an error, so an import can never overwrite a sample (and so never
+    a reviewed label). Imported labels are always `unreviewed`."""
+    d = get_dataset(db, ctx, dataset_id, lock=data.commit)
+    if d.kind == "real" and d.status != "approved":
+        raise Conflict(
+            "samples of a real dataset can only be registered once it is approved (nothing may be downloaded before)",
+            code="dataset_not_approved",
+        )
+    parsed = importer.parse(data.csv_text, require_source=d.kind == "real")
+    errors: list[dict[str, Any]] = [{"row": None, **e} for e in parsed.file_errors]
+    valid = [r for r in parsed.rows if not r.errors]
+    for r in parsed.rows:
+        errors += [{"row": r.number, "external_id": r.data.get("external_id"), **e} for e in r.errors]
+
+    existing: dict[str, DatasetSample] = {}
+    ext_ids = [r.data["external_id"] for r in valid]
+    for i in range(0, len(ext_ids), 500):
+        for s in db.scalars(
+            select(DatasetSample).where(
+                DatasetSample.workspace_id == ctx.workspace_id,
+                DatasetSample.dataset_id == d.id,
+                DatasetSample.external_id.in_(ext_ids[i : i + 500]),
+            )
+        ):
+            existing[s.external_id] = s
+    to_create: list[importer.Row] = []
+    unchanged = 0
+    for r in valid:
+        found = existing.get(r.data["external_id"])
+        if found is None:
+            to_create.append(r)
+            continue
+        differs = [c for c in IMPORT_COMPARED if getattr(found, c) != r.data[c]]
+        if (found.provenance or {}).get("source") != r.data["provenance"].get("source"):
+            differs.append("source")
+        if differs:
+            errors.append({
+                "row": r.number, "external_id": r.data["external_id"], "code": "exists_with_different_values",
+                "message": f"already registered with different {', '.join(differs)}; imports never overwrite a sample "
+                "(label changes are made by a recorded review)",
+            })  # fmt: skip
+        else:
+            unchanged += 1
+
+    ok = not errors
+    report: dict[str, Any] = {
+        "status": "preview", "ok": ok, "csv_sha256": hashlib.sha256(data.csv_text.encode("utf-8")).hexdigest(),
+        "columns": parsed.columns, "rows_total": len(parsed.rows), "rows_with_errors": len({e["row"] for e in errors if e["row"]}),
+        "to_create": len(to_create) if ok else 0, "unchanged": unchanged, "error_count": len(errors),
+        "errors": errors[:MAX_REPORTED_ERRORS], "errors_truncated": len(errors) > MAX_REPORTED_ERRORS, "warnings": parsed.warnings,
+        "label_status_after_import": "unreviewed",
+        "note": "Imported labels are unreviewed. They count as validated only after a recorded review.",
+    }  # fmt: skip
+    if not data.commit:
+        return report
+    if not ok:
+        raise Unprocessable(
+            "The file has errors; nothing was imported", code="import_invalid", extra={"report": report}
+        )
+    for r in to_create:
+        db.add(
+            DatasetSample(workspace_id=ctx.workspace_id, dataset_id=d.id, is_synthetic=d.kind == "synthetic", **r.data)
+        )
+    try:
+        db.flush()
+    except IntegrityError as exc:  # a concurrent import registered one of these identifiers first
+        db.rollback()
+        raise Conflict(
+            "a sample was registered at the same time; run the import again", code="import_conflict"
+        ) from exc
+    audit.record_ctx(
+        db, ctx, "dataset.samples.import", target_type="dataset", target_id=d.id,
+        details={"csv_sha256": report["csv_sha256"], "rows": len(parsed.rows), "created": len(to_create), "unchanged": unchanged},
+    )  # fmt: skip
+    db.commit()
+    report["status"] = "imported" if to_create else "already_imported"
+    return report
+
+
 def list_samples(
     db: Session,
     ctx: WorkspaceContext,
@@ -604,23 +692,20 @@ def claim_readiness(db: Session, ctx: WorkspaceContext, dataset_id: uuid.UUID) -
         .limit(1)
     )
     test_labels: dict[str, int] = {}
-    test_items = 0
     leakage = 0
     if split is not None:
         test_stats = (split.stats or {}).get("test", {})
-        test_items = int(test_stats.get("items", 0))
         test_labels = test_stats.get("labels", {})
         leakage = len(split.leakage_violations or [])
     all_labels = {r.label for r in rows if r.label}
-    per_class_min = min((test_labels.get(lab, 0) for lab in all_labels), default=0)
+    class_counts = {lab: int(test_labels.get(lab, 0)) for lab in all_labels}
     result = evaluation.claim_readiness(
         evaluation.ClaimInputs(
             dataset_kind=d.kind,
             dataset_status=d.status,
             samples=len(rows),
             reviewed_fraction=report.get("reviewed_fraction", 0.0),
-            test_items=test_items,
-            test_per_class_min=per_class_min,
+            test_class_counts=class_counts,
             leakage_violations=leakage,
             quality_passed=bool(report.get("passed")),
             evaluation_protocol_registered=has_approved_protocol(db, ctx.workspace_id),

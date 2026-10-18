@@ -13,9 +13,29 @@ from dataclasses import dataclass
 from typing import Any
 
 Z95 = 1.959963984540054
-MIN_TEST_ITEMS = 200
-MIN_TEST_PER_CLASS = 30
 MIN_REVIEWED_FRACTION = 0.95
+MIN_CLAIM_CLASSES = 2  # a claim about classification needs at least two classes that each have enough test images
+# Sample-size PLANNING rule from docs/EVALUATION_PROTOCOL.md section 8 (not a performance threshold).
+PLANNING_HALF_WIDTH = 0.05  # the widest interval half-width we are willing to accept on a per-class recall
+PLANNING_RECALL = 0.90  # the recall we plan around; the interval is widest (and n largest) at 0.50
+
+
+def required_images_per_class(
+    half_width: float = PLANNING_HALF_WIDTH, recall: float = PLANNING_RECALL, z: float = Z95
+) -> int:
+    """Smallest n for which a normal-approximation interval around a per-class recall near `recall` has half-width at most
+    `half_width`: n = z^2 r (1 - r) / h^2, rounded UP. With the defaults this is 139; at recall 0.5 it is 385.
+
+    ASSUMPTIONS: images of a class are independent (they are not, within a group: see the cluster bootstrap, which can
+    need more), the true recall is near the planning value, and the normal approximation holds. This plans how many test
+    images are needed to MEASURE recall with a given precision. It does not show that a model's recall is high enough, and
+    meeting it proves nothing about accuracy."""
+    if not 0.0 < half_width < 1.0 or not 0.0 < recall < 1.0 or z <= 0:
+        raise ValueError("half_width and recall must be in (0, 1) and z positive")
+    return math.ceil(z * z * recall * (1.0 - recall) / (half_width * half_width))
+
+
+MIN_TEST_PER_CLASS = required_images_per_class()
 
 
 def wilson_interval(successes: int, n: int, z: float = Z95) -> tuple[float, float]:
@@ -101,8 +121,9 @@ class ClaimInputs:
     dataset_status: str  # proposed | under_review | approved | rejected
     samples: int
     reviewed_fraction: float  # accepted + corrected, over all samples
-    test_items: int
-    test_per_class_min: int
+    test_class_counts: dict[
+        str, int
+    ]  # test images per class, for EVERY class of the dataset (0 if absent from the test split)
     leakage_violations: int
     quality_passed: bool
     qualified_reviewer_verified: bool = False  # the application has no way to verify this yet
@@ -133,10 +154,13 @@ def claim_readiness(i: ClaimInputs) -> dict[str, Any]:
             "labels_not_reviewed",
             f"only {i.reviewed_fraction:.0%} of labels are reviewed (need at least {MIN_REVIEWED_FRACTION:.0%})",
         )
-    if i.test_items < MIN_TEST_ITEMS or i.test_per_class_min < MIN_TEST_PER_CLASS:
+    claimable = sorted(c for c, n in i.test_class_counts.items() if n >= MIN_TEST_PER_CLASS)
+    excluded = {c: n for c, n in sorted(i.test_class_counts.items()) if n < MIN_TEST_PER_CLASS}
+    if len(claimable) < MIN_CLAIM_CLASSES:
         block(
             "test_set_too_small",
-            f"test set has {i.test_items} items and {i.test_per_class_min} in its smallest class (need {MIN_TEST_ITEMS} and {MIN_TEST_PER_CLASS})",
+            f"only {len(claimable)} class(es) have at least {MIN_TEST_PER_CLASS} test images (need {MIN_CLAIM_CLASSES}); "
+            f"counts: {dict(sorted(i.test_class_counts.items())) or 'no test images'}",
         )
     if not i.qualified_reviewer_verified:
         block(
@@ -150,4 +174,17 @@ def claim_readiness(i: ClaimInputs) -> dict[str, Any]:
             "no defensible evaluation protocol (field-domain test data, acceptance thresholds, intended use) is registered",
             False,
         )
-    return {"allowed": not b, "blockers": b}
+    return {
+        "allowed": not b,
+        "blockers": b,
+        "sample_size_rule": {
+            "required_per_class": MIN_TEST_PER_CLASS,
+            "worst_case_per_class": required_images_per_class(recall=0.5),
+            "claimable_classes": claimable,
+            "classes_excluded_from_claims": excluded,
+            "basis": (
+                "n = z^2 r(1-r)/h^2 with z = 1.96, planning recall r = 0.90 and half-width h = 0.05, rounded up. A planning rule "
+                "for measuring recall precisely under independence, not evidence that a model is accurate."
+            ),
+        },
+    }

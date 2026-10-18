@@ -77,8 +77,8 @@ def test_calibration_error():
 # ------------------------------------------------------------------------------------------------ claim gate
 def inputs(**over) -> ClaimInputs:
     base = dict(
-        dataset_kind="real", dataset_status="approved", samples=5000, reviewed_fraction=1.0, test_items=900,
-        test_per_class_min=60, leakage_violations=0, quality_passed=True,
+        dataset_kind="real", dataset_status="approved", samples=5000, reviewed_fraction=1.0,
+        test_class_counts={"a": 300, "b": 200, "c": 139}, leakage_violations=0, quality_passed=True,
     )  # fmt: skip
     base.update(over)
     return ClaimInputs(**base)  # type: ignore[arg-type]
@@ -101,8 +101,8 @@ def test_each_data_problem_has_its_own_blocker():
     assert "quality_checks_failed" in blockers(quality_passed=False)
     assert "split_leakage" in blockers(leakage_violations=2)
     assert "labels_not_reviewed" in blockers(reviewed_fraction=0.5)
-    assert "test_set_too_small" in blockers(test_items=50)
-    assert "test_set_too_small" in blockers(test_per_class_min=3)
+    assert "test_set_too_small" in blockers(test_class_counts={"a": 50, "b": 50})
+    assert "test_set_too_small" in blockers(test_class_counts={})
 
 
 def test_only_a_verified_reviewer_and_a_registered_protocol_lift_the_structural_blockers():
@@ -112,8 +112,7 @@ def test_only_a_verified_reviewer_and_a_registered_protocol_lift_the_structural_
             "approved",
             5000,
             1.0,
-            900,
-            60,
+            {"a": 400, "b": 400},
             0,
             True,
             qualified_reviewer_verified=True,
@@ -121,3 +120,47 @@ def test_only_a_verified_reviewer_and_a_registered_protocol_lift_the_structural_
         )
     )
     assert ok["allowed"] is True and ok["blockers"] == []
+
+
+# ------------------------------------------------------------------------------------------------ sample-size rule
+def test_the_planning_rule_gives_the_protocols_numbers():
+    from app.modules.datasets.evaluation import MIN_TEST_PER_CLASS, required_images_per_class
+
+    assert required_images_per_class() == 139 == MIN_TEST_PER_CLASS
+    assert required_images_per_class(recall=0.5) == 385  # the worst case
+    assert required_images_per_class(half_width=0.1) == 35  # a looser interval needs fewer images
+    assert (
+        required_images_per_class(recall=0.95)
+        < required_images_per_class(recall=0.9)
+        < required_images_per_class(recall=0.5)
+    )
+    for bad in ({"half_width": 0.0}, {"recall": 1.0}, {"recall": 0.0}, {"z": 0.0}):
+        with pytest.raises(ValueError):
+            required_images_per_class(**bad)
+
+
+def gate(counts):
+    return claim_readiness(inputs(test_class_counts=counts))
+
+
+def test_the_boundary_is_139_images_per_class_and_two_qualifying_classes():
+    codes = lambda out: {b["code"] for b in out["blockers"]}  # noqa: E731
+    assert "test_set_too_small" in codes(gate({"a": 138, "b": 138}))
+    assert "test_set_too_small" not in codes(gate({"a": 139, "b": 139}))
+    assert "test_set_too_small" in codes(gate({"a": 139, "b": 138}))  # one qualifying class is not enough
+    assert "test_set_too_small" in codes(gate({"a": 5000}))  # a single class cannot support a classification claim
+    assert "test_set_too_small" not in codes(gate({"a": 139, "b": 139, "c": 0}))
+
+
+def test_a_class_with_too_few_images_is_excluded_from_claims_but_does_not_block_the_others():
+    rule = gate({"a": 300, "b": 139, "rare": 12})["sample_size_rule"]
+    assert rule["claimable_classes"] == ["a", "b"] and rule["classes_excluded_from_claims"] == {"rare": 12}
+    assert rule["required_per_class"] == 139 and rule["worst_case_per_class"] == 385
+    assert "not evidence that a model is accurate" in rule["basis"]
+
+
+def test_meeting_the_sample_size_rule_never_clears_the_reviewer_or_protocol_blockers():
+    out = gate({"a": 10_000, "b": 10_000})
+    assert {b["code"] for b in out["blockers"]} == {"no_verified_reviewer", "no_evaluation_protocol"} and out[
+        "allowed"
+    ] is False

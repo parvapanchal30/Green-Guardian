@@ -20,6 +20,7 @@ from .schemas import (
     ReviewIn,
     ReviewOut,
     ReviewQueueSummary,
+    SampleImport,
     SampleOut,
     SamplesCreate,
     SplitCreate,
@@ -86,6 +87,18 @@ def register_samples(
     db: Session = Depends(get_db),
 ):
     return service.register_samples(db, ctx, dataset_id, data)
+
+
+@router.post("/{dataset_id}/samples/import")
+def import_samples(
+    dataset_id: uuid.UUID,
+    data: SampleImport,
+    ctx: WorkspaceContext = Depends(manager_ctx),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Validate a CSV (commit=false: preview, nothing written) or import it (commit=true: all or nothing, safe to retry).
+    Imported labels are always unreviewed."""
+    return service.import_samples(db, ctx, dataset_id, data)
 
 
 @router.get("/{dataset_id}/samples", response_model=Page[SampleOut])

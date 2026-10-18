@@ -125,6 +125,13 @@ class SamplesCreate(StrictModel):
     samples: list[SampleIn] = Field(min_length=1, max_length=500)
 
 
+class SampleImport(StrictModel):
+    """A CSV file as text. `commit=false` (the default) only validates and previews; nothing is written."""
+
+    csv_text: str = Field(min_length=1, max_length=2_100_000)
+    commit: bool = False
+
+
 class SampleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
