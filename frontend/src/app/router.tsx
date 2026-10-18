@@ -3,6 +3,8 @@ import { AuthProvider } from '../lib/auth'
 import { AgentPage } from '../pages/AgentPage'
 import { AssetProfilePage } from '../pages/AssetProfilePage'
 import { AuditPage } from '../pages/AuditPage'
+import { DatasetDetailPage } from '../pages/DatasetDetailPage'
+import { DatasetsPage } from '../pages/DatasetsPage'
 import { AssetsPage } from '../pages/AssetsPage'
 import { HomePage } from '../pages/HomePage'
 import { IssueDetailPage } from '../pages/IssueDetailPage'
@@ -46,6 +48,7 @@ const LIVE: Record<string, () => React.JSX.Element> = {
   tasks: TasksPage,
   issues: IssuesPage,
   'ai/agent': AgentPage,
+  'ai/datasets': DatasetsPage,
   'monitor/map': MapPage,
   'monitor/weather': WeatherPage,
   'settings/members': MembersPage,
@@ -56,6 +59,7 @@ const LIVE: Record<string, () => React.JSX.Element> = {
 const detailRoutes: RouteObject[] = [
   { path: 'assets/:assetId', element: <AssetProfilePage /> },
   { path: 'issues/:issueId', element: <IssueDetailPage /> },
+  { path: 'ai/datasets/:datasetId', element: <DatasetDetailPage /> },
 ]
 
 const workspaceChildren: RouteObject[] = ROUTES.map((r) => {

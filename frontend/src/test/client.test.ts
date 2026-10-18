@@ -24,6 +24,13 @@ describe('api client', () => {
     expect(err.fieldErrors[0]).toEqual({ loc: ['body', 'email'], msg: 'invalid' })
   })
 
+  it('keeps endpoint-specific problem fields such as the approval blockers', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => json(422, { code: 'dataset_not_approvable', detail: 'The dataset cannot be approved yet', status: 422, blockers: ['no evidence'] })))
+    const err = (await api('/x', { method: 'POST', body: {} }).catch((e) => e)) as ProblemError
+    expect(err.body.blockers).toEqual(['no evidence'])
+    expect(err.message).toBe('The dataset cannot be approved yet')
+  })
+
   it('turns network failures into a readable ProblemError', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('failed') }))
     const err = (await api('/x').catch((e) => e)) as ProblemError

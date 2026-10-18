@@ -9,12 +9,14 @@ export class ProblemError extends Error {
   requestId: string | null
   /** For 429 responses: seconds until the caller may try again. */
   retryAfterS: number | null
+  /** The whole problem body, so callers can read endpoint-specific fields such as `blockers` (never trusted for authorization). */
+  body: Record<string, unknown>
   constructor(
     status: number,
     code: string,
     detail: string,
     fieldErrors: { loc: string[]; msg: string }[] = [],
-    extra: { requestId?: string | null; retryAfterS?: number | null } = {},
+    extra: { requestId?: string | null; retryAfterS?: number | null; body?: Record<string, unknown> } = {},
   ) {
     super(detail)
     this.name = 'ProblemError'
@@ -23,6 +25,7 @@ export class ProblemError extends Error {
     this.fieldErrors = fieldErrors
     this.requestId = extra.requestId ?? null
     this.retryAfterS = extra.retryAfterS ?? null
+    this.body = extra.body ?? {}
   }
 }
 
@@ -85,6 +88,7 @@ async function parseProblem(res: Response): Promise<ProblemError> {
     {
       requestId: body.request_id ?? res.headers.get('X-Request-ID'),
       retryAfterS: body.retry_after_s ?? (Number(res.headers.get('Retry-After')) || null),
+      body: body as Record<string, unknown>,
     },
   )
 }

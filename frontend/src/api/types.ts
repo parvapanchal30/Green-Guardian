@@ -368,3 +368,156 @@ export interface AuditEvent {
   request_id: string | null; client_ip: string | null; details: Record<string, unknown>
 }
 export interface AuditMeta { actions: string[]; target_types: string[]; retention_days: number; min_retention_days: number }
+
+
+// ------------------------------------------------------------------ datasets (Stage D)
+export type DatasetStatus = 'proposed' | 'under_review' | 'approved' | 'rejected'
+export type LabelStatus = 'unreviewed' | 'under_review' | 'accepted' | 'rejected' | 'corrected'
+export type ImageOrigin = 'publisher_created' | 'third_party_licensed' | 'third_party_scraped' | 'unknown'
+export type Tri = 'yes' | 'no' | 'unknown'
+
+export interface DatasetEvidenceRecord {
+  id: string
+  url: string
+  kind: string
+  scope: 'images' | 'annotations' | 'both'
+  licence_spdx: string
+  excerpt: string
+  official: boolean
+  accessed_at: string
+  recorded_by: string | null
+  recorded_at: string
+}
+
+export interface DatasetHistoryEntry {
+  from_status: DatasetStatus | null
+  to_status: DatasetStatus
+  actor_id: string | null
+  note: string | null
+  blockers: string[]
+  at: string
+}
+
+export interface DatasetItem {
+  id: string
+  name: string
+  version: string
+  kind: 'real' | 'synthetic'
+  source_url: string
+  accessed_at: string | null
+  licence_spdx: string
+  images_licence_spdx: string
+  annotations_licence_spdx: string | null
+  has_annotations: boolean
+  image_origin: ImageOrigin
+  attribution_required: boolean | null
+  attribution_text: string | null
+  commercial_use: Tri
+  redistribution: Tri
+  intended_use: string
+  notes: string | null
+  status: DatasetStatus
+  created_by: string | null
+  created_at: string
+  approved_by: string | null
+  approved_at: string | null
+  licence_verdict: string
+  blockers: string[]
+  download_allowed: boolean
+  is_biological_data: boolean
+}
+
+export interface DatasetDetailRecord extends DatasetItem {
+  evidence: DatasetEvidenceRecord[]
+  history: DatasetHistoryEntry[]
+  sample_count: number
+}
+
+export interface DatasetSampleRecord {
+  id: string
+  external_id: string
+  group_key: string | null
+  label: string | null
+  label_status: LabelStatus
+  content_sha256: string | null
+  phash: string | null
+  file_status: 'ok' | 'invalid' | null
+  width: number | null
+  height: number | null
+  provenance: Record<string, unknown>
+  is_synthetic: boolean
+  version: number
+}
+
+export interface LabelReviewRecord {
+  id: string
+  sample_id: string
+  reviewer_id: string
+  reviewer_qualification: string | null
+  qualification_verified: boolean
+  from_status: LabelStatus
+  to_status: LabelStatus
+  from_label: string | null
+  to_label: string | null
+  evidence: string | null
+  at: string
+}
+
+export interface ReviewSummary {
+  by_status: Record<string, number>
+  reviewed_fraction: number
+  qualified_reviewers_verified: number
+  note: string
+}
+
+export interface QualityIssue { code: string; severity: 'error' | 'warning' | 'info'; message: string; count: number; examples: string[] }
+export interface QualityReport {
+  samples: number
+  passed: boolean
+  issues: QualityIssue[]
+  label_status?: Record<string, number>
+  reviewed_fraction?: number
+  classes?: { classes?: number; counts?: Record<string, number>; max_over_min?: number; normalised_entropy?: number }
+  groups?: { count: number; largest: number }
+}
+
+export interface AgreementReport {
+  samples_with_a_decision: number
+  samples_with_two_reviewers: number
+  reviewers: number
+  observed_agreement: number | null
+  cohens_kappa: number | null
+  disagreements: { sample_id: string; verdicts: string[] }[]
+  caveats: string[]
+}
+
+export interface SplitRecord {
+  id: string
+  version: number
+  seed: number
+  fractions: Record<string, number>
+  include_unreviewed: boolean
+  manifest_sha256: string
+  stats: Record<string, { items: number; target_fraction: number; actual_fraction: number; groups: number; labels: Record<string, number> }>
+  warnings: string[]
+  leakage_violations: Record<string, unknown>[]
+  created_by: string | null
+  created_at: string
+}
+
+export interface ClaimReadiness {
+  allowed: boolean
+  blockers: { code: string; message: string; resolvable_in_application: boolean }[]
+  split_version: number | null
+  note: string
+}
+
+export interface LicencePolicy {
+  eligible: string[]
+  excluded: string[]
+  not_covered: string
+  override: string
+  status: string
+  approval_requires: string[]
+  download_rule: string
+}
