@@ -83,4 +83,8 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [ ] Revisit the advisor's unindexed-foreign-key notices with real query statistics before production
 - [ ] Open-Meteo commercial licence decision (R-WX-1) before any commercial deployment
 
-- [ ] Stage D (investigation done, see DATASETS.md): decide acceptable dataset licences and the label reviewer; then build the dataset catalog record, grouped-split evaluation harness and data-quality checks; verify licences at source before any download
+- [x] Stage D foundations (2026-10-18, synthetic fixtures only): dataset catalog and licence verification, label review, quality checks, grouped splits, evaluation harness, reviewer agreement, claim gate (ADR-044)
+- [ ] Datasets page (catalog + blocker checklist, evidence entry, review queue, quality and claim panels)
+- [ ] Owner: read the official licence pages of the candidates in `docs/datasets/candidates.json` and record the evidence; decide how PlantDoc's scraped images are treated (written confirmation from the authors, or keep it excluded)
+- [ ] Evaluation-protocol registry (needs the owner's acceptance criteria and field-domain test data); a qualified, verifiable plant-health reviewer
+- [ ] Label import/export (CSV) with provenance; retention policy for dataset records

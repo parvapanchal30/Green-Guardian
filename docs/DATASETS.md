@@ -1,35 +1,68 @@
-# Datasets and data foundations (Stage D investigation)
+# Datasets and data foundations (Stage D)
 
-_Status 2026-10-18: investigation only. **No dataset has been downloaded, no model trained, no labelling tool built.** Licence statements below come from one round of web search and are marked by how well they were confirmed. Every licence must be re-read at the official source before a download or any redistribution._
+_Status 2026-10-18. The data foundations are built and tested on **synthetic fixtures only**. **No external dataset has been downloaded, no model has been trained, and no dataset is approved.** Licence statements were read from web pages, not from legal advice; the application records evidence and enforces a policy, it does not decide law._
 
-## What Stage D must deliver (from the roadmap)
-Dataset catalog with licences, labelling workflow, versioned train/validation/test splits, an evaluation harness, data-quality checks. Stages E to M depend on it. Nothing in D is useful without knowing which data we may legally and scientifically use.
+## 1. Policy (owner decision, 2026-10-18)
+- **CC0 and CC BY are accepted provisionally**, subject to verification at the source.
+- **CC BY-SA, CC BY-NC, CC BY-ND and unclear licences are excluded.** Any other licence cannot be approved inside the application. There is no override: an exception is a decision the owner records in `DECISION_LOG.md` and a code change, not a setting.
+- A dataset is **not downloaded** unless its status is `approved`. The application enforces the part it can: samples of a real dataset cannot be registered, and splits cannot be made, before approval.
+- Rights are examined separately for **images** and **annotations**, and for commercial use, redistribution and attribution.
+- PlantDoc is **not** assumed approved (see 3).
 
-## What GreenGuardian itself can supply today
-Only data users record: observations (health score 0-100, symptoms as free tags, notes), photos (evidence), issues with resolutions, tasks. There are **no confirmed diagnoses, no growth measurements in a fixed protocol, no yield or irrigation records and no sensor data**. Any model trained on today's own data would learn from unlabelled or self-reported labels. So early models must use public data for pre-training and own data only for evaluation once a reviewed label exists.
+## 2. What is implemented (all under `backend/app/modules/datasets`)
+| Piece | What it does | Where |
+|---|---|---|
+| Catalog | a record per dataset version: source URL, access date, licence (dataset, images, annotations), attribution, commercial use, redistribution, intended use, status `proposed` > `under_review` > `approved` / `rejected` | `models.py`, `service.py`, 16 API routes under `/workspaces/{ws}/datasets` |
+| Licence verification | `licences.py` classifies a licence (eligible / excluded / needs review) and lists every **blocker** to approval; approval by an owner or admin is refused while any remain; the blockers are returned and stored in the approval history | `licences.py` |
+| Evidence | append-only rows: URL, kind, scope (images / annotations / both), the licence that source states, a quoted excerpt, whether the source is official, access date, who recorded it | `dataset_evidence` |
+| Label review | per-sample states `unreviewed`, `under_review`, `accepted`, `rejected`, `corrected`; every change is an append-only row with reviewer (the signed-in user), timestamp, old and new status and label, written evidence, and the reviewer's *declared* qualification | `review.py`, `label_reviews` |
+| Data quality | invalid or truncated files, exact duplicates (SHA-256), near duplicates (64-bit difference hash), duplicates across groups, missing labels, groups and provenance, class imbalance, rare classes, single class, too few groups, review coverage | `quality.py` |
+| Grouped splits | whole groups go to one split; deterministic from a seed; greedy label balancing; an independent leakage checker (groups, identical files, near-identical images); a checksummed, append-only, numbered version | `splits.py`, `dataset_splits` |
+| Reviewer agreement | Cohen's kappa over samples decided by two different reviewers, from the review history; says it measures consistency, not correctness | `agreement.py`, `GET .../agreement` |
+| Evaluation harness | confusion matrix, per-class precision / recall / F1 with Wilson intervals, accuracy next to the majority-class baseline, abstentions counted as errors, calibration error | `evaluation.py` (no model exists; it is exercised with made-up labels) |
+| Claim gate | lists what blocks any performance claim today | `evaluation.claim_readiness`, `GET .../claim-readiness` |
 
-## Candidate public datasets for disease image work (Stage E)
-| Dataset | Content | Licence finding | Confirmation | Main scientific risk |
-|---|---|---|---|---|
-| PlantVillage (Hughes and Salathe) | tens of thousands of leaf images, 14 crops, lab background | **sources conflict**: CC0 1.0 (a derived-dataset repository), CC BY-SA 3.0 with a share-alike clause that reaches trained algorithms (the dataset paper on arXiv), and Kaggle derivatives under Kaggle's default terms | **not settled** | single leaf on a plain background: models score very high and fail in the field (domain shift) |
-| PlantDoc | about 2.6k field images, 13 plants, 27 classes, bounding boxes | CC BY 4.0 (attribution) | confirmed in three places (paper table, Roboflow, official repository) | small; image count differs between sources (2,569 vs 2,598) |
-| Cassava Leaf Disease (Mendeley) | about 21,400 field images, 5 classes | not seen | **unconfirmed**; the Kaggle competition copy is a different distribution with its own rules | one crop only |
-| PlantNet-300K | species identification, about 300k images | code is BSD-2-Clause; dataset reported as CC BY 4.0 by a redistributor | **unconfirmed** at the Zenodo record (10.5281/zenodo.5645731) | species, not disease: useful for species identification, not health |
-| Plant Pathology 2021 (Kaggle FGVC8) | apple foliar disease images | not found | **unconfirmed**; Kaggle competition rules usually restrict use | competition terms |
+Database guarantees (PostgreSQL): evidence, approval history, label reviews and splits reject UPDATE and DELETE; samples and splits cannot reference another tenant's dataset (composite foreign keys); an approved real dataset must have an approver; row-level security on all six tables.
 
-## Consequences
-1. **A share-alike or competition licence can bind a trained model or restrict commercial use.** Until counsel or the licensor confirms, PlantVillage-derived weights must not be shipped in a product. Prefer CC BY or CC0 data with a recorded source URL, version and checksum.
-2. **Domain shift is the dominant technical risk.** A model must be evaluated on field photos of the kind users upload (PlantDoc-like, and later the users' own reviewed photos), never only on a random split of a lab dataset. Reporting accuracy from a random split of PlantVillage would overstate real performance and is not acceptable as a product claim.
-3. **Labels come from experts.** The label for a user's photo is only useful after a qualified person has reviewed it. The labelling workflow therefore needs reviewer roles, disagreement handling and an "uncertain" outcome.
-4. **Splits must be grouped** (by plant, field and date) so near-duplicate photos of one plant cannot sit on both sides of a split.
+## 3. Candidate datasets: where each stands
+Nothing below is approved. "Evidence gathered" means a page was read; the app's catalog is where an owner records and approves it.
 
-## Non-image Stage F-M inputs: what exists
-Growth, survival, yield and crop recommendation need measured series (soil tests, weather history, yields, costs). Public crop-recommendation datasets circulating on Kaggle are widely reported as small and synthetic and are not an acceptable basis for a product claim; no source was verified here. These stages stay blocked on real data from pilot users or a verified agronomic source.
+| Dataset | Finding | Why it is not approvable now | What would change that |
+|---|---|---|---|
+| **PlantDoc** | the official repository (github.com/pratikkayal/PlantDoc-Dataset) states **CC BY 4.0** in its README and sidebar; the paper (arXiv 1911.10317) says the images were **scraped from Google Images and Ecosia** and the paper says nothing about copyright or licensing | CC BY 4.0 is declared for the dataset, but the images are third-party web images and no source shows the authors had the right to license them; the **image** licence is therefore not established. The annotations (bounding boxes drawn by the authors) have no separate licence statement. Access date of this reading: 2026-10-18 | written confirmation from the authors of the rights in the images, or a documented review that accepts the risk (the owner's call, outside the application's rules); the LICENSE.txt text itself was not read |
+| PlantVillage | sources conflict: CC0 1.0 (a derived-dataset repository), CC BY-SA 3.0 with a share-alike clause reaching trained algorithms (the dataset paper), Kaggle derivatives under Kaggle's terms | conflicting evidence and a possible share-alike (excluded) licence | the publisher's own current licence statement; if it is CC BY-SA, excluded |
+| Cassava Leaf Disease (Mendeley) | licence not seen | unconfirmed | read the licence on the Mendeley record |
+| PlantNet-300K | code BSD-2-Clause; dataset reported CC BY 4.0 by a redistributor only | only second-hand evidence; species identification, not disease | read the licence at the Zenodo record (10.5281/zenodo.5645731) |
+| Plant Pathology 2021 (Kaggle FGVC8) | not found | competition terms usually restrict use | read the competition rules |
 
-## Proposed order of work (decision ADR-043)
-1. **Now (no external data needed):** a dataset catalog record type (name, source URL, version, licence text and SPDX id, retrieval date, checksum, allowed uses, review status), an evaluation-harness skeleton with grouped splits and metrics (per class precision/recall, calibration, confusion matrix, confidence intervals), and data-quality checks (duplicates by perceptual hash, label noise flags, EXIF/GPS handling). These are testable on synthetic fixtures and carry no licence risk.
-2. **Needs a human decision:** which licences are acceptable (for example CC0 and CC BY only), and whether a licence review by someone qualified is available.
-3. **Then:** verify licences at source, download one small dataset (PlantDoc is the best-confirmed), build a baseline, and report honestly on the held-out field set. No model is exposed in the product until it has been evaluated on field data and labelled as MODEL with its measured limits behind `CapabilityGate`.
+Scientific risks that licences do not remove: PlantVillage is lab imagery that overstates field accuracy; PlantDoc is small; cassava is one crop; PlantNet is species, not health.
 
-## Not decided here
-Whether to collect the users' own labelled photos (privacy, consent, GPS in EXIF, retention); which expert reviews labels; compute budget and where training runs.
+## 4. The exact evidence needed to approve a dataset
+An owner or admin can approve only when the catalog shows **no blockers**. For each real dataset record:
+1. **Source URL** (https) and the **date it was accessed**.
+2. **Licence of the images** and, if there are annotations, **of the annotations**, each one of `CC0-1.0`, `CC-BY-2.0`, `CC-BY-2.5`, `CC-BY-3.0`, `CC-BY-4.0`; and the **image origin**: `publisher_created` or `third_party_licensed` (the publisher documents the licences or permissions of third-party images). `third_party_scraped` and `unknown` block approval.
+3. **Evidence from an official source** (the publisher or host, not a mirror, article or summary) for the images, and for the annotations if present: URL, kind, scope, the licence that source states, a quoted excerpt of the statement, access date. At least one such record per scope.
+4. **No contradicting evidence**: any recorded source naming a different licence for the same scope blocks approval until resolved.
+5. **Commercial use confirmed `yes`**, **redistribution** recorded (`yes` or `no`), **attribution** recorded as required or not, with the attribution text when required.
+6. **Intended use** in words.
+7. The approval by an **owner or admin**, who is recorded with the time. Re-opening a dataset (`under_review`) clears the approval and locks nothing else; rejection is final for that version.
+
+Not checkable by the application (so a human must): that the evidence is genuine and current, that the publisher actually owns the rights it licenses, and whether the licence text has terms beyond its headline.
+
+## 5. Plant-health review: what is and is not claimed
+There is no confirmed qualified reviewer. The workflow therefore records **who decided, when, on what written evidence, and what changed**, and the reviewer's own statement of qualification, which is stored as `declared` and marked `qualification_verified: false` everywhere. The application cannot verify a qualification, so **no label is ever described as expert-validated**; the review summary reports `qualified_reviewers_verified: 0`. Only `accepted` and `corrected` labels count as reviewed; splits use only those unless `include_unreviewed` is set, which is recorded on the split and warned about.
+
+## 6. Why nothing may be claimed yet
+`claim-readiness` returns blockers. Two of them cannot be cleared inside the application today: **no verified qualified reviewer** and **no registered evaluation protocol** (field-domain test data, acceptance thresholds, intended use). The rest are data conditions: dataset approved, quality checks passed, no leakage, at least 95 % of labels reviewed, at least 200 test items and 30 per class. These thresholds are engineering gates, not scientific guarantees. Disease-model training and any accuracy claim stay blocked until licensed data, label quality and an evaluation protocol exist.
+
+## 7. Limitations
+- The quality report compares near duplicates pairwise and skips that check above 5,000 hashed samples (it says so). Analyses are capped at 20,000 samples per request.
+- Image bytes are not stored; the catalog holds metadata and fingerprints. `scan_directory` fingerprints a LOCAL folder; it never downloads.
+- Splits balance labels greedily; with few or very uneven groups they cannot be balanced and the result warns.
+- A dataset's description is immutable except its status; a correction is a new version.
+- Not built: a screen for any of this (API only), label import from files, inter-reviewer agreement statistics, a protocol registry, retention of dataset records.
+
+## 8. Candidate worksheet and the next task
+`docs/datasets/candidates.json` holds the candidates above in the exact shape the API accepts (`POST /datasets`, `POST /datasets/{id}/evidence`). Evidence is recorded only for a page that was actually read (PlantDoc's repository README); a test fails if any candidate becomes approvable without new evidence, or if evidence is recorded for an unread page. Inter-reviewer agreement is built.
+
+**Recommended next:** a Datasets page (catalog with its blocker checklist, evidence entry, review queue with the evidence field, quality and claim panels), because the review workflow is only usable by people through the API today. After that, an evaluation-protocol registry, which needs the owner to decide the acceptance criteria and the field-domain test data first.

@@ -41,7 +41,8 @@ Legend: **V** implemented and verified · **I** implemented, verification incomp
 | Reports, exports, notifications | D | roadmap Stage N |
 | Hosting, TLS, log shipping, monitoring and alerts | D | `DEPLOYMENT.md` is a plan; nothing deployed, no provider chosen |
 | Error tracking service, metrics | N | structured logs with request IDs only |
-| Datasets, labelling, experiments (Stage D) and every model (E-M) | N | nothing built, no dataset downloaded |
+| **Stage D data foundations**: dataset catalog with licence policy and approval blockers (images / annotations / image origin / evidence), append-only evidence and approval history, label review workflow (unreviewed, under review, accepted, rejected, corrected) with reviewer, time, change and evidence, quality checks, grouped splits with leakage checker and versions, evaluation metrics, reviewer agreement, claim gate | V (logic, API, database) on **synthetic fixtures only** | ADR-044; `test_dataset_licences` (47), `test_dataset_quality` (19), `test_dataset_splits` (19), `test_dataset_evaluation` (10), `test_dataset_agreement` (7), `test_dataset_worksheet` (8), `test_datasets_api` (41, 6 of them PostgreSQL-only); 16+ routes in the tenancy matrix; migrations 0008 and 0009. **No UI.** |
+| Datasets, experiments (Stage E onward) and every model | N | no external dataset is approved or downloaded; no model exists; disease-model training and performance claims are blocked (see DATASETS.md section 6) |
 
 ## Verification (what was actually run)
 - **CI (GitHub Actions, run 39070024954, head `519544b`, Stage C): all five jobs succeeded.**
@@ -54,7 +55,7 @@ Legend: **V** implemented and verified · **I** implemented, verification incomp
 - **Not verified:** running the containers on a developer machine (CI did); any real hosting provider or TLS; a backup or restore of the real Supabase database; `age` encryption; the worker under real load or with thousands of workspaces; irrigation advice end to end with a real rainy forecast (tests use a fake provider; the live read happened on a dry forecast); the agronomic validity of the irrigation thresholds (no ground truth exists); anything involving a trained model (none exists).
 
 ## Environment notes
-Windows dev machine, Python 3.13, Node 24, no Docker and no local PostgreSQL. The dev database is Supabase (PostgreSQL 17, PostGIS 3.3.7 in schema `extensions`, application schema `greenguardian`). Migrations through `0007` (evidence, auth throttle, audit trail, audit retention guard, agent runs and recommendation traceability) are applied to the dev database (`alembic check`: no drift; RLS on 21 of 21 tables). `JWT_SECRET` (32+ characters) is now required outside tests. Evidence files are stored under `backend/var/storage` by default (gitignored).
+Windows dev machine, Python 3.13, Node 24, no Docker and no local PostgreSQL. The dev database is Supabase (PostgreSQL 17, PostGIS 3.3.7 in schema `extensions`, application schema `greenguardian`). Migrations through `0009` (… agent runs, dataset catalog and label review, dataset image origin) are applied to the dev database (`alembic check`: no drift; RLS on 27 of 27 tables). `JWT_SECRET` (32+ characters) is now required outside tests. Evidence files are stored under `backend/var/storage` by default (gitignored).
 
 ## Known limitations and defects
 - Account recovery: no email verification or password reset (needs an email provider); refresh token in `sessionStorage`.
@@ -62,13 +63,14 @@ Windows dev machine, Python 3.13, Node 24, no Docker and no local PostgreSQL. Th
 - Evidence storage: local directory only; more than one API replica needs a shared volume or the S3 adapter (not built). No thumbnails, no purge job for soft-deleted blobs. EXIF (including GPS) is kept.
 - Deployment: no provider chosen, nothing deployed. Behind a reverse proxy `TRUSTED_PROXY_COUNT` must be set, otherwise all clients share one address for throttling and audit.
 - Access-denied de-duplication is per process.
+- Datasets: no screen yet (API only); there is no confirmed qualified reviewer, so review records are not expert validation and claims stay blocked; no dataset is approved; PlantDoc cannot be approved while its image rights are unestablished (its images were scraped from search engines). The application stores evidence and enforces the policy; it cannot verify that evidence is true.
 - Agent: one worker evaluates workspaces one after another (a poll costs two queries however many workspaces exist; add workers or shard before thousands of large workspaces). `agent_runs` and recommendations are not pruned. Irrigation thresholds are unvalidated defaults and the rule has no soil-moisture measurement, observed rainfall, crop water requirement or irrigation-volume input; with Open-Meteo's free tier the worker's weather use is non-commercial only (R-WX-1). `symptom_cluster` is still not wired. Outcomes are recorded but nothing learns from them.
 - Map tiles use the public OpenStreetMap server (light use only): set `VITE_MAP_TILE_URL` and extend the CSP before production.
 - GitHub Actions are pinned by tag, not commit SHA.
 - Demo data and credentials used for screenshots live only in `pitch/_work` (gitignored) and a throwaway SQLite file.
 
 ## Decisions
-ADR-001 to ADR-042 in `DECISION_LOG.md`.
+ADR-001 to ADR-044 in `DECISION_LOG.md`.
 
 ## Must-not-break
 Tenant scoping on every query and an isolation test for every route; append-only history; honest AI labelling (no mock predictions, `CapabilityGate` for future features); no secrets in Git; no AI attribution in commits.
