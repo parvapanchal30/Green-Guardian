@@ -94,5 +94,9 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [x] Stage D3: evaluation-protocol proposal P-DIS-1 and registry with sign-offs (ADR-047)
 - [ ] Owner: decide the open image-origin questions (Cassava, Irish potato, PlantNet), reject PlantVillage in the catalog, and confirm the pending protocol thresholds with a qualified plant pathologist
 - [ ] A qualification-verification mechanism (needed before any protocol can be approved)
-- [ ] Cluster bootstrap and risk-coverage metrics in the evaluation harness; align the claim gate's size thresholds with the protocol (139 per class)
-- [ ] Sample registration and CSV import in the UI
+- [x] Cluster bootstrap and risk-coverage metrics; claim gate aligned with the 139-per-class rule (ADR-049)
+- [x] Sample registration and CSV import in the UI (ADR-050)
+- [ ] Owner: connect GitHub to the Vercel project (or sign in the Vercel CLI), set the production branch, then create the first preview deployment (HOSTING.md section 9)
+- [ ] Owner: choose and approve an API/worker host, domains and a staging database; then deploy and verify (HOSTING.md section 10)
+- [ ] S3-compatible evidence storage adapter (needed before more than one API instance)
+- [ ] Error-reporting service and alerting; first real backup and restore rehearsal

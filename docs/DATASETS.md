@@ -63,7 +63,7 @@ There is no confirmed qualified reviewer. The workflow therefore records **who d
 - Image bytes are not stored; the catalog holds metadata and fingerprints. `scan_directory` fingerprints a LOCAL folder; it never downloads.
 - Splits balance labels greedily; with few or very uneven groups they cannot be balanced and the result warns.
 - A dataset's description is immutable except its status; a correction is a new version.
-- Not built: a screen for any of this (API only), label import from files, inter-reviewer agreement statistics, a protocol registry, retention of dataset records.
+- Built since: the Datasets and protocol pages, CSV sample import (ADR-050), reviewer agreement, the protocol registry, cluster-bootstrap statistics (ADR-049). Not built: importing the images themselves, bulk label updates, retention of dataset records.
 
 ## 8. Worksheet, UI and next steps
 `docs/datasets/candidates.json` holds the candidates in the exact shape the catalog accepts, with the evidence above. `python -m app.tools.dataset_worksheet --workspace <id> --user-email <manager>` loads it (a dry run unless `--apply`) through the same service code as the API, as a named workspace member; it creates `proposed` datasets only, never approves anything, never fetches or downloads, and skips what already exists. Tests keep every candidate blocked until its open questions are answered, and fail if any evidence is added without saying how it was verified.
@@ -71,3 +71,9 @@ There is no confirmed qualified reviewer. The workflow therefore records **who d
 The **Datasets page** (`/w/:ws/ai/datasets`) shows the catalog, candidate versus approved, licence and image-origin status, evidence with its quoted statements, approval blockers, the review and approval workflow for authorised users (the server decides; the page never checks blockers for it), samples and review queue with history, quality reports, splits, reviewer agreement with Cohen's kappa, and the claim gate. The **evaluation-protocol registry** is described in `EVALUATION_PROTOCOL.md`.
 
 **Next:** the owner reads the remaining open questions (who took the Cassava and Irish potato photographs; whether PlantNet's per-image licences allow it) and decides on the PlantVillage rejection; a qualified, verifiable plant-health reviewer and a qualification-verification mechanism are the structural gaps; the cluster bootstrap and risk-coverage metrics named in the protocol still need implementing.
+
+## 9. Registering samples (CSV import)
+Managers add samples in the Samples tab: choose a `.csv`, **preview** (the server validates and reports row-level errors, writes nothing), then import. Columns: `external_id` (required), `group_key`, `label`, `content_sha256`, `phash`, `file_status`, `width`, `height`, `source` (required for real datasets). The file is accepted or refused as a whole; a retry is safe; a row that already exists with different values is an error (an import never overwrites a sample or a reviewed label). **Every imported label is unreviewed**, and a column carrying review status (`label_status`, `reviewed`, `validated`, `reviewer` ...) is refused. Real datasets accept imports only once approved. See ADR-050.
+
+## 10. Evaluation statistics and the claim gate
+`statistics.py` provides the cluster bootstrap over groups (documented estimand, 2,000 replicates, explicit seed, honest handling of too few groups and missing classes) and risk-coverage metrics for selective prediction (abstentions never covered, ties handled). The claim gate now enforces the protocol's sample-size rule: **at least two classes with 139 or more test images each**, others excluded from claims. Neither clears the reviewer or protocol blockers, and no model is trained or scored.

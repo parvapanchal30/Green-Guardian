@@ -42,6 +42,12 @@ Evidence URLs and source URLs are stored as text and never fetched by the server
 ## Evaluation protocols (`modules/protocols`, ADR-047)
 Protocol versions and sign-offs are append-only in the database and workspace-scoped (composite foreign key, RLS, tenancy matrix). The signer is always the authenticated user (a name or a verified flag in the request is rejected, and `qualification_verified` is locked false by a CHECK constraint); the data-owner role can only be signed by the workspace owner; one person cannot fill two roles. These controls make it impossible for the application to present a protocol as approved on the strength of self-declared qualifications.
 
+## Hosting and CORS (HOSTING.md, ADR-048)
+In production the API refuses to start with a wildcard, non-https, local or path-carrying `CORS_ORIGINS` entry, or with a database connection that does not require TLS. CORS answers only the configured exact origins and never allows credentials (tokens travel in a header). A hosted frontend build fails if its API URL is missing, local or not https, carries a Content-Security-Policy naming exactly that API origin, and is scanned afterwards for development addresses. `VITE_*` values are public: no secret may be placed in one.
+
+## CSV import (ADR-050)
+Imports are authorised on the server (managers), tenant-scoped, size-limited, validated as a whole and all-or-nothing; they cannot carry review status, overwrite samples or touch review history or splits; cells are stored as text and formula-like cells are flagged; each import is audited with the file checksum.
+
 ## Containers and delivery
 Images run as non-root (API uid 10001, web uid 101), hold no secrets (all configuration arrives as environment variables), have health checks, are built in multi-stage builds, and the web image applies pending OS security upgrades at build. The API image refuses to start without a signing secret. CI lints the Dockerfiles (hadolint), scans both images with Trivy (fails on fixable HIGH/CRITICAL vulnerabilities) and audits Python and Node production dependencies (`pip-audit`, `npm audit`). The web tier sends a Content-Security-Policy, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy`; the CSP allows only the app itself, `blob:`/`data:` images and the OpenStreetMap tile hosts. Third-party GitHub Actions are pinned by tag, not by commit SHA (a possible further hardening). See DEPLOYMENT.md.
 

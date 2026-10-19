@@ -1,5 +1,7 @@
 # Deployment
 
+> **Hosting plan (frontend on Vercel, API and worker on a container host): see [HOSTING.md](HOSTING.md).** This document describes packaging, the compose stack, releases and operations; HOSTING.md has the Vercel setup, the environment matrix, what is verified and the manual steps still needed.
+
 How GreenGuardian is packaged and how a deployment should be built. **Nothing is deployed yet and no paid or public resource has been created**; this document is the plan plus the parts that are already built and verified. Verification status is stated at the end (section 12).
 
 ## 1. Components and topology
@@ -48,7 +50,7 @@ Cost, region and data-residency decisions are yours; I will not create billable 
 | `WEATHER_PROVIDER` | `open_meteo` | `mock` | `open_meteo` | `open_meteo` only after the licensing decision (R-WX-1) |
 | `TRUSTED_PROXY_COUNT` | 0 | 0 | number of proxies in front | number of proxies in front |
 | `CORS_ORIGINS` | `http://localhost:5173` | n/a | the staging web origin(s) | the production web origin(s) only |
-`ENV=production` additionally refuses to start with a short `JWT_SECRET`, the mock weather provider or the in-memory store. Every environment except `test` refuses to start without a 32+ character `JWT_SECRET`.
+`ENV=production` additionally refuses to start with a short `JWT_SECRET`, the mock weather provider, the in-memory store, any `CORS_ORIGINS` entry that is not an exact https origin (no wildcard, no localhost, no path or trailing slash), or a database connection without TLS. Every environment except `test` refuses to start without a 32+ character `JWT_SECRET`.
 
 ## 4. Environment variables (backend)
 Secrets are marked **S**. Names only appear in Git (`backend/.env.example`, `.env.compose.example`); values live in the platform's secret store or a gitignored file.
