@@ -11,6 +11,14 @@ from app.core.security import hash_password, new_refresh_token, verify_password
 from app.modules.workspaces.capabilities import REGISTRY, effective_capabilities
 
 
+@pytest.fixture(autouse=True)
+def _ambient_configuration_does_not_leak_into_settings_tests(monkeypatch):
+    """`Settings` reads the process environment. CI runs with DB_SSLMODE=disable (its throwaway database container has no
+    TLS) and developers have their own values; these tests are about defaults and guards, so start from a clean slate."""
+    for name in ("DB_SSLMODE", "DATABASE_URL", "CORS_ORIGINS", "ENV", "STORAGE_PROVIDER", "WEATHER_PROVIDER"):
+        monkeypatch.delenv(name, raising=False)
+
+
 def test_uuid7_is_valid_version7_and_time_ordered():
     ids = []
     for _ in range(5):
