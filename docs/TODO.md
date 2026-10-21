@@ -100,3 +100,5 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [ ] Owner: choose and approve an API/worker host, domains and a staging database; then deploy and verify (HOSTING.md section 10)
 - [ ] S3-compatible evidence storage adapter (needed before more than one API instance)
 - [ ] Error-reporting service and alerting; first real backup and restore rehearsal
+- [ ] Owner: read the `git_info_fail` build log or confirm Settings > Git on `greenguardian-web`; choose a release branch and set it as the Vercel Production Branch (ADR-051)
+- [ ] Owner: when a staging API exists, replace the Preview `VITE_API_BASE_URL` placeholder (it now fails builds on purpose)

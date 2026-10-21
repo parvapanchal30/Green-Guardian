@@ -54,7 +54,7 @@ This is the topology the repository already supports: two images (`backend/Docke
 **Frontend (Vercel project settings; public by nature)**
 | Name | Public/secret | Production | Preview | Purpose |
 |---|---|---|---|---|
-| `VITE_API_BASE_URL` | public | `https://<api-host>/api/v1` | the **staging** API, never production | absolute https URL of the API. Build fails if missing or unsafe. |
+| `VITE_API_BASE_URL` | public | `https://<api-host>/api/v1` (Production environment; currently **unset** on purpose) | the **staging** API, never production (Preview environment; currently a `.invalid` placeholder that **fails the build**) | absolute https URL of the API. Build fails if missing, not https, local, a reserved placeholder host or carrying credentials. Environments: Production, Preview (Development unused). |
 | `VITE_MAP_TILE_URL` | public | tile provider URL template | same | optional; the default is the public OpenStreetMap server (light use only); add the host to the CSP automatically. |
 | `VERCEL`, `VERCEL_ENV` | system | set by Vercel | set by Vercel | switch on the build guard. |
 
@@ -79,7 +79,7 @@ Development, staging and production use **separate** databases (or Supabase bran
 ## 5. What was done and what was verified
 | Level | Status |
 |---|---|
-| **Local validation** | Done: hosted-style builds fail with no API URL and with an `http://localhost` URL, and pass with an https URL; `verify:dist` passes; the CSP names exactly the API origin; 26 frontend tests cover the guard, the CSP, `vercel.json` and the post-build check (including crafted bad bundles). |
+| **Local validation** | Done (re-run 2026-10-22, 161 frontend tests, type-check, lint, build): hosted-style builds fail with no API URL, an `http://` URL, a localhost URL and a `.invalid` URL, and pass with a real-looking https URL; `verify:dist` passes; the CSP names exactly the API origin; 26 frontend tests cover the guard, the CSP, `vercel.json` and the post-build check (including crafted bad bundles). |
 | **CI** | The hosted-style build step runs on every push (see CURRENT_STATE for the run). |
 | **Vercel project** | A project `greenguardian-web` was created on the free Hobby plan (root `frontend`, Vite, **Vercel Authentication enabled for all deployments**, `VITE_API_BASE_URL` set for the *preview* environment only, to a reserved `.invalid` placeholder). |
 | **Preview deployment** | **Not deployed.** The one attempt (from the GitHub commit) failed immediately with `git_info_fail`: the Vercel account has **no GitHub connection**, and no Vercel CLI or login exists on the development machine. The build never ran and nothing is live. |
@@ -87,6 +87,24 @@ Development, staging and production use **separate** databases (or Supabase bran
 | **Verified on a deployed URL** | Nothing: direct-route refresh, headers, console/network behaviour, frontend-to-API connectivity, authentication and protected endpoints are **unverified** until a preview exists and an API is reachable. |
 
 Because the repository's default branch is currently `ci/first-run`, **Vercel treats a deployment of that branch as Production**. Before connecting Git, set the project's production branch to a release branch you control, or the first deploy of this feature branch will target production.
+
+### 5a. Readiness review of 2026-10-22 (what was inspected, and what it showed)
+**Vercel project (read through the authorised project tools).** `greenguardian-web`, framework Vite, Node setting 24.x (the `engines.node = 22.x` in `frontend/package.json` takes precedence for builds; both are supported, CI uses 22), Vercel Authentication on for **all** deployments, no password or IP rules, `live: false`, one deployment in state ERROR (`git_info_fail`, target production, built from commit `f905a46`), one environment variable (`VITE_API_BASE_URL`, **Preview only**, a `.invalid` placeholder). The project belongs to a **team scope** (`parvampanchal`), not only the personal account.
+
+**What could not be verified, and why.**
+- *GitHub integration:* the project tools expose no Git-link field, the GitHub namespace listing is empty and the integration-configuration listing is empty. That is consistent with "no GitHub connection" but is **not proof**. The `git_info_fail` reason could not be read: the deployment-event/log call returned 403 because this tool connection has no grant for the team scope, and the grant request (`authorize_team_access`) was declined in this session. **Do not create a second GitHub App**; first check Settings > Git in the dashboard (below).
+- *Production branch setting:* shown as `ci/first-run` in the dashboard per the owner; not readable through the tools, and **not changed**.
+- *Preview protection:* `ssoProtection = all` means previews require a Vercel login (verified from the project record, not from a deployed URL).
+
+**Production-branch evidence (git).** The remote has exactly one branch, `ci/first-run`, which is also the GitHub default. A local `main` exists but is **not on the remote**, is **51 commits behind** `ci/first-run` and contains none of the Vercel files, hosting guards or Stage C/D work. Naming `main` the production branch would therefore deploy an obsolete tree (or fail). Recommendation, **not applied**: keep `ci/first-run` as the integration branch, create a dedicated release branch (for example `release`) only when you decide to ship, and set it as the Vercel Production Branch; every other branch, including `ci/first-run`, then produces Preview deployments. Merging into `main` was not done and is not needed for this.
+
+**Changes made in this review.** (1) The build guard now also **rejects reserved placeholder hosts** (`.invalid`, `.localhost`, `.local`), so a build can never "succeed" against an API that cannot exist; (2) `verify:dist` fails if a `.invalid` URL is in the built bundle. Consequence: **the current Preview value of `VITE_API_BASE_URL` (a `.invalid` placeholder) now makes every Vercel preview build fail with a clear message.** That is intended: nothing may look like a working API before one exists. It must be replaced by the real staging API URL (section 9) before the first preview.
+
+**CSP review.** Directives: `default-src 'self'`; `script-src 'self'` (no inline or eval; the Vite bundle is external); `style-src 'self' 'unsafe-inline'` (Leaflet positions map tiles with inline styles; accepted and documented, scripts stay strict); `img-src 'self' data: blob:` plus the tile host(s); `connect-src 'self'` plus exactly the API origin; `object-src 'none'`; `base-uri`/`form-action 'self'`. The only third-party fetch in the source is the map tile server (`AssetMap.tsx`); the openstreetmap.org attribution is a link, not a request. Not weakened. Note: Vercel's preview "comments toolbar" injects a script from `vercel.live`; this CSP blocks it and the browser console will show that violation on preview URLs. Do not add `vercel.live` to silence it; turn the toolbar off in the project settings if the noise matters.
+
+**Preview gate (brief section 5).** A preview was **not** attempted: (a) the Git connection is unverified and the one prior attempt failed; (b) the Preview API URL is a non-working placeholder and the build correctly refuses it; (c) no API is hosted, so nothing could be verified end to end anyway. Nothing was deployed to Production, no domain was assigned, no resource was created.
+
+**Can a preview be built safely before the backend is hosted?** Not honestly, by design. A hosted build needs a real https API URL. Two acceptable routes: (1) host a **staging API** first (preferred; section 9), then set Preview `VITE_API_BASE_URL` to it; or (2) deliberately build a *static shell* preview against a real but empty/unreachable staging hostname you own, accepting that every API call fails: this exercises routing, headers and CSP only, must be labelled as such, and still requires a valid, non-reserved https URL.
 
 ## 6. Storage for uploads
 Local filesystem uploads are acceptable only on a single API instance with a **persistent volume** (mount at `/data/storage`; back it up with the database). Several instances, or any host with ephemeral disks, need an S3-compatible adapter, which is **not built** (the `ObjectStore` interface and registry are ready; it is one module and one dependency). Recommended next engineering step before a multi-instance deployment: an S3 adapter against an S3-compatible bucket, with presigned reads or API-proxied reads.
@@ -103,8 +121,9 @@ Access tokens are Bearer tokens kept in memory; the refresh token is in `session
 - **Build vs runtime:** the frontend's configuration is fixed **at build time** (a changed `VITE_*` value needs a rebuild); the API and worker read configuration at start.
 
 ## 9. Manual actions needed from you (nothing below was done)
-1. **Connect GitHub to Vercel** (Vercel dashboard, project `greenguardian-web`, Settings, Git: connect `parvapanchal30/Green-Guardian`), or install the Vercel CLI and sign in on your machine. Without one of these no deployment can be created from here.
-2. **Set the production branch** to a release branch (not `ci/first-run`) before the first Git-driven deployment.
+1. **Check the Git connection** (dashboard > team `parvampanchal` > project `greenguardian-web` > Settings > Git). If "Connected Git Repository" shows `parvapanchal30/Green-Guardian`, the link exists and the earlier failure needs the deployment's build log (Deployments > the ERROR row > Build Logs; or grant this tool connection access to the team scope so it can read them). If it shows nothing: **Connect Git Repository**, choose GitHub, and install/authorise the Vercel GitHub App for that repository (GitHub > Settings > Applications > Vercel > Configure > Repository access). Use the existing app; do not create another. Alternatively install the Vercel CLI and sign in.
+2. **Production branch** (Settings > Environments > Production > Branch Tracking): create a release branch first (section 5a), then set it here. Leave `ci/first-run` and every other branch as Preview. Until then a push to `ci/first-run` targets Production (which fails the API-URL guard, by design, because Production has no API URL).
+2a. **Replace the Preview `VITE_API_BASE_URL` placeholder** (Settings > Environment Variables, Preview only) with the real staging API URL once it exists. The `.invalid` value now fails the build on purpose.
 3. **Choose and pay for (or pick a free tier of) an API/worker host**, and approve creating it. Requirements: Docker, a secret store, persistent disk or object storage, health checks, graceful termination of at least 60 s, outbound HTTPS (Open-Meteo, Supabase), one always-on worker instance.
 4. **Decide the domains**, and set `VITE_API_BASE_URL` (production and staging) and `CORS_ORIGINS` to the exact origins.
 5. **Provide staging infrastructure** (a separate Supabase project or branch) so previews never touch production data.

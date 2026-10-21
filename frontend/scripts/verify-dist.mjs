@@ -24,6 +24,7 @@ const bad = [
   { re: /(localhost|\[::1\]):\d{2,5}/gi, why: 'a localhost address with a port' },
   { re: /\b127\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, why: 'a loopback IPv4 address' },
   { re: /\b0\.0\.0\.0\b/g, why: '0.0.0.0' },
+  { re: /https?:\/\/[a-z0-9.-]+\.invalid\b/gi, why: 'a reserved .invalid placeholder host' },
 ]
 for (const f of files) {
   const text = readFileSync(f, 'utf8')

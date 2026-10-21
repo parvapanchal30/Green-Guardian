@@ -20,6 +20,8 @@ export interface HostingEnv {
 }
 
 const LOOPBACK = /^(localhost|127\.\d+\.\d+\.\d+|0\.0\.0\.0|\[::1\]|::1)$/i
+/** Reserved names that can never resolve to a real API (RFC 2606 `.invalid`, `.localhost`, mDNS `.local`): placeholders only. */
+const RESERVED = /\.(invalid|localhost|local)$/i
 const DEFAULT_TILE_HOSTS = ['https://tile.openstreetmap.org', 'https://*.tile.openstreetmap.org']
 
 function parseAbsolute(url: string | undefined): URL | null {
@@ -43,6 +45,7 @@ export function hostingProblems(env: HostingEnv): string[] {
   } else {
     if (api.protocol !== 'https:') problems.push('VITE_API_BASE_URL must use https')
     if (LOOPBACK.test(api.hostname)) problems.push('VITE_API_BASE_URL points at a local address, which would not work for visitors')
+    if (RESERVED.test(api.hostname)) problems.push('VITE_API_BASE_URL uses a reserved placeholder host (.invalid, .localhost or .local) that can never be a working API: set the real staging or production API URL')
     if (api.username || api.password) problems.push('VITE_API_BASE_URL must not contain credentials')
   }
   if (env.tileUrl) {

@@ -25,6 +25,8 @@ describe('hosting configuration guard', () => {
     ['https://127.0.0.1:8000/api/v1', /local address/],
     ['https://0.0.0.0/api/v1', /local address/],
     ['https://[::1]/api/v1', /local address/],
+    ['https://api.greenguardian-preview.invalid/api/v1', /reserved placeholder host/],
+    ['https://api.team.localhost/api/v1', /reserved placeholder host/],
     ['/api/v1', /absolute URL/],
     ['not a url', /absolute URL/],
     ['https://user:pw@api.example.org/api/v1', /credentials/],
@@ -128,6 +130,7 @@ describe('verify-dist (post-build guard)', () => {
     ['a localhost address with a port', `fetch("http://localhost:8000/api/v1")`],
     ['a loopback IPv4 address', `fetch("http://127.0.0.1/api")`],
     ['0.0.0.0', `const h = "0.0.0.0"`],
+    ['a reserved .invalid placeholder host', `fetch("https://api.greenguardian-preview.invalid/api/v1")`],
   ])('fails when the bundle contains %s', (_n, js) => {
     const r = run(dist(`${js};"${API}"`), { VITE_API_BASE_URL: API, VERCEL: '1' })
     expect(r.status).toBe(1)
