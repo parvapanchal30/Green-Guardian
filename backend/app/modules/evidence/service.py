@@ -251,6 +251,11 @@ def read_content(
     db: Session, ctx: WorkspaceContext, store: ObjectStore, evidence_id: uuid.UUID
 ) -> tuple[Evidence, bytes]:
     ev = get_evidence(db, ctx, evidence_id)
+    # Defence in depth for tenant isolation: the row is already workspace-scoped, and a blob is only ever read from the
+    # caller's own key space, so a corrupted or tampered row can never make the API serve another workspace's object.
+    if not ev.storage_key.startswith(f"{ctx.workspace_id}/"):
+        log.error("evidence_key_outside_workspace", evidence_id=str(ev.id))
+        raise NotFound("The stored image is missing", code="evidence_blob_missing")
     try:
         return ev, store.get(ev.storage_key)
     except ObjectNotFound:

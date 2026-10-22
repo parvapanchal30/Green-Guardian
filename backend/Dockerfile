@@ -10,7 +10,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 WORKDIR /build
 COPY pyproject.toml ./
 COPY app ./app
-RUN pip install .
+# The 's3' extra adds the S3 client used when STORAGE_PROVIDER=s3 (inert otherwise).
+RUN pip install ".[s3]"
 
 # ---- runtime stage
 FROM python:3.12-slim-bookworm AS runtime

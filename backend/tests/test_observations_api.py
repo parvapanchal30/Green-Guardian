@@ -84,7 +84,10 @@ def test_invalid_observations_are_rejected_with_a_reason(api_for, team, extra, c
         {"notes": "n" * 5001},
         {"attachments": [{**PHOTO, "content_type": "application/x-sh"}]},  # not an image
         {"attachments": [{**PHOTO, "url": "http://insecure.example/x.jpg"}]},  # not https
-        {"attachments": [{"name": "a.jpg", "content_type": "image/png"}]},  # neither url nor storage key
+        {"attachments": [{"name": "a.jpg", "content_type": "image/png"}]},  # no url
+        {
+            "attachments": [{**PHOTO, "storage_key": "other-workspace-id/asset/blob.jpg"}]
+        },  # clients cannot name a stored object
         {"attachments": [PHOTO] * 11},
         {"bogus": True},
     ],
@@ -99,9 +102,10 @@ def test_observation_schema_validation(api_for, team, extra):
 def test_photo_evidence_metadata_is_stored(api_for, team):
     api = api_for(team.worker)
     a = make_asset(api)
-    o = observe(api, a["id"], attachments=[PHOTO, {"name": "b.png", "content_type": "image/png", "storage_key": "k/1"}])
+    second = {"name": "b.png", "content_type": "image/png", "url": "https://example.com/b.png", "caption": "bark"}
+    o = observe(api, a["id"], attachments=[PHOTO, second])
     atts = o["observation"]["attachments"]
-    assert atts[0] == PHOTO and atts[1]["storage_key"] == "k/1"
+    assert atts == [PHOTO, second] and all("storage_key" not in x for x in atts)
     assert api.get(f"/observations/{o['observation']['id']}").json()["attachments"][0]["name"] == "leaf.jpg"
 
 

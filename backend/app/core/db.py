@@ -94,9 +94,15 @@ def get_db() -> Iterator[Session]:
         db.close()
 
 
-def reset_engine_for_tests() -> None:
+def dispose_engine() -> None:
+    """Close pooled connections. Called on graceful shutdown (so a stopping container releases its database connections
+    promptly instead of leaving them to time out on a connection-limited server) and by tests."""
     global _engine, _sessionmaker
     if _engine is not None:
         _engine.dispose()
     _engine = None
     _sessionmaker = None
+
+
+def reset_engine_for_tests() -> None:
+    dispose_engine()

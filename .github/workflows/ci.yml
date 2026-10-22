@@ -116,7 +116,7 @@ jobs:
           python-version: "3.12"
       - name: Python dependencies (pip-audit)
         run: |
-          pip install ./backend pip-audit
+          pip install "./backend[s3]" pip-audit
           pip-audit --skip-editable --progress-spinner off
       - uses: actions/setup-node@v4
         with:

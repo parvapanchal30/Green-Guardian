@@ -7,10 +7,13 @@ from functools import lru_cache
 from typing import Literal
 from urllib.parse import parse_qs, urlparse
 
-from pydantic import field_validator, model_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _IDENT = re.compile(r"^[a-z_][a-z0-9_]*$")
+_S3_BUCKET = re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")
+_S3_REGION = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+_S3_PREFIX = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)*$")
 
 
 def normalize_database_url(url: str) -> str:
@@ -119,6 +122,22 @@ class Settings(BaseSettings):
     # Decoded-size guard against decompression bombs (width x height).
     storage_max_pixels: int = 40_000_000
 
+    # S3-compatible object storage (STORAGE_PROVIDER=s3): AWS S3, Cloudflare R2, Supabase Storage, MinIO...
+    # The bucket must be PRIVATE: every read goes through the API, which checks workspace membership first.
+    # Use a separate bucket (and separate credentials, scoped to that one bucket) for every environment.
+    storage_s3_bucket: str = ""
+    storage_s3_region: str = ""
+    storage_s3_endpoint_url: str = ""  # empty = AWS; otherwise the provider's S3 endpoint (https)
+    storage_s3_prefix: str = ""  # optional key prefix inside the bucket, e.g. "evidence"
+    # Credentials come from the environment only. Both empty = the platform's role / default chain.
+    storage_s3_access_key_id: SecretStr = SecretStr("")
+    storage_s3_secret_access_key: SecretStr = SecretStr("")
+    storage_s3_path_style: bool | None = (
+        None  # None = path-style when an endpoint URL is set, provider default otherwise
+    )
+    storage_s3_timeout_s: float = 10.0
+    storage_s3_max_attempts: int = 3
+
     @field_validator("database_url")
     @classmethod
     def _norm_url(cls, v: str) -> str:
@@ -160,6 +179,8 @@ class Settings(BaseSettings):
                 "JWT_SECRET must be at least 32 characters. Generate one with: "
                 'python -c "import secrets; print(secrets.token_urlsafe(48))"'
             )
+        if self.storage_provider == "s3":
+            self._check_s3()
         if self.env == "production":
             if self.weather_provider == "mock":
                 raise ValueError("WEATHER_PROVIDER=mock is not allowed in production")
@@ -175,6 +196,38 @@ class Settings(BaseSettings):
                     "or put sslmode=require in DATABASE_URL"
                 )
         return self
+
+    def _check_s3(self) -> None:
+        if not _S3_BUCKET.match(self.storage_s3_bucket) or ".." in self.storage_s3_bucket:
+            raise ValueError(
+                "STORAGE_S3_BUCKET must be a valid bucket name (3-63 lowercase letters, digits, dots, hyphens)"
+            )
+        if not _S3_REGION.match(self.storage_s3_region):
+            raise ValueError(
+                "STORAGE_S3_REGION is required for STORAGE_PROVIDER=s3 (for example eu-central-1; some use 'auto')"
+            )
+        if self.storage_s3_endpoint_url:
+            u = urlparse(self.storage_s3_endpoint_url)
+            local = (u.hostname or "") in ("localhost", "127.0.0.1")
+            if u.scheme != "https" and not (u.scheme == "http" and local and self.env != "production"):
+                raise ValueError(
+                    "STORAGE_S3_ENDPOINT_URL must be an https URL (http only for localhost, outside production)"
+                )
+            if not u.hostname or u.username or u.password or u.query or u.fragment:
+                raise ValueError("STORAGE_S3_ENDPOINT_URL must be a plain URL without credentials, query or fragment")
+        prefix = self.storage_s3_prefix
+        if prefix and (not _S3_PREFIX.match(prefix) or ".." in prefix):
+            raise ValueError("STORAGE_S3_PREFIX must be plain path segments such as 'evidence' or 'staging/evidence'")
+        has_id, has_secret = (
+            bool(self.storage_s3_access_key_id.get_secret_value()),
+            bool(self.storage_s3_secret_access_key.get_secret_value()),
+        )
+        if has_id != has_secret:
+            raise ValueError(
+                "set both STORAGE_S3_ACCESS_KEY_ID and STORAGE_S3_SECRET_ACCESS_KEY, or neither (platform role)"
+            )
+        if self.storage_s3_timeout_s <= 0 or not 1 <= self.storage_s3_max_attempts <= 10:
+            raise ValueError("STORAGE_S3_TIMEOUT_S must be positive and STORAGE_S3_MAX_ATTEMPTS between 1 and 10")
 
 
 @lru_cache

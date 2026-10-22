@@ -13,7 +13,9 @@ from __future__ import annotations
 import os
 import re
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Protocol
@@ -29,11 +31,23 @@ class ObjectNotFound(StorageError):
     pass
 
 
+@dataclass(frozen=True)
+class StoredObject:
+    """What a store can say about an object without reading it: used by the reconciler, never by request handling."""
+
+    key: str
+    size_bytes: int
+    modified: datetime  # timezone-aware UTC
+
+
 class ObjectStore(Protocol):
     def put(self, key: str, data: bytes, content_type: str) -> None: ...
     def get(self, key: str) -> bytes: ...
     def delete(self, key: str) -> None: ...
     def exists(self, key: str) -> bool: ...
+    def list(self) -> Iterator[StoredObject]:
+        """Every object this store holds (keys relative to the store's own prefix), in no particular order."""
+        ...
 
 
 _SAFE_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)*$")
@@ -49,6 +63,7 @@ class MemoryObjectStore:
 
     def __init__(self) -> None:
         self.objects: dict[str, tuple[bytes, str]] = {}
+        self.modified: dict[str, datetime] = {}
         self.fail_puts = False
         self.fail_gets = False
 
@@ -57,6 +72,11 @@ class MemoryObjectStore:
         if self.fail_puts:
             raise StorageError("simulated outage")
         self.objects[key] = (data, content_type)
+        self.modified[key] = datetime.now(UTC)
+
+    def list(self) -> Iterator[StoredObject]:
+        for key, (data, _ctype) in list(self.objects.items()):
+            yield StoredObject(key, len(data), self.modified.get(key, datetime.now(UTC)))
 
     def get(self, key: str) -> bytes:
         _check_key(key)
@@ -123,12 +143,158 @@ class LocalFileStore:
     def exists(self, key: str) -> bool:
         return self._path(key).is_file()
 
+    def list(self) -> Iterator[StoredObject]:
+        try:
+            for path in self.root.rglob("*"):
+                if not path.is_file() or path.name.startswith(".upload-"):  # a temp file is an upload in flight
+                    continue
+                st = path.stat()
+                yield StoredObject(
+                    path.relative_to(self.root).as_posix(), st.st_size, datetime.fromtimestamp(st.st_mtime, UTC)
+                )
+        except OSError as exc:
+            raise StorageError(f"could not list {self.root}: {exc}") from exc
+
+
+def s3_dependency_problem() -> str | None:
+    """None when the S3 client library is installed, otherwise how to fix it. Checked at start-up so a missing
+    dependency fails the deploy, not the first upload."""
+    try:
+        import boto3  # noqa: F401
+    except ImportError:
+        return "STORAGE_PROVIDER=s3 needs the S3 client: install the backend with the 's3' extra (pip install '.[s3]')"
+    return None
+
+
+class S3ObjectStore:
+    """Any S3-compatible bucket (AWS S3, Cloudflare R2, Supabase Storage, MinIO, ...).
+
+    The bucket is private and is never exposed to browsers: the API authorises the caller against the workspace, reads
+    the object with the server's own credentials and streams it back. Nothing here builds a public or presigned URL.
+    Object keys are the same server-generated, workspace-prefixed keys the local store uses, under an optional
+    configured prefix. Errors are mapped to `StorageError`/`ObjectNotFound` and never carry credentials.
+    """
+
+    def __init__(self, client, bucket: str, *, prefix: str = "", max_get_bytes: int) -> None:
+        self._client = client
+        self._bucket = bucket
+        self._prefix = f"{prefix}/" if prefix else ""
+        self._max_get_bytes = max_get_bytes
+
+    @classmethod
+    def from_settings(cls, settings: Settings) -> S3ObjectStore:
+        if problem := s3_dependency_problem():
+            raise StorageError(problem)
+        import boto3
+        from botocore.config import Config
+
+        path_style = settings.storage_s3_path_style
+        if path_style is None:
+            path_style = bool(settings.storage_s3_endpoint_url)
+        config = Config(
+            region_name=settings.storage_s3_region,
+            connect_timeout=settings.storage_s3_timeout_s,
+            read_timeout=settings.storage_s3_timeout_s,
+            retries={"total_max_attempts": settings.storage_s3_max_attempts, "mode": "standard"},
+            s3={"addressing_style": "path" if path_style else "auto"},
+            # boto3 >= 1.36 adds CRC checksums by default, which several S3-compatible providers reject.
+            request_checksum_calculation="when_required",
+            response_checksum_validation="when_required",
+        )
+        kwargs: dict[str, str] = {}
+        if settings.storage_s3_endpoint_url:
+            kwargs["endpoint_url"] = settings.storage_s3_endpoint_url
+        key_id = settings.storage_s3_access_key_id.get_secret_value()
+        if key_id:
+            kwargs["aws_access_key_id"] = key_id
+            kwargs["aws_secret_access_key"] = settings.storage_s3_secret_access_key.get_secret_value()
+        client = boto3.client("s3", config=config, **kwargs)
+        return cls(
+            client,
+            settings.storage_s3_bucket,
+            prefix=settings.storage_s3_prefix,
+            max_get_bytes=settings.storage_max_bytes,
+        )
+
+    def _key(self, key: str) -> str:
+        _check_key(key)
+        return self._prefix + key
+
+    @staticmethod
+    def _code(exc: Exception) -> str:
+        return str(getattr(exc, "response", {}).get("Error", {}).get("Code", ""))
+
+    def put(self, key: str, data: bytes, content_type: str) -> None:
+        from botocore.exceptions import BotoCoreError, ClientError
+
+        try:
+            self._client.put_object(Bucket=self._bucket, Key=self._key(key), Body=data, ContentType=content_type)
+        except (ClientError, BotoCoreError) as exc:
+            raise StorageError(f"could not write {key}: {self._code(exc) or type(exc).__name__}") from exc
+
+    def get(self, key: str) -> bytes:
+        from botocore.exceptions import BotoCoreError, ClientError
+
+        try:
+            obj = self._client.get_object(Bucket=self._bucket, Key=self._key(key))
+            body = obj["Body"]
+            try:
+                if obj.get("ContentLength", 0) > self._max_get_bytes:
+                    raise StorageError(f"{key} is larger than the configured limit; refusing to load it")
+                data = body.read(self._max_get_bytes + 1)
+            finally:
+                body.close()  # always release the pooled connection, including on the oversize refusal
+            if len(data) > self._max_get_bytes:
+                raise StorageError(f"{key} is larger than the configured limit; refusing to load it")
+            return data
+        except ClientError as exc:
+            if self._code(exc) in ("NoSuchKey", "404", "NotFound"):
+                raise ObjectNotFound(key) from None
+            raise StorageError(f"could not read {key}: {self._code(exc) or 'client error'}") from exc
+        except BotoCoreError as exc:
+            raise StorageError(f"could not read {key}: {type(exc).__name__}") from exc
+
+    def delete(self, key: str) -> None:
+        from botocore.exceptions import BotoCoreError, ClientError
+
+        try:
+            self._client.delete_object(Bucket=self._bucket, Key=self._key(key))  # idempotent on S3
+        except (ClientError, BotoCoreError) as exc:
+            raise StorageError(f"could not delete {key}: {self._code(exc) or type(exc).__name__}") from exc
+
+    def list(self) -> Iterator[StoredObject]:
+        from botocore.exceptions import BotoCoreError, ClientError
+
+        try:
+            pages = self._client.get_paginator("list_objects_v2").paginate(Bucket=self._bucket, Prefix=self._prefix)
+            for page in pages:
+                for item in page.get("Contents", []):
+                    yield StoredObject(
+                        item["Key"][len(self._prefix) :], int(item["Size"]), item["LastModified"].astimezone(UTC)
+                    )
+        except (ClientError, BotoCoreError) as exc:
+            raise StorageError(f"could not list the bucket: {self._code(exc) or type(exc).__name__}") from exc
+
+    def exists(self, key: str) -> bool:
+        from botocore.exceptions import BotoCoreError, ClientError
+
+        try:
+            self._client.head_object(Bucket=self._bucket, Key=self._key(key))
+            return True
+        except ClientError as exc:
+            if self._code(exc) in ("404", "NoSuchKey", "NotFound"):
+                return False
+            raise StorageError(f"could not check {key}: {self._code(exc) or 'client error'}") from exc
+        except BotoCoreError as exc:
+            raise StorageError(f"could not check {key}: {type(exc).__name__}") from exc
+
 
 StoreFactory = Callable[[Settings], ObjectStore]
 
 _FACTORIES: dict[str, StoreFactory] = {
     "local": lambda s: LocalFileStore(s.storage_local_dir),
     "memory": lambda s: MemoryObjectStore(),
+    "s3": S3ObjectStore.from_settings,
 }
 
 
