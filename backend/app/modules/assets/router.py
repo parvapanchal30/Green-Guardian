@@ -9,11 +9,26 @@ from app.core.db import get_db
 from app.core.deps import WorkspaceContext, manager_ctx, viewer_ctx, worker_ctx
 from app.core.pagination import Page, PageParams, page_params
 
-from . import service
+from . import lifecycle_service, service
 from .models import AssetKind, HealthBand
-from .schemas import AssetCreate, AssetOut, AssetUpdate, TimelineEvent
+from .schemas import (
+    AssetCreate,
+    AssetLifecycleOut,
+    AssetOut,
+    AssetUpdate,
+    LifecycleRecord,
+    LifecycleTemplateOut,
+    TimelineEvent,
+)
 
 router = APIRouter(prefix="/workspaces/{ws}/assets", tags=["assets"])
+template_router = APIRouter(prefix="/workspaces/{ws}/lifecycle-template", tags=["assets"])
+
+
+@template_router.get("", response_model=LifecycleTemplateOut)
+def lifecycle_template(ctx: WorkspaceContext = Depends(viewer_ctx)):
+    """The stages of this workspace's operating mode and the exits per tracking mode, with the rules."""
+    return lifecycle_service.template(ctx)
 
 
 @router.get("", response_model=Page[AssetOut])
@@ -23,12 +38,23 @@ def list_assets(
     health_band: HealthBand | None = None,
     q: str | None = None,
     has_open_issue: bool | None = None,
+    stage: str | None = None,
+    active: bool | None = None,
     page: PageParams = Depends(page_params),
     ctx: WorkspaceContext = Depends(viewer_ctx),
     db: Session = Depends(get_db),
 ):
     return service.list_assets(
-        db, ctx, page, kind=kind, location_id=location_id, health_band=health_band, q=q, has_open_issue=has_open_issue
+        db,
+        ctx,
+        page,
+        kind=kind,
+        location_id=location_id,
+        health_band=health_band,
+        q=q,
+        has_open_issue=has_open_issue,
+        stage=stage,
+        active=active,
     )
 
 
@@ -58,3 +84,19 @@ def archive_asset(asset_id: uuid.UUID, ctx: WorkspaceContext = Depends(manager_c
 @router.get("/{asset_id}/timeline", response_model=list[TimelineEvent])
 def timeline(asset_id: uuid.UUID, ctx: WorkspaceContext = Depends(viewer_ctx), db: Session = Depends(get_db)):
     return service.timeline(db, ctx, asset_id)
+
+
+@router.get("/{asset_id}/lifecycle", response_model=AssetLifecycleOut)
+def get_lifecycle(asset_id: uuid.UUID, ctx: WorkspaceContext = Depends(viewer_ctx), db: Session = Depends(get_db)):
+    return lifecycle_service.view(db, ctx, service.get_asset(db, ctx, asset_id))
+
+
+@router.post("/{asset_id}/lifecycle", response_model=AssetLifecycleOut, status_code=status.HTTP_201_CREATED)
+def record_lifecycle(
+    asset_id: uuid.UUID,
+    data: LifecycleRecord,
+    ctx: WorkspaceContext = Depends(worker_ctx),
+    db: Session = Depends(get_db),
+):
+    """Record a stage change. Append-only: a mistake is corrected by a new entry (manager, with a reason)."""
+    return lifecycle_service.record(db, ctx, service.get_asset(db, ctx, asset_id), data)

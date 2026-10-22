@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import WorkspaceContext
 from app.core.timeutil import as_utc, utcnow
+from app.modules.assets.lifecycle import EXIT_STAGES
 from app.modules.assets.models import AssetState, BiologicalAsset
 from app.modules.issues.models import Issue, IssueStatusHistory
 from app.modules.locations.models import Location
@@ -185,7 +186,12 @@ def build_snapshots_with_context(
             Location,
             (Location.workspace_id == BiologicalAsset.workspace_id) & (Location.id == BiologicalAsset.location_id),
         )
-        .where(BiologicalAsset.workspace_id == workspace_id, BiologicalAsset.archived_at.is_(None))
+        # An asset that left the lifecycle (dead, removed...) is never inspected or advised on.
+        .where(
+            BiologicalAsset.workspace_id == workspace_id,
+            BiologicalAsset.archived_at.is_(None),
+            BiologicalAsset.current_stage.notin_(EXIT_STAGES),
+        )
     )
     if asset_ids is not None:
         stmt = stmt.where(BiologicalAsset.id.in_(asset_ids))

@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import WorkspaceContext
 from app.core.errors import CapabilityUnavailable, NotFound
+from app.modules.assets.lifecycle import EXIT_STAGES
 from app.modules.assets.models import AssetState, BiologicalAsset
 from app.modules.catalog.models import Species
 from app.modules.locations.models import Location
@@ -41,7 +42,8 @@ def _join(stmt):
 
 
 def _scope(ctx: WorkspaceContext, location_id: uuid.UUID | None, kind: str | None) -> list:
-    conds = [A.workspace_id == ctx.workspace_id, A.archived_at.is_(None)]
+    # Assets that left the lifecycle (dead, removed...) are not drawn: their last health reading would mislead.
+    conds = [A.workspace_id == ctx.workspace_id, A.archived_at.is_(None), A.current_stage.notin_(EXIT_STAGES)]
     if location_id:
         conds.append(A.location_id == location_id)
     if kind:

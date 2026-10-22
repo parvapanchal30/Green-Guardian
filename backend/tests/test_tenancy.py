@@ -28,6 +28,16 @@ ENDPOINTS = [
     ("PATCH", "/api/v1/workspaces/{ws}/assets/{asset_id}", {"label": "x"}),
     ("DELETE", "/api/v1/workspaces/{ws}/assets/{asset_id}", None),
     ("GET", "/api/v1/workspaces/{ws}/assets/{asset_id}/timeline", None),
+    ("GET", "/api/v1/workspaces/{ws}/assets/{asset_id}/lifecycle", None),
+    ("POST", "/api/v1/workspaces/{ws}/assets/{asset_id}/lifecycle", {"stage": "growing"}),
+    ("GET", "/api/v1/workspaces/{ws}/lifecycle-template", None),
+    ("GET", "/api/v1/workspaces/{ws}/assets/{asset_id}/harvests", None),
+    ("POST", "/api/v1/workspaces/{ws}/assets/{asset_id}/harvests", {"quantity": 1, "unit": "kg"}),
+    (
+        "POST",
+        "/api/v1/workspaces/{ws}/assets/{asset_id}/harvests/{record_id}/correct",
+        {"quantity": 1, "unit": "kg", "note": "a written reason"},
+    ),
     # observations
     ("POST", "/api/v1/workspaces/{ws}/observations", {"asset_id": "00000000-0000-0000-0000-000000000000"}),
     ("GET", "/api/v1/workspaces/{ws}/observations", None),

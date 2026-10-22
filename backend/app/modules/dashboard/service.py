@@ -16,7 +16,10 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import WorkspaceContext
 from app.core.timeutil import utcnow
+from app.modules.assets import lifecycle as lc
 from app.modules.assets.models import AssetState, BiologicalAsset, HealthBand
+from app.modules.harvests import service as harvests
+from app.modules.harvests.models import MASS_TO_TONNES
 from app.modules.intelligence.models import Recommendation, RecommendationStatus
 from app.modules.intelligence.runner import AgentSettings
 from app.modules.issues.models import Issue, IssueStatusHistory
@@ -46,17 +49,18 @@ KPI_DEFS: dict[str, list[tuple[str, str, str]]] = {
     ],
 }
 NOT_COMPUTABLE = {
-    "survival": "Needs planting and loss records",
+    "survival": "No individually tracked assets yet",
     "growth": "Needs growth records",
     "canopy": "Needs canopy measurements",
     "coverage": "Needs zone areas",
-    "yield": "Estimates are planned (V2)",
+    "yield": "No harvests recorded in the last 12 months",
     "harvest": "Estimates are planned (V2)",
     "revenue": "Needs yield and price data",
 }
 
 
-def _asset_conditions(ctx: WorkspaceContext, f: Filters) -> list:
+def _scope_conditions(ctx: WorkspaceContext, f: Filters) -> list:
+    """Every non-archived asset in scope, whatever its lifecycle stage."""
     conds = [BiologicalAsset.workspace_id == ctx.workspace_id, BiologicalAsset.archived_at.is_(None)]
     if f.kind:
         conds.append(BiologicalAsset.kind == f.kind)
@@ -65,7 +69,91 @@ def _asset_conditions(ctx: WorkspaceContext, f: Filters) -> list:
     return conds
 
 
-def _kpis(mode: str, health: HealthCounts) -> list[Kpi]:
+def _asset_conditions(ctx: WorkspaceContext, f: Filters) -> list:
+    """ACTIVE assets: an asset that has left the lifecycle (dead, removed...) is not inspected, counted or scored."""
+    return [*_scope_conditions(ctx, f), BiologicalAsset.current_stage.notin_(lc.EXIT_STAGES)]
+
+
+def _survival(stages: dict[tuple[str, str], int]) -> Kpi:
+    """Current-registry survival of INDIVIDUALLY tracked assets: alive / (alive + recorded dead). Removed and replaced
+    assets are management decisions with no recorded cause, so they are left out of both sides; populations (batches)
+    are left out because partial losses are not recorded. It is a snapshot of the registry, not cohort survival at a
+    given age."""
+    individual = {stage: n for (tracking, stage), n in stages.items() if tracking == "individual"}
+    lost = sum(individual.get(s, 0) for s in lc.BIOLOGICAL_LOSS_STAGES)
+    alive = sum(n for stage, n in individual.items() if not lc.is_exit(stage))
+    tracked = alive + lost
+    if not tracked:
+        return Kpi(key="survival", label="Survival", available=False, reason=NOT_COMPUTABLE["survival"])
+    return Kpi(
+        key="survival",
+        label="Survival",
+        available=True,
+        unit="%",
+        value=round(100 * alive / tracked, 1),
+        basis=(
+            f"{alive} alive of {tracked} individually tracked assets that are alive or recorded dead "
+            "(removed and replaced assets are not counted; batches are not included)"
+        ),
+    )
+
+
+def _harvest(stages: dict[tuple[str, str], int]) -> Kpi:
+    """How many ACTIVE assets are in the harvest or post-harvest stage: a count of recorded stages, not an estimate."""
+    active = sum(n for (_t, stage), n in stages.items() if not lc.is_exit(stage))
+    if not active:
+        return Kpi(key="harvest", label="Harvest", available=False, reason="No active assets yet")
+    at_harvest = sum(n for (_t, stage), n in stages.items() if stage in lc.HARVEST_STAGES)
+    return Kpi(
+        key="harvest",
+        label="Harvest",
+        available=True,
+        unit="assets",
+        value=float(at_harvest),
+        basis=(
+            f"{at_harvest} of {active} active assets are in the harvest or post-harvest stage "
+            "(recorded stages, not a forecast)"
+        ),
+    )
+
+
+YIELD_WINDOW = timedelta(days=365)
+
+
+def _yield(by_unit: dict[str, float], records: int, assets: int) -> Kpi:
+    """Recorded harvest MASS over the last 12 months, in tonnes. It is a sum of what people recorded, not an estimate,
+    and not per area (areas are not recorded). Counts and litres cannot be added to a weight, so they are named in the
+    basis instead of being converted or ignored silently."""
+    mass = sum(q * MASS_TO_TONNES[u] for u, q in by_unit.items() if u in MASS_TO_TONNES)
+    others = {u: q for u, q in by_unit.items() if u not in MASS_TO_TONNES}
+    if not mass:
+        if others:
+            return Kpi(
+                key="yield",
+                label="Yield",
+                available=False,
+                reason="Harvests are recorded in counts or litres only, which cannot be added to a weight",
+            )
+        return Kpi(key="yield", label="Yield", available=False, reason=NOT_COMPUTABLE["yield"])
+    extra = (
+        "; also recorded, not included: " + ", ".join(f"{q:g} {u}" for u, q in sorted(others.items())) if others else ""
+    )
+    return Kpi(
+        key="yield",
+        label="Yield",
+        available=True,
+        unit="t",
+        value=round(mass, 3),
+        basis=(
+            f"{records} recorded harvest{'s' if records != 1 else ''} from {assets} asset{'s' if assets != 1 else ''} "
+            f"in the last 12 months (weights only, not per area){extra}"
+        ),
+    )
+
+
+def _kpis(
+    mode: str, health: HealthCounts, stages: dict[tuple[str, str], int], yield_kpi: Kpi | None = None
+) -> list[Kpi]:
     observed = health.healthy + health.at_risk + health.critical
     out = []
     for key, label, unit in KPI_DEFS.get(mode, KPI_DEFS["green_management"]):
@@ -83,6 +171,12 @@ def _kpis(mode: str, health: HealthCounts) -> list[Kpi]:
                 )
             else:
                 out.append(Kpi(key=key, label=label, available=False, reason="No health scores recorded yet"))
+        elif key == "survival":
+            out.append(_survival(stages))
+        elif key == "harvest":
+            out.append(_harvest(stages))
+        elif key == "yield" and yield_kpi is not None:
+            out.append(yield_kpi)
         else:
             out.append(Kpi(key=key, label=label, available=False, reason=NOT_COMPUTABLE[key]))
     return out
@@ -119,6 +213,21 @@ def build(db: Session, ctx: WorkspaceContext, filters: Filters) -> Dashboard:
         critical=band_counts["critical"],
         unknown=unknown,
     )
+
+    # 1b) assets by (tracking mode, lifecycle stage), exited ones included: feeds survival, harvest and the exited count
+    stages: dict[tuple[str, str], int] = defaultdict(int)
+    for tracking, stage, n in db.execute(
+        select(BiologicalAsset.tracking_mode, BiologicalAsset.current_stage, func.count())
+        .where(*_scope_conditions(ctx, filters))
+        .group_by(BiologicalAsset.tracking_mode, BiologicalAsset.current_stage)
+    ):
+        stages[(tracking, stage)] += n
+    exited = sum(n for (_t, stage), n in stages.items() if lc.is_exit(stage))
+
+    # 1c) recorded harvest over the last 12 months (agricultural workspaces only; one grouped query)
+    yield_kpi = None
+    if ctx.workspace.mode == "agricultural_production":
+        yield_kpi = _yield(*harvests.window_totals(db, ctx, _scope_conditions(ctx, filters), now - YIELD_WINDOW))
 
     # 2) open issues by severity
     issue_q = select(Issue.severity, func.count()).where(Issue.workspace_id == ws, Issue.resolved_at.is_(None))
@@ -180,9 +289,9 @@ def build(db: Session, ctx: WorkspaceContext, filters: Filters) -> Dashboard:
         mode=ctx.workspace.mode,
         as_of=now,
         filters=filters,
-        assets=AssetMetrics(total=sum(by_kind.values()), by_kind=dict(by_kind), health=health),
+        assets=AssetMetrics(total=sum(by_kind.values()), by_kind=dict(by_kind), health=health, exited=exited),
         work=work,
-        kpis=_kpis(ctx.workspace.mode, health),
+        kpis=_kpis(ctx.workspace.mode, health, stages, yield_kpi),
         recent_activity=_recent_activity(db, ctx, scope if scoped else None),
     )
 

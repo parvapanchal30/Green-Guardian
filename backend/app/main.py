@@ -1,22 +1,26 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.core.config import Settings, get_settings
-from app.core.db import get_engine
+from app.core.db import dispose_engine, get_engine
 from app.core.errors import install_error_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware
 from app.modules.assets.router import router as assets_router
+from app.modules.assets.router import template_router as lifecycle_template_router
 from app.modules.audit import denied as audit_denied
 from app.modules.audit.router import router as audit_router
 from app.modules.catalog.router import router as catalog_router
 from app.modules.dashboard.router import router as dashboard_router
 from app.modules.datasets.router import router as datasets_router
 from app.modules.evidence.router import router as evidence_router
-from app.modules.evidence.storage import UnknownStorageProvider, available_stores
+from app.modules.evidence.storage import UnknownStorageProvider, available_stores, s3_dependency_problem
+from app.modules.harvests.router import router as harvests_router
 from app.modules.identity.router import router as identity_router
 from app.modules.intelligence.ports import WeatherContextProvider, get_weather_context_provider
 from app.modules.intelligence.router import router as intelligence_router
@@ -43,6 +47,8 @@ def validate_weather_provider(settings: Settings) -> None:
 
 
 def validate_storage_provider(settings: Settings) -> None:
+    if settings.storage_provider == "s3" and (problem := s3_dependency_problem()):
+        raise UnknownStorageProvider(problem)
     if settings.storage_provider not in available_stores():
         raise UnknownStorageProvider(
             f"STORAGE_PROVIDER={settings.storage_provider!r} is not registered; available: {available_stores()}"
@@ -58,7 +64,15 @@ def _weather_context(service: WeatherService = Depends(get_weather_service)) -> 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level)
-    app = FastAPI(title="GreenGuardian API", version="0.1.0", docs_url="/docs", openapi_url="/openapi.json")
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        yield
+        dispose_engine()  # graceful shutdown: release pooled database connections
+
+    app = FastAPI(
+        title="GreenGuardian API", version="0.1.0", docs_url="/docs", openapi_url="/openapi.json", lifespan=lifespan
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -83,6 +97,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         locations_router,
         catalog_router,
         assets_router,
+        lifecycle_template_router,
         observations_router,
         issues_router,
         tasks_router,
@@ -90,6 +105,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         dashboard_router,
         map_router,
         evidence_router,
+        harvests_router,
         audit_router,
         datasets_router,
         protocols_router,

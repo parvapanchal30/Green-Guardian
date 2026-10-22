@@ -5,6 +5,7 @@ from datetime import date, datetime
 from enum import StrEnum
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -22,6 +23,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.orm import Base, IdMixin, JsonType, TimestampMixin
 from app.core.timeutil import utcnow
+
+from .lifecycle import ALL_STAGES
 
 
 class AssetKind(StrEnum):
@@ -82,7 +85,7 @@ class BiologicalAsset(IdMixin, TimestampMixin, Base):
     latitude: Mapped[float | None] = mapped_column(Float)
     longitude: Mapped[float | None] = mapped_column(Float)
     planted_at: Mapped[date | None] = mapped_column(Date)
-    # Read-only in this slice; the lifecycle_event history table arrives with the lifecycle slice.
+    # A projection of the latest `lifecycle_events` row (ADR-055): only the lifecycle service writes it.
     current_stage: Mapped[str] = mapped_column(String(32), default="planted", nullable=False)
     attributes: Mapped[dict] = mapped_column(JsonType, default=dict, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
@@ -122,3 +125,37 @@ class AssetState(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
     )
+
+
+class LifecycleEvent(IdMixin, Base):
+    """APPEND-ONLY lifecycle history of an asset (a trigger rejects UPDATE/DELETE on PostgreSQL).
+
+    `assets.current_stage` always equals the stage of the asset's latest event (ordered by `entered_at`, then creation).
+    Mistakes are corrected by a NEW event with `correction = true` and a written reason, never by editing a row.
+    `entered_at` is when the asset entered the stage (it may be back-dated, but never into the future and never before
+    the previous event); `created_at` is when it was recorded."""
+
+    __tablename__ = "lifecycle_events"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["workspace_id", "asset_id"],
+            ["biological_assets.workspace_id", "biological_assets.id"],
+            name="fk_lifecycle_events_asset",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint(f"stage IN ({', '.join(repr(s) for s in ALL_STAGES)})", name="stage"),
+        CheckConstraint("source IN ('manual', 'system')", name="source"),
+        CheckConstraint("NOT correction OR (note IS NOT NULL AND length(note) >= 10)", name="correction_has_reason"),
+        Index("ix_lifecycle_events_asset_entered", "workspace_id", "asset_id", "entered_at"),
+    )
+
+    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
+    asset_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    stage: Mapped[str] = mapped_column(String(32), nullable=False)
+    previous_stage: Mapped[str | None] = mapped_column(String(32))
+    entered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    source: Mapped[str] = mapped_column(String(16), default="manual", nullable=False)
+    correction: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    note: Mapped[str | None] = mapped_column(Text)
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)

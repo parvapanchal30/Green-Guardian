@@ -19,8 +19,9 @@ class HealthCounts(BaseModel):
 
 
 class AssetMetrics(BaseModel):
-    total: int
+    total: int  # ACTIVE assets: not archived and not exited
     by_kind: dict[str, int]
+    exited: int = 0  # assets that left the lifecycle (dead, failed, removed, replaced); not in any other figure
     health: HealthCounts
 
 

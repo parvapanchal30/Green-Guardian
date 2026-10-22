@@ -161,7 +161,8 @@ def test_archive_is_a_soft_delete_that_keeps_history(api_for, team):
     assert mgr.delete(f"/assets/{a['id']}").status_code == 204
     assert mgr.get(f"/assets/{a['id']}").status_code == 404
     assert mgr.get("/assets").json()["total"] == 0
-    assert len(mgr.get(f"/assets/{a['id']}/timeline").json()) == 1  # history is still readable
+    kinds = sorted(e["type"] for e in mgr.get(f"/assets/{a['id']}/timeline").json())
+    assert kinds == ["lifecycle", "observation"]  # history (the initial stage and the observation) is still readable
     assert mgr.post("/observations", {"asset_id": a["id"], "health_score": 50}).status_code == 404  # but no new data
 
 

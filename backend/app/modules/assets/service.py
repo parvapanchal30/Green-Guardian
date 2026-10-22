@@ -13,13 +13,16 @@ from app.core.timeutil import utcnow
 from app.modules.audit import service as audit
 from app.modules.catalog.models import Species
 from app.modules.catalog.service import get_visible_species
+from app.modules.harvests.models import HarvestRecord  # noqa: E402
 from app.modules.issues.models import Issue, IssueStatusHistory
 from app.modules.locations.models import Location
 from app.modules.locations.service import get_location
 from app.modules.observations.models import Observation
 from app.modules.tasks.models import Task, TaskStatusHistory
 
-from .models import AssetKind, AssetState, BiologicalAsset, HealthBand
+from . import lifecycle as lc
+from . import lifecycle_service
+from .models import AssetKind, AssetState, BiologicalAsset, HealthBand, LifecycleEvent
 from .schemas import AssetCreate, AssetOut, AssetUpdate, StateOut, TimelineEvent
 from .state import ensure_state
 
@@ -48,6 +51,7 @@ def to_out(
         tag_code=asset.tag_code,
         estimated_count=asset.estimated_count,
         current_stage=asset.current_stage,
+        is_active=not lc.is_exit(asset.current_stage),
         species_id=asset.species_id,
         species_name=species_name,
         location_id=asset.location_id,
@@ -101,6 +105,7 @@ def create_asset(db: Session, ctx: WorkspaceContext, data: AssetCreate) -> Asset
     if data.species_id:
         get_visible_species(db, ctx, data.species_id)
     _check_tag_free(db, ctx, data.tag_code)
+    stage = lifecycle_service.initial_stage(ctx, data.stage)
     asset = BiologicalAsset(
         workspace_id=ctx.workspace_id,
         location_id=data.location_id,
@@ -113,6 +118,7 @@ def create_asset(db: Session, ctx: WorkspaceContext, data: AssetCreate) -> Asset
         latitude=data.latitude,
         longitude=data.longitude,
         planted_at=data.planted_at,
+        current_stage=stage,
         attributes=data.attributes,
         notes=data.notes,
         created_by=ctx.user.id,
@@ -124,6 +130,7 @@ def create_asset(db: Session, ctx: WorkspaceContext, data: AssetCreate) -> Asset
         db.rollback()
         raise Conflict("tag_code is already used in this workspace", code="tag_code_taken") from e
     ensure_state(db, ctx.workspace_id, asset.id)
+    lifecycle_service.record_initial(db, ctx, asset, lifecycle_service.initial_entered_at(data.planted_at))
     audit.record_ctx(
         db,
         ctx,
@@ -150,6 +157,8 @@ def list_assets(
     health_band: HealthBand | None = None,
     q: str | None = None,
     has_open_issue: bool | None = None,
+    stage: str | None = None,
+    active: bool | None = None,
 ) -> Page[AssetOut]:
     stmt = (
         select(BiologicalAsset, AssetState, Species.common_name, Location.name)
@@ -164,6 +173,12 @@ def list_assets(
         stmt = stmt.where(BiologicalAsset.location_id == location_id)
     if health_band:
         stmt = stmt.where(AssetState.health_band == health_band.value)
+    if stage:
+        stmt = stmt.where(BiologicalAsset.current_stage == stage)
+    if active is True:
+        stmt = stmt.where(BiologicalAsset.current_stage.notin_(lc.EXIT_STAGES))
+    if active is False:
+        stmt = stmt.where(BiologicalAsset.current_stage.in_(lc.EXIT_STAGES))
     if has_open_issue is True:
         stmt = stmt.where(AssetState.open_issue_count > 0)
     if has_open_issue is False:
@@ -291,6 +306,45 @@ def timeline(db: Session, ctx: WorkspaceContext, asset_id: uuid.UUID, limit: int
                 title=f"{key} {title}",
                 detail=what + (f" — {th.note}" if th.note else ""),
                 actor_id=th.actor_id,
+            )
+        )
+    for le in db.scalars(
+        select(LifecycleEvent)
+        .where(LifecycleEvent.workspace_id == ctx.workspace_id, LifecycleEvent.asset_id == asset_id)
+        .order_by(LifecycleEvent.entered_at.desc())
+        .limit(limit)
+    ):
+        what = (
+            f"entered {lc.LABELS.get(le.stage, le.stage)}"
+            if le.previous_stage is None
+            else (f"{lc.LABELS.get(le.previous_stage, le.previous_stage)} → {lc.LABELS.get(le.stage, le.stage)}")
+        )
+        events.append(
+            TimelineEvent(
+                at=le.entered_at,
+                type="lifecycle",
+                ref_id=le.id,
+                key=None,
+                title=("Correction: " if le.correction else "Lifecycle: ") + what,
+                detail=le.note,
+                actor_id=le.actor_id,
+            )
+        )
+    for hr in db.scalars(
+        select(HarvestRecord)
+        .where(HarvestRecord.workspace_id == ctx.workspace_id, HarvestRecord.asset_id == asset_id)
+        .order_by(HarvestRecord.harvested_at.desc())
+        .limit(limit)
+    ):
+        events.append(
+            TimelineEvent(
+                at=hr.harvested_at,
+                type="harvest",
+                ref_id=hr.id,
+                key=None,
+                title=("Harvest correction: " if hr.supersedes_id else "Harvest: ") + f"{hr.quantity:g} {hr.unit}",
+                detail=" · ".join(b for b in (hr.grade, hr.note) if b) or None,
+                actor_id=hr.recorded_by,
             )
         )
     events.sort(key=lambda e: e.at, reverse=True)
