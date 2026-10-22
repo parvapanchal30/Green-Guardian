@@ -1,4 +1,5 @@
 import type { Role, Stage, WorkspaceMode } from '../api/types'
+import type { TKey } from '../i18n'
 import { atLeast } from '../lib/format'
 
 /**
@@ -84,5 +85,10 @@ export function statusLabel(r: Pick<NavRoute, 'status' | 'stage'>): string | nul
   if (r.status === 'soon') return r.stage === 'mvp' ? 'In development' : `Coming soon · ${r.stage?.toUpperCase()}`
   return null
 }
+
+/** Catalog keys for a route's navigation label and summary (the English text above is the source). */
+const keyPath = (r: Pick<NavRoute, 'path'>) => (r.path || 'home').replace(/\//g, '.')
+export const routeKey = (r: Pick<NavRoute, 'path'>) => `nav.route.${keyPath(r)}` as TKey
+export const routeSummaryKey = (r: Pick<NavRoute, 'path'>) => `nav.summary.${keyPath(r)}` as TKey
 
 export const pathFor = (ws: string, r: NavRoute) => `/w/${ws}${r.path ? `/${r.path}` : ''}`

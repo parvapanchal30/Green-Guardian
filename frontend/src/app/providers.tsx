@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 import { ProblemError } from '../api/client'
+import { I18nProvider } from '../i18n'
 
 export function makeQueryClient() {
   return new QueryClient({
@@ -17,5 +18,9 @@ export function makeQueryClient() {
 
 export function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(makeQueryClient)
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  return (
+    <I18nProvider>
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    </I18nProvider>
+  )
 }

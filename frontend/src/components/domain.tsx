@@ -1,14 +1,15 @@
 import type { ReactNode } from 'react'
 import type { HealthBand, Method, Severity, TaskStatus } from '../api/types'
-import { label } from '../lib/format'
+import { useI18n } from '../i18n'
 import { StatusChip, type Tone } from './StatusChip'
 
 export function HealthChip({ band, score }: { band: HealthBand | null; score?: number | null }) {
-  if (!band) return <StatusChip tone="neutral">No health data</StatusChip>
+  const { t, te } = useI18n()
+  if (!band) return <StatusChip tone="neutral">{t('health.none')}</StatusChip>
   const tone: Tone = band === 'healthy' ? 'healthy' : band === 'at_risk' ? 'at-risk' : 'critical'
   return (
     <StatusChip tone={tone}>
-      {label(band)}
+      {te('health', band)}
       {score != null ? ` · ${Math.round(score)}` : ''}
     </StatusChip>
   )
@@ -16,25 +17,28 @@ export function HealthChip({ band, score }: { band: HealthBand | null; score?: n
 
 const SEV_TONE: Record<Severity, Tone> = { low: 'neutral', medium: 'at-risk', high: 'critical', critical: 'critical' }
 export function SeverityChip({ severity }: { severity: Severity }) {
-  return <StatusChip tone={SEV_TONE[severity]}>{label(severity)}</StatusChip>
+  const { te } = useI18n()
+  return <StatusChip tone={SEV_TONE[severity]}>{te('severity', severity)}</StatusChip>
 }
 
 /** Always shows what produced an output. A rule is never presented as AI. */
-const METHOD_TEXT: Record<Method, string> = { rule: 'Rule', statistical: 'Statistical', model: 'Model', llm: 'AI-generated' }
 export function MethodBadge({ method }: { method: Method }) {
-  return <StatusChip tone="neutral">{METHOD_TEXT[method]}</StatusChip>
+  const { te } = useI18n()
+  return <StatusChip tone="neutral">{te('method', method)}</StatusChip>
 }
 
 export function StateChip({ state, open = true }: { state: string; open?: boolean }) {
-  return <StatusChip tone={open ? 'building' : 'live'}>{label(state)}</StatusChip>
+  const { te } = useI18n()
+  return <StatusChip tone={open ? 'building' : 'live'}>{te('issueState', state)}</StatusChip>
 }
 
 const TASK_TONE: Record<TaskStatus, Tone> = { todo: 'neutral', in_progress: 'building', blocked: 'at-risk', done: 'live', cancelled: 'soon' }
 export function TaskStatusChip({ status, overdue }: { status: TaskStatus; overdue?: boolean }) {
+  const { t, te } = useI18n()
   return (
     <span className="inline-flex items-center gap-1">
-      <StatusChip tone={TASK_TONE[status]}>{label(status)}</StatusChip>
-      {overdue && <StatusChip tone="critical">Overdue</StatusChip>}
+      <StatusChip tone={TASK_TONE[status]}>{te('taskStatus', status)}</StatusChip>
+      {overdue && <StatusChip tone="critical">{t('chip.overdue')}</StatusChip>}
     </span>
   )
 }
@@ -71,17 +75,22 @@ export function Pagination({ total, limit, offset, onChange }: { total: number; 
   if (total <= limit) return null
   const from = offset + 1
   const to = Math.min(offset + limit, total)
+  return <PaginationNav from={from} to={to} total={total} limit={limit} offset={offset} onChange={onChange} />
+}
+
+function PaginationNav({ from, to, total, limit, offset, onChange }: { from: number; to: number; total: number; limit: number; offset: number; onChange: (offset: number) => void }) {
+  const { t } = useI18n()
   return (
-    <nav aria-label="Pagination" className="mt-3 flex items-center justify-between text-sm text-ink-2">
+    <nav aria-label={t('common.pagination')} className="mt-3 flex items-center justify-between text-sm text-ink-2">
       <span>
-        {from}–{to} of {total}
+        {t('common.range', { from, to, total })}
       </span>
       <span className="flex gap-2">
         <button type="button" className={btn} disabled={offset === 0} onClick={() => onChange(Math.max(0, offset - limit))}>
-          Previous
+          {t('common.previous')}
         </button>
         <button type="button" className={btn} disabled={offset + limit >= total} onClick={() => onChange(offset + limit)}>
-          Next
+          {t('common.next')}
         </button>
       </span>
     </nav>

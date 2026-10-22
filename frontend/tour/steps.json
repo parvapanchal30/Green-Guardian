@@ -1,0 +1,187 @@
+{
+  "version": 1,
+  "_about": "One list of tour steps, used by the automated browser tour (frontend/tour/run-tour.mjs) and meant to power the in-app tour later (same titles, captions, pages and highlights). Fields: who = demo account (owner|worker|viewer); workspace = campus|farm; path = page inside the workspace; openAsset = asset to open from the Assets list; focus = element to highlight; do = harmless actions (nothing is ever saved); dwell = seconds to stay.",
+  "steps": [
+    {
+      "id": "workspaces",
+      "who": "owner",
+      "title": "One product, two modes",
+      "caption": "After signing in you see your workspaces: a campus (Green Management) and a farm (Agricultural Production). The data model is the same; the mode picks the vocabulary, the stages and the headline figures.",
+      "path": "/",
+      "focus": "text=Your workspaces",
+      "dwell": 8
+    },
+    {
+      "id": "campus-dashboard",
+      "who": "owner",
+      "workspace": "campus",
+      "path": "",
+      "title": "The campus at a glance",
+      "caption": "Every figure comes from the server. 'Left the lifecycle' counts the tree recorded dead, which is NOT counted in any other tile. Unavailable figures explain why instead of showing a made-up number.",
+      "focus": "text=Left the lifecycle",
+      "do": [{ "click": "summary" }],
+      "dwell": 9
+    },
+    {
+      "id": "campus-kpis",
+      "who": "owner",
+      "workspace": "campus",
+      "path": "",
+      "title": "Survival is computed from recorded deaths",
+      "caption": "Survival = alive / (alive + recorded dead) over individually tracked assets. Removed and replaced trees are management decisions and are left out; the basis text says exactly what was counted.",
+      "focus": "text=Survival",
+      "dwell": 8
+    },
+    {
+      "id": "assets",
+      "who": "owner",
+      "workspace": "campus",
+      "path": "/assets",
+      "title": "Assets and their lifecycle stage",
+      "caption": "Every asset shows its stage. The filter switches between active assets and the ones that left the lifecycle (dead, failed, removed, replaced).",
+      "focus": "th:has-text('Stage')",
+      "do": [{ "select": { "css": "#lcf", "value": "exited" } }, { "wait": 3 }, { "select": { "css": "#lcf", "value": "active" } }],
+      "dwell": 7
+    },
+    {
+      "id": "asset-lifecycle",
+      "who": "owner",
+      "workspace": "campus",
+      "path": "/assets",
+      "openAsset": "Neem #102",
+      "title": "An asset's append-only lifecycle",
+      "caption": "Neem #102 is in decline (health 78 to 31). The lifecycle history is append-only: nothing is edited or deleted. Workers record stage changes; the server enforces the rules.",
+      "focus": "section[aria-labelledby=lifecycle]",
+      "dwell": 9
+    },
+    {
+      "id": "asset-correction",
+      "who": "owner",
+      "workspace": "campus",
+      "path": "/assets",
+      "openAsset": "Neem #102",
+      "title": "Corrections need a manager and a reason",
+      "caption": "Going back a stage, or reinstating an exited asset, is a correction. Only a manager can record one, with a written reason, and it stays visible in the history. (Nothing is saved in this tour.)",
+      "focus": "section[aria-labelledby=lifecycle]",
+      "do": [{ "check": "text=This is a correction" }],
+      "dwell": 9
+    },
+    {
+      "id": "asset-history",
+      "who": "owner",
+      "workspace": "campus",
+      "path": "/assets",
+      "openAsset": "Neem #102",
+      "title": "Everything that happened to it",
+      "caption": "Photos, issues, tasks, observations and lifecycle changes are merged into one history, each with who and when.",
+      "focus": "section[aria-labelledby=hist]",
+      "dwell": 8
+    },
+    {
+      "id": "agent",
+      "who": "owner",
+      "workspace": "campus",
+      "path": "/ai/agent",
+      "title": "The Botanical Operations Agent",
+      "caption": "Rule-based suggestions with their evidence and rule version, labelled RULE or STATISTICAL. A person accepts or dismisses each one. It is not machine learning and the screen says so.",
+      "focus": "main h1",
+      "dwell": 9
+    },
+    {
+      "id": "map",
+      "who": "owner",
+      "workspace": "campus",
+      "path": "/monitor/map",
+      "title": "Map",
+      "caption": "Assets are positioned across the campus and coloured by health. The dead Gulmohar is not drawn: its last health reading would mislead. (Map tiles need an internet connection.)",
+      "focus": "main h1",
+      "dwell": 8
+    },
+    {
+      "id": "farm-dashboard",
+      "who": "owner",
+      "workspace": "farm",
+      "path": "",
+      "title": "The farm: Agricultural Production mode",
+      "caption": "Same product, different mode: the headline figures are Growth, Health, Yield, Harvest and Revenue. Yield and Harvest are computed from recorded data; Revenue says it needs yield and price data.",
+      "focus": "summary",
+      "do": [{ "click": "summary" }],
+      "dwell": 10
+    },
+    {
+      "id": "farm-harvests",
+      "who": "owner",
+      "workspace": "farm",
+      "path": "/assets",
+      "openAsset": "Okra block B",
+      "title": "Harvest records",
+      "caption": "Each picking is recorded with a quantity, unit and grade. Weights (kg, t) are added together; counts and litres never are. The Yield figure is the recorded weight of the last 12 months, not an estimate.",
+      "focus": "section[aria-labelledby=harvest]",
+      "dwell": 9
+    },
+    {
+      "id": "farm-correction",
+      "who": "owner",
+      "workspace": "farm",
+      "path": "/assets",
+      "openAsset": "Okra block B",
+      "title": "Correcting a harvest",
+      "caption": "A manager replaces a mistaken record with a corrected one and a reason; the original stays in the history, struck through. A correction to 0 withdraws a record. (Nothing is saved in this tour.)",
+      "focus": "section[aria-labelledby=harvest]",
+      "do": [{ "click": "button:has-text('Correct') >> nth=0" }],
+      "dwell": 9
+    },
+    {
+      "id": "worker-view",
+      "who": "worker",
+      "workspace": "campus",
+      "path": "/assets",
+      "openAsset": "Neem #102",
+      "title": "Signed in as a field worker",
+      "caption": "A worker can record observations and stage changes, but the correction option and decisions are gone. The server enforces this too; hiding a button is only a courtesy.",
+      "focus": "section[aria-labelledby=lifecycle]",
+      "dwell": 9
+    },
+    {
+      "id": "viewer-view",
+      "who": "viewer",
+      "workspace": "campus",
+      "path": "/assets",
+      "openAsset": "Neem #102",
+      "title": "Signed in as a viewer",
+      "caption": "A viewer can read everything in their workspace and change nothing: no forms, no buttons that record.",
+      "focus": "section[aria-labelledby=lifecycle]",
+      "dwell": 8
+    },
+    {
+      "id": "audit",
+      "who": "owner",
+      "workspace": "campus",
+      "path": "/settings/audit",
+      "title": "Audit log",
+      "caption": "Every change above was recorded with who, what, when and a request ID. The log is append-only and only managers can read it.",
+      "focus": "main h1",
+      "dwell": 8
+    },
+    {
+      "id": "datasets",
+      "who": "owner",
+      "workspace": "campus",
+      "path": "/ai/datasets",
+      "title": "Datasets: governance before machine learning",
+      "caption": "Dataset licences, image origin and label review are tracked, and an approval gate blocks any claim. No dataset is approved and no model exists: future AI features are shown as planned, never faked.",
+      "focus": "main h1",
+      "dwell": 9
+    },
+    {
+      "id": "protocols",
+      "who": "owner",
+      "workspace": "campus",
+      "path": "/ai/protocols",
+      "title": "Evaluation protocols",
+      "caption": "The protocol for judging a future disease model is written down before any training. Thresholds that need a plant pathologist are left empty on purpose, and a protocol cannot be approved without verified sign-offs.",
+      "focus": "main h1",
+      "dwell": 9
+    }
+  ]
+}

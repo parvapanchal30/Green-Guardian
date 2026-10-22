@@ -1,48 +1,39 @@
 import type { DatasetItem, DatasetStatus, ImageOrigin, LabelStatus } from '../../api/types'
-import { label } from '../../lib/format'
+import { useI18n } from '../../i18n'
 import { StatusChip, type Tone } from '../StatusChip'
 
-/** Said wherever a review is shown: the application records who decided, it cannot verify who is qualified. */
-export const UNVERIFIED_NOTE =
-  'Reviewers are not verified as qualified. A decision here means a signed-in user recorded it with written evidence; it is not expert validation.'
+// The note that reviewers are not verified as qualified is the catalog entry `ds.unverifiedNote`:
+// it is shown wherever a review is, because the application records who decided, not who is qualified.
 
 const STATUS_TONE: Record<DatasetStatus, Tone> = { proposed: 'building', under_review: 'at-risk', approved: 'live', rejected: 'critical' }
-const STATUS_TEXT: Record<DatasetStatus, string> = {
-  proposed: 'Candidate: proposed',
-  under_review: 'Candidate: under review',
-  approved: 'Approved',
-  rejected: 'Rejected',
-}
 
 export function DatasetStatusChip({ status }: { status: DatasetStatus }) {
-  return <StatusChip tone={STATUS_TONE[status]}>{STATUS_TEXT[status]}</StatusChip>
+  const { te } = useI18n()
+  return <StatusChip tone={STATUS_TONE[status]}>{te('datasetStatus', status)}</StatusChip>
 }
 
 export const isApproved = (d: Pick<DatasetItem, 'status'>) => d.status === 'approved'
 
-const ORIGIN_TEXT: Record<ImageOrigin, { text: string; tone: Tone; explain: string }> = {
-  publisher_created: { text: 'Images made by the publisher', tone: 'live', explain: 'The publisher took the images, so their licence covers them.' },
-  third_party_licensed: { text: 'Third-party images, licences documented', tone: 'live', explain: 'The publisher documents the licence or permission of each third-party image.' },
-  third_party_scraped: { text: 'Images scraped from third parties', tone: 'critical', explain: 'A publisher’s licence only covers images the publisher had the right to license. Scraped images cannot be approved without written confirmation of those rights.' },
-  unknown: { text: 'Image origin unknown', tone: 'at-risk', explain: 'Who made the images, and with what permission, is not established. Approval is blocked until it is.' },
-}
+const ORIGIN_TONE: Record<ImageOrigin, Tone> = { publisher_created: 'live', third_party_licensed: 'live', third_party_scraped: 'critical', unknown: 'at-risk' }
 
 export function OriginChip({ origin }: { origin: ImageOrigin }) {
-  return <StatusChip tone={ORIGIN_TEXT[origin].tone}>{ORIGIN_TEXT[origin].text}</StatusChip>
+  const { te } = useI18n()
+  return <StatusChip tone={ORIGIN_TONE[origin]}>{te('imageOrigin', origin)}</StatusChip>
 }
-export const originExplanation = (o: ImageOrigin) => ORIGIN_TEXT[o].explain
 
 const LABEL_TONE: Record<LabelStatus, Tone> = { unreviewed: 'neutral', under_review: 'at-risk', accepted: 'live', rejected: 'critical', corrected: 'building' }
 /** Never "validated": accepted means a recorded decision, nothing more. */
 export function LabelStatusChip({ status }: { status: LabelStatus }) {
-  return <StatusChip tone={LABEL_TONE[status]}>{label(status)}</StatusChip>
+  const { te } = useI18n()
+  return <StatusChip tone={LABEL_TONE[status]}>{te('labelStatus', status)}</StatusChip>
 }
 
 export function LicenceVerdictChip({ verdict }: { verdict: string }) {
-  if (verdict === 'eligible') return <StatusChip tone="live">Licence eligible (provisional)</StatusChip>
-  if (verdict === 'excluded') return <StatusChip tone="critical">Licence excluded by policy</StatusChip>
-  if (verdict === 'needs_review') return <StatusChip tone="at-risk">Licence outside the policy</StatusChip>
-  return <StatusChip tone="neutral">Synthetic fixture</StatusChip>
+  const { t } = useI18n()
+  if (verdict === 'eligible') return <StatusChip tone="live">{t('ds.verdict.eligible')}</StatusChip>
+  if (verdict === 'excluded') return <StatusChip tone="critical">{t('ds.verdict.excluded')}</StatusChip>
+  if (verdict === 'needs_review') return <StatusChip tone="at-risk">{t('ds.verdict.needs_review')}</StatusChip>
+  return <StatusChip tone="neutral">{t('ds.verdict.synthetic')}</StatusChip>
 }
 
 /** Last 8 characters: identifiers are time-ordered UUIDs whose first characters are shared by everything created together. */

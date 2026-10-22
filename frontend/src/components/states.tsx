@@ -1,14 +1,16 @@
 import type { ReactNode } from 'react'
 import { ProblemError } from '../api/client'
+import { useT } from '../i18n'
 
 export function Skeleton({ className = 'h-4 w-full' }: { className?: string }) {
   return <div aria-hidden="true" className={`animate-pulse rounded bg-surface-2 ${className}`} />
 }
 
-export function LoadingBlock({ label = 'Loading' }: { label?: string }) {
+export function LoadingBlock({ label }: { label?: string }) {
+  const t = useT()
   return (
     <div role="status" aria-live="polite" className="space-y-3 py-2">
-      <span className="sr-only">{label}…</span>
+      <span className="sr-only">{label ?? t('common.loading')}…</span>
       <Skeleton className="h-5 w-1/3" />
       <Skeleton className="h-4 w-full" />
       <Skeleton className="h-4 w-5/6" />
@@ -47,14 +49,15 @@ export function errorMessage(e: unknown): string {
 }
 
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+  const t = useT()
   const forbidden = error instanceof ProblemError && error.status === 403
   return (
     <div role="alert" className="rounded-lg border border-critical bg-surface p-4">
-      <p className="font-medium text-critical">{forbidden ? 'You do not have access to this' : 'Could not load this'}</p>
+      <p className="font-medium text-critical">{forbidden ? t('state.noAccess') : t('state.loadFailed')}</p>
       <p className="mt-1 text-sm text-ink-2">{errorMessage(error)}</p>
       {onRetry && !forbidden && (
         <button type="button" onClick={onRetry} className="mt-3 rounded border border-line px-3 py-1.5 text-sm hover:bg-surface-2">
-          Try again
+          {t('state.tryAgain')}
         </button>
       )}
     </div>

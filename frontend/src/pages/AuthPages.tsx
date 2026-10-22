@@ -1,16 +1,21 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { ProblemError } from '../api/client'
+import { LanguageSwitcher } from '../components/LanguageSwitcher'
 import { errorMessage } from '../components/states'
+import { useT } from '../i18n'
 import { useAuth } from '../lib/auth'
 
 function Shell({ title, children, footer }: { title: string; children: React.ReactNode; footer: React.ReactNode }) {
   return (
     <div className="grid min-h-screen place-items-center p-4">
       <div className="w-full max-w-sm space-y-5 rounded-lg border border-line bg-surface p-6">
-        <div>
-          <p className="text-sm font-semibold tracking-tight text-moss">GreenGuardian</p>
-          <h1 className="text-xl font-semibold">{title}</h1>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold tracking-tight text-moss">GreenGuardian</p>
+            <h1 className="text-xl font-semibold">{title}</h1>
+          </div>
+          <LanguageSwitcher />
         </div>
         {children}
         <p className="text-sm text-ink-2">{footer}</p>
@@ -35,6 +40,7 @@ function fieldErrors(e: unknown): Record<string, string> {
 }
 
 export function LoginPage() {
+  const t = useT()
   const { login, status } = useAuth()
   const navigate = useNavigate()
   const [error, setError] = useState<unknown>(null)
@@ -56,18 +62,19 @@ export function LoginPage() {
     }
   }
   return (
-    <Shell title="Sign in" footer={<>No account? <Link className="text-moss underline" to="/register">Create one</Link></>}>
+    <Shell title={t('auth.signIn')} footer={<>{t('auth.noAccount')} <Link className="text-moss underline" to="/register">{t('auth.createOne')}</Link></>}>
       <form onSubmit={submit} className="space-y-3" noValidate>
-        <Field id="email" name="email" type="email" label="Email" autoComplete="email" required />
-        <Field id="password" name="password" type="password" label="Password" autoComplete="current-password" required />
+        <Field id="email" name="email" type="email" label={t('auth.email')} autoComplete="email" required />
+        <Field id="password" name="password" type="password" label={t('auth.password')} autoComplete="current-password" required />
         {error != null && <p role="alert" className="text-sm text-critical">{errorMessage(error)}</p>}
-        <button disabled={busy} className="w-full rounded bg-moss px-3 py-2 text-moss-ink disabled:opacity-60">{busy ? 'Signing in…' : 'Sign in'}</button>
+        <button disabled={busy} className="w-full rounded bg-moss px-3 py-2 text-moss-ink disabled:opacity-60">{busy ? t('auth.signingIn') : t('auth.signIn')}</button>
       </form>
     </Shell>
   )
 }
 
 export function RegisterPage() {
+  const t = useT()
   const { register, status } = useAuth()
   const navigate = useNavigate()
   const [error, setError] = useState<unknown>(null)
@@ -90,13 +97,13 @@ export function RegisterPage() {
     }
   }
   return (
-    <Shell title="Create your account" footer={<>Already registered? <Link className="text-moss underline" to="/login">Sign in</Link></>}>
+    <Shell title={t('auth.createAccountTitle')} footer={<>{t('auth.alreadyRegistered')} <Link className="text-moss underline" to="/login">{t('auth.signIn')}</Link></>}>
       <form onSubmit={submit} className="space-y-3" noValidate>
-        <Field id="name" name="name" label="Name" autoComplete="name" required error={fe.name} />
-        <Field id="email" name="email" type="email" label="Email" autoComplete="email" required error={fe.email} />
-        <Field id="password" name="password" type="password" label="Password (10+ characters)" autoComplete="new-password" required minLength={10} error={fe.password} />
+        <Field id="name" name="name" label={t('auth.name')} autoComplete="name" required error={fe.name} />
+        <Field id="email" name="email" type="email" label={t('auth.email')} autoComplete="email" required error={fe.email} />
+        <Field id="password" name="password" type="password" label={t('auth.passwordNew')} autoComplete="new-password" required minLength={10} error={fe.password} />
         {error != null && Object.keys(fe).length === 0 && <p role="alert" className="text-sm text-critical">{errorMessage(error)}</p>}
-        <button disabled={busy} className="w-full rounded bg-moss px-3 py-2 text-moss-ink disabled:opacity-60">{busy ? 'Creating…' : 'Create account'}</button>
+        <button disabled={busy} className="w-full rounded bg-moss px-3 py-2 text-moss-ink disabled:opacity-60">{busy ? t('auth.creating') : t('auth.createAccount')}</button>
       </form>
     </Shell>
   )

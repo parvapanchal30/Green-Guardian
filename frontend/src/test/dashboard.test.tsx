@@ -17,7 +17,7 @@ const data: Dashboard = {
   mode: 'green_management',
   as_of: '2026-10-07T12:00:00Z',
   filters: { location_id: null, kind: null },
-  assets: { total: 5, by_kind: { tree: 5 }, health: { healthy: 2, at_risk: 1, critical: 1, unknown: 1 } },
+  assets: { total: 5, exited: 0, by_kind: { tree: 5 }, health: { healthy: 2, at_risk: 1, critical: 1, unknown: 1 } },
   work: {
     open_issues: 3, open_issues_by_severity: { critical: 0, high: 1, medium: 1, low: 1 }, open_tasks: 4, overdue_tasks: 2,
     tasks_due_next_7_days: 1, inspections_due: 2, inspection_interval_days: 21, open_recommendations: 1,
@@ -64,10 +64,23 @@ describe('dashboard states', () => {
   })
 
   it('shows the empty state for a workspace with no assets', () => {
-    state.dash = { ...state.dash, data: { ...data, assets: { total: 0, by_kind: {}, health: { healthy: 0, at_risk: 0, critical: 0, unknown: 0 } }, recent_activity: [] } }
+    state.dash = { ...state.dash, data: { ...data, assets: { total: 0, exited: 0, by_kind: {}, health: { healthy: 0, at_risk: 0, critical: 0, unknown: 0 } }, recent_activity: [] } }
     renderHome()
     expect(screen.getByText('No assets yet')).toBeInTheDocument()
     expect(screen.queryByText('Overdue tasks')).not.toBeInTheDocument()
+  })
+
+  it('says so when every registered asset has left the lifecycle, instead of claiming there are none', () => {
+    state.dash = { ...state.dash, data: { ...data, assets: { total: 0, exited: 3, by_kind: {}, health: { healthy: 0, at_risk: 0, critical: 0, unknown: 0 } }, recent_activity: [] } }
+    renderHome()
+    expect(screen.getByText(/3 registered assets have left the lifecycle/)).toBeInTheDocument()
+  })
+
+  it('shows assets that left the lifecycle as their own figure, apart from the active ones', () => {
+    state.dash = { ...state.dash, data: { ...data, assets: { ...data.assets, exited: 2 } } }
+    renderHome()
+    expect(screen.getByText('Left the lifecycle').nextElementSibling).toHaveTextContent('2')
+    expect(screen.getByText('Assets').nextElementSibling).toHaveTextContent('5')
   })
 
   it('renders server-computed figures, KPI availability and activity', () => {

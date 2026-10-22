@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { ProblemError } from '../../api/client'
 import type { DatasetDetailRecord, ImportReport } from '../../api/types'
+import { useI18n } from '../../i18n'
 import { useImportSamples, useRegisterSample } from '../../lib/datasets'
 import { Field, btn, btnPrimary, input } from '../domain'
 import { errorMessage } from '../states'
@@ -25,32 +26,34 @@ function reportFrom(error: unknown): ImportReport | null {
   return null
 }
 
+// Row-level error and warning messages come from the server and are shown as written.
 function Report({ r }: { r: ImportReport }) {
+  const { t } = useI18n()
   return (
-    <div className="space-y-2 text-sm" aria-label="Import report">
+    <div className="space-y-2 text-sm" aria-label={t('ds.im.report')}>
       <div className="flex flex-wrap items-center gap-2">
-        <StatusChip tone={r.ok ? 'live' : 'critical'}>{r.ok ? 'No errors' : `${r.error_count} error${r.error_count === 1 ? '' : 's'}`}</StatusChip>
-        <span>{r.rows_total} rows</span>
-        <span>{r.to_create} to create</span>
-        <span>{r.unchanged} already registered and unchanged</span>
+        <StatusChip tone={r.ok ? 'live' : 'critical'}>{r.ok ? t('ds.im.noErrors') : t('ds.im.errors', { count: r.error_count })}</StatusChip>
+        <span>{t('ds.im.rows', { n: r.rows_total })}</span>
+        <span>{t('ds.im.toCreate', { n: r.to_create })}</span>
+        <span>{t('ds.im.unchanged', { n: r.unchanged })}</span>
       </div>
-      <p className="text-ink-2">{r.note} Nothing is written until you import, and a file with any error imports nothing.</p>
+      <p className="text-ink-2">{r.note} {t('ds.im.nothingWritten')}</p>
       {r.errors.length > 0 && (
-        <table className="w-full text-left text-xs" aria-label="Import errors">
-          <thead><tr className="text-ink-3"><th className="p-1">Row</th><th className="p-1">Sample</th><th className="p-1">Column</th><th className="p-1">Problem</th></tr></thead>
+        <table className="w-full text-left text-xs" aria-label={t('ds.im.errorsTable')}>
+          <thead><tr className="text-ink-3"><th className="p-1">{t('ds.im.row')}</th><th className="p-1">{t('ds.im.sample')}</th><th className="p-1">{t('ds.im.column')}</th><th className="p-1">{t('ds.im.problem')}</th></tr></thead>
           <tbody>
             {r.errors.slice(0, SHOWN_ERRORS).map((e, i) => (
               <tr key={i} className="border-t border-line align-top">
-                <td className="p-1">{e.row ?? 'file'}</td><td className="p-1">{e.external_id ?? ''}</td><td className="p-1">{e.column ?? ''}</td><td className="p-1">{e.message}</td>
+                <td className="p-1">{e.row ?? t('ds.im.file')}</td><td className="p-1">{e.external_id ?? ''}</td><td className="p-1">{e.column ?? ''}</td><td className="p-1">{e.message}</td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
-      {(r.errors_truncated || r.errors.length > SHOWN_ERRORS) && <p className="text-xs text-ink-3">Showing the first {Math.min(SHOWN_ERRORS, r.errors.length)} of {r.error_count} errors.</p>}
+      {(r.errors_truncated || r.errors.length > SHOWN_ERRORS) && <p className="text-xs text-ink-3">{t('ds.im.showingFirst', { shown: Math.min(SHOWN_ERRORS, r.errors.length), total: r.error_count })}</p>}
       {r.warnings.length > 0 && (
-        <ul aria-label="Import warnings" className="list-disc space-y-1 pl-5 text-ink-2">
-          {r.warnings.map((w) => <li key={w.code}>{w.message} ({w.count} row{w.count === 1 ? '' : 's'}{w.rows.length ? `, e.g. ${w.rows.slice(0, 5).join(', ')}` : ''})</li>)}
+        <ul aria-label={t('ds.im.warnings')} className="list-disc space-y-1 pl-5 text-ink-2">
+          {r.warnings.map((w) => <li key={w.code}>{w.message} ({t('ds.im.warnRows', { count: w.count })}{w.rows.length ? `, ${t('ds.q.examples', { list: w.rows.slice(0, 5).join(', ') })}` : ''})</li>)}
         </ul>
       )}
     </div>
@@ -58,6 +61,7 @@ function Report({ r }: { r: ImportReport }) {
 }
 
 function SingleForm({ ws, d }: { ws: string; d: DatasetDetailRecord }) {
+  const { t } = useI18n()
   const reg = useRegisterSample(ws, d.id)
   const blank = { external_id: '', group_key: '', label: '', source: '' }
   const [f, setF] = useState(blank)
@@ -69,14 +73,14 @@ function SingleForm({ ws, d }: { ws: string; d: DatasetDetailRecord }) {
     )
   }
   return (
-    <form onSubmit={submit} aria-label="Register one sample" className="grid gap-3 sm:grid-cols-2">
-      <Field id="one-id" label="Sample identifier"><input id="one-id" className={input} value={f.external_id} onChange={(e) => setF({ ...f, external_id: e.target.value })} required /></Field>
-      <Field id="one-group" label="Group (plant, plot or farm)"><input id="one-group" className={input} value={f.group_key} onChange={(e) => setF({ ...f, group_key: e.target.value })} /></Field>
-      <Field id="one-label" label="Label (starts unreviewed)"><input id="one-label" className={input} value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} /></Field>
-      <Field id="one-source" label="Source (where it came from)"><input id="one-source" className={input} value={f.source} onChange={(e) => setF({ ...f, source: e.target.value })} required={d.kind === 'real'} /></Field>
+    <form onSubmit={submit} aria-label={t('ds.im.singleForm')} className="grid gap-3 sm:grid-cols-2">
+      <Field id="one-id" label={t('ds.im.sampleId')}><input id="one-id" className={input} value={f.external_id} onChange={(e) => setF({ ...f, external_id: e.target.value })} required /></Field>
+      <Field id="one-group" label={t('ds.im.group')}><input id="one-group" className={input} value={f.group_key} onChange={(e) => setF({ ...f, group_key: e.target.value })} /></Field>
+      <Field id="one-label" label={t('ds.im.label')}><input id="one-label" className={input} value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} /></Field>
+      <Field id="one-source" label={t('ds.im.source')}><input id="one-source" className={input} value={f.source} onChange={(e) => setF({ ...f, source: e.target.value })} required={d.kind === 'real'} /></Field>
       <div className="sm:col-span-2">
-        <button className={btn} disabled={reg.isPending}>{reg.isPending ? 'Saving…' : 'Register sample'}</button>
-        {reg.isSuccess && <span role="status" className="ml-2 text-sm text-ink-2">Registered {reg.data.registered} sample. Its label is unreviewed.</span>}
+        <button className={btn} disabled={reg.isPending}>{reg.isPending ? t('ds.saving') : t('ds.im.register')}</button>
+        {reg.isSuccess && <span role="status" className="ml-2 text-sm text-ink-2">{t('ds.im.registered', { n: reg.data.registered })}</span>}
         {reg.error != null && <p role="alert" className="mt-2 text-sm text-critical">{errorMessage(reg.error)}</p>}
       </div>
     </form>
@@ -84,6 +88,7 @@ function SingleForm({ ws, d }: { ws: string; d: DatasetDetailRecord }) {
 }
 
 export function ImportPanel({ ws, d }: { ws: string; d: DatasetDetailRecord }) {
+  const { t } = useI18n()
   const imp = useImportSamples(ws, d.id)
   const fileRef = useRef<HTMLInputElement>(null)
   const [text, setText] = useState<string | null>(null)
@@ -93,7 +98,7 @@ export function ImportPanel({ ws, d }: { ws: string; d: DatasetDetailRecord }) {
   const [previewed, setPreviewed] = useState<string | null>(null)
 
   if (d.kind === 'real' && d.status !== 'approved') {
-    return <p className="rounded-lg border border-line bg-surface p-3 text-sm text-ink-2">Samples of a real dataset can only be registered once it is approved. Nothing may be downloaded or imported before.</p>
+    return <p className="rounded-lg border border-line bg-surface p-3 text-sm text-ink-2">{t('ds.im.notApproved')}</p>
   }
 
   const pick = async (file: File | undefined) => {
@@ -103,12 +108,12 @@ export function ImportPanel({ ws, d }: { ws: string; d: DatasetDetailRecord }) {
     setFileError(null)
     if (!file) return
     setFileName(file.name)
-    if (file.size > MAX_BYTES) return setFileError('This file is larger than 2 MB. Split it into smaller files.')
-    if (!/\.csv$/i.test(file.name) && file.type !== 'text/csv') return setFileError('Choose a .csv file.')
+    if (file.size > MAX_BYTES) return setFileError(t('ds.im.tooLarge'))
+    if (!/\.csv$/i.test(file.name) && file.type !== 'text/csv') return setFileError(t('ds.im.chooseCsv'))
     try {
       setText(await readText(file))
     } catch {
-      setFileError('The file could not be read.')
+      setFileError(t('ds.im.unreadable'))
     }
   }
   const run = (commit: boolean) => {
@@ -133,31 +138,30 @@ export function ImportPanel({ ws, d }: { ws: string; d: DatasetDetailRecord }) {
 
   return (
     <div className="space-y-4 rounded-lg border border-line bg-surface p-3">
-      <h3 className="font-medium">Add samples</h3>
+      <h3 className="font-medium">{t('ds.im.title')}</h3>
       <p className="text-sm text-ink-2">
-        Registering records metadata only (identifier, group, label, fingerprints, source); the images themselves are not stored here. <strong>Every imported label starts unreviewed</strong> and
-        counts as validated only after a recorded review. A column that tries to carry review status is refused.
+        {t('ds.im.intro1')} <strong>{t('ds.im.introBold')}</strong> {t('ds.im.intro2')}
       </p>
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <label className="text-sm" htmlFor="csv-file">CSV file</label>
+          <label className="text-sm" htmlFor="csv-file">{t('ds.im.csvFile')}</label>
           <input id="csv-file" ref={fileRef} type="file" accept=".csv,text/csv" onChange={(e) => void pick(e.target.files?.[0])} />
-          <button type="button" className="text-xs underline" onClick={downloadTemplate}>Download a template</button>
+          <button type="button" className="text-xs underline" onClick={downloadTemplate}>{t('ds.im.template')}</button>
         </div>
-        <p className="text-xs text-ink-3">Columns: external_id (required), group_key, label, content_sha256, phash, file_status, width, height, source{d.kind === 'real' ? ' (required for real datasets)' : ''}. Up to 5,000 rows and 2 MB.</p>
+        <p className="text-xs text-ink-3">{t('ds.im.columns', { real: d.kind === 'real' ? t('ds.im.requiredReal') : '' })}</p>
         {fileError && <p role="alert" className="text-sm text-critical">{fileError}</p>}
-        {text != null && fileName && <p className="text-xs text-ink-3">{fileName}: {text.split('\n').filter((l) => l.trim()).length - 1} data rows read in the browser. The server checks the file again.</p>}
+        {text != null && fileName && <p className="text-xs text-ink-3">{t('ds.im.readInBrowser', { file: fileName, n: text.split('\n').filter((l) => l.trim()).length - 1 })}</p>}
         <div className="flex flex-wrap gap-2">
-          <button type="button" className={btn} disabled={text == null || imp.isPending} onClick={() => run(false)}>{imp.isPending ? 'Checking…' : 'Preview (writes nothing)'}</button>
-          <button type="button" className={btnPrimary} disabled={!canCommit || imp.isPending} onClick={() => run(true)}>{report && canCommit ? `Import ${report.to_create} sample${report.to_create === 1 ? '' : 's'}` : 'Import'}</button>
+          <button type="button" className={btn} disabled={text == null || imp.isPending} onClick={() => run(false)}>{imp.isPending ? t('ds.im.checking') : t('ds.im.preview')}</button>
+          <button type="button" className={btnPrimary} disabled={!canCommit || imp.isPending} onClick={() => run(true)}>{report && canCommit ? t('ds.im.importN', { count: report.to_create }) : t('ds.im.import')}</button>
         </div>
-        {report?.status === 'imported' && <p role="status" className="text-sm text-ink-2">Imported {report.to_create} samples as unreviewed.</p>}
-        {report?.status === 'already_imported' && <p role="status" className="text-sm text-ink-2">Nothing to import: every row is already registered with the same values.</p>}
+        {report?.status === 'imported' && <p role="status" className="text-sm text-ink-2">{t('ds.im.imported', { n: report.to_create })}</p>}
+        {report?.status === 'already_imported' && <p role="status" className="text-sm text-ink-2">{t('ds.im.already')}</p>}
         {imp.error != null && <p role="alert" className="text-sm text-critical">{errorMessage(imp.error)}</p>}
         {report && <Report r={report} />}
       </div>
       <details>
-        <summary className="cursor-pointer text-sm">Register a single sample</summary>
+        <summary className="cursor-pointer text-sm">{t('ds.im.single')}</summary>
         <div className="mt-2"><SingleForm ws={ws} d={d} /></div>
       </details>
     </div>

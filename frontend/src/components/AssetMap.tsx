@@ -2,6 +2,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef } from 'react'
 import type { HealthBand, MapFeature } from '../api/types'
+import { useI18n } from '../i18n'
 
 /**
  * Leaflet rendering of one point layer. All data arrives from the server; this component only draws it and reports
@@ -38,6 +39,7 @@ export function AssetMap({
   selectedId: string | null
   onSelect: (id: string) => void
 }) {
+  const { t } = useI18n()
   const el = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const layer = useRef<L.LayerGroup | null>(null)
@@ -79,5 +81,5 @@ export function AssetMap({
     }
   }, [features, bbox, selectedId])
 
-  return <div ref={el} role="application" aria-label="Map of biological assets" className="h-[26rem] w-full rounded-lg border border-line bg-surface-2 lg:h-[34rem]" />
+  return <div ref={el} role="application" aria-label={t('map.aria')} className="h-[26rem] w-full rounded-lg border border-line bg-surface-2 lg:h-[34rem]" />
 }

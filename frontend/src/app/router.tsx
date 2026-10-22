@@ -1,4 +1,5 @@
 import { Link, Navigate, createBrowserRouter, type RouteObject } from 'react-router-dom'
+import { useI18n } from '../i18n'
 import { AuthProvider } from '../lib/auth'
 import { AgentPage } from '../pages/AgentPage'
 import { AssetProfilePage } from '../pages/AssetProfilePage'
@@ -33,11 +34,12 @@ function Root() {
 }
 
 function NotFound() {
+  const { t } = useI18n()
   return (
     <div className="grid min-h-screen place-items-center p-4 text-center">
       <div>
-        <h1 className="text-xl font-semibold">Page not found</h1>
-        <Link to="/" className="text-moss underline">Go to your workspaces</Link>
+        <h1 className="text-xl font-semibold">{t('common.notFound')}</h1>
+        <Link to="/" className="text-moss underline">{t('common.goToWorkspaces')}</Link>
       </div>
     </div>
   )

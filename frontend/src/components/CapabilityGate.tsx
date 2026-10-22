@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react'
 import type { Capability, Stage } from '../api/types'
+import { useI18n } from '../i18n'
 import { StatusChip } from './StatusChip'
 import { LoadingBlock } from './states'
-
-const STAGE_TEXT: Record<Stage, string> = { mvp: 'MVP', v2: 'V2 · Prediction', v3: 'V3 · Recommendation', v4: 'V4 · Optimization' }
 
 export function ComingSoonPanel({
   title,
@@ -21,6 +20,7 @@ export function ComingSoonPanel({
   /** A real layout of the future feature: controls stay disabled and no result is ever shown. */
   children?: ReactNode
 }) {
+  const { t, te } = useI18n()
   const inDevelopment = stage === 'mvp'
   return (
     <section aria-labelledby="soon-title" className="space-y-4">
@@ -28,9 +28,10 @@ export function ComingSoonPanel({
         <h2 id="soon-title" className="text-xl font-semibold">
           {title}
         </h2>
-        <StatusChip tone={inDevelopment ? 'building' : 'soon'}>{inDevelopment ? 'In development' : 'Coming soon'}</StatusChip>
-        {stage && <StatusChip tone="neutral">{STAGE_TEXT[stage]}</StatusChip>}
-        {technique && <StatusChip tone="neutral">Powered by: {technique}</StatusChip>}
+        <StatusChip tone={inDevelopment ? 'building' : 'soon'}>{inDevelopment ? t('soon.inDevelopment') : t('soon.comingSoon')}</StatusChip>
+        {stage && <StatusChip tone="neutral">{te('soon.stage', stage)}</StatusChip>}
+        {/* The technique and reason come from the server and are shown as sent. */}
+        {technique && <StatusChip tone="neutral">{t('soon.poweredBy', { technique })}</StatusChip>}
       </div>
       {summary && <p className="max-w-prose text-ink-2">{summary}</p>}
       {children && (
@@ -44,7 +45,7 @@ export function ComingSoonPanel({
         </div>
       )}
       <p className="text-sm text-ink-3">
-        {reason ? `${reason}. ` : ''}No result is computed or displayed here until this feature is live.
+        {reason ? `${reason}. ` : ''}{t('soon.noResult')}
       </p>
     </section>
   )
@@ -69,7 +70,8 @@ export function CapabilityGate({
   preview?: ReactNode
   children: ReactNode
 }) {
-  if (!capabilities) return <LoadingBlock label="Checking availability" />
+  const { t } = useI18n()
+  if (!capabilities) return <LoadingBlock label={t('soon.checking')} />
   const cap = capabilities.find((c) => c.key === feature)
   if (cap?.available) return <>{children}</>
   return (
@@ -78,7 +80,7 @@ export function CapabilityGate({
       summary={summary}
       technique={cap?.technique}
       stage={cap?.stage}
-      reason={cap?.reason ?? (cap ? null : 'Not registered with the server')}
+      reason={cap?.reason ?? (cap ? null : t('soon.notRegistered'))}
     >
       {preview}
     </ComingSoonPanel>

@@ -1,5 +1,6 @@
 // Layout-only previews of planned features. Used inside <ComingSoonPanel>, which disables every control.
 // They contain labels and empty controls only; there are no sample values or results.
+import { useI18n } from '../i18n'
 
 function Field({ label, placeholder }: { label: string; placeholder: string }) {
   return (
@@ -11,39 +12,41 @@ function Field({ label, placeholder }: { label: string; placeholder: string }) {
 }
 
 export function CropPlanningPreview() {
+  const { t } = useI18n()
   return (
     <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Field label="Location" placeholder="Village / district" />
-        <Field label="Area" placeholder="acres" />
-        <Field label="Soil" placeholder="soil type" />
-        <Field label="pH" placeholder="e.g. 6.4" />
-        <Field label="Water availability" placeholder="low / moderate / high" />
-        <Field label="Season" placeholder="season" />
-        <Field label="Market" placeholder="nearest market" />
-        <Field label="Budget" placeholder="amount" />
+        <Field label={t('preview.location')} placeholder={t('preview.locationPh')} />
+        <Field label={t('preview.area')} placeholder={t('preview.areaPh')} />
+        <Field label={t('preview.soil')} placeholder={t('preview.soilPh')} />
+        <Field label={t('preview.ph')} placeholder={t('preview.phPh')} />
+        <Field label={t('preview.water')} placeholder={t('preview.waterPh')} />
+        <Field label={t('preview.season')} placeholder={t('preview.seasonPh')} />
+        <Field label={t('preview.market')} placeholder={t('preview.marketPh')} />
+        <Field label={t('preview.budget')} placeholder={t('preview.budgetPh')} />
       </div>
       <button type="button" className="rounded bg-moss px-3 py-1.5 text-sm text-moss-ink">
-        Generate recommendations
+        {t('preview.generate')}
       </button>
     </div>
   )
 }
 
 export function DiseaseScanPreview() {
+  const { t } = useI18n()
   return (
     <div className="space-y-3">
-      <Field label="Select asset" placeholder="Asset" />
-      <div className="rounded border border-dashed border-line p-6 text-center text-sm text-ink-2">Upload a plant image</div>
+      <Field label={t('preview.selectAsset')} placeholder={t('preview.asset')} />
+      <div className="rounded border border-dashed border-line p-6 text-center text-sm text-ink-2">{t('preview.upload')}</div>
       <div className="flex gap-2">
         <button type="button" className="rounded bg-moss px-3 py-1.5 text-sm text-moss-ink">
-          Analyze
+          {t('preview.analyze')}
         </button>
         <button type="button" className="rounded border border-line px-3 py-1.5 text-sm">
-          Create issue
+          {t('preview.createIssue')}
         </button>
       </div>
-      <p className="text-xs text-ink-3">Result layout (condition, confidence, severity, affected area) appears here once the model is live.</p>
+      <p className="text-xs text-ink-3">{t('preview.resultNote')}</p>
     </div>
   )
 }

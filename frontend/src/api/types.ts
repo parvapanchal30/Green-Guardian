@@ -124,6 +124,8 @@ export interface Asset {
   tag_code: string | null
   estimated_count: number | null
   current_stage: string
+  /** False once the asset left the lifecycle (dead, failed, removed, replaced). */
+  is_active: boolean
   species_id: string | null
   species_name: string | null
   location_id: string | null
@@ -142,7 +144,6 @@ export interface Attachment {
   name: string
   content_type: string
   url?: string
-  storage_key?: string
   caption?: string
 }
 
@@ -279,7 +280,7 @@ export interface TaskDetail extends Task {
 
 export interface TimelineEvent {
   at: string
-  type: 'observation' | 'issue' | 'task'
+  type: 'observation' | 'issue' | 'task' | 'lifecycle' | 'harvest'
   ref_id: string
   key: string | null
   title: string
@@ -330,7 +331,7 @@ export interface Dashboard {
   mode: string
   as_of: string
   filters: { location_id: string | null; kind: string | null }
-  assets: { total: number; by_kind: Record<string, number>; health: { healthy: number; at_risk: number; critical: number; unknown: number } }
+  assets: { total: number; exited: number; by_kind: Record<string, number>; health: { healthy: number; at_risk: number; critical: number; unknown: number } }
   work: {
     open_issues: number; open_issues_by_severity: Record<string, number>; open_tasks: number; overdue_tasks: number
     tasks_due_next_7_days: number; inspections_due: number; inspection_interval_days: number; open_recommendations: number
@@ -565,4 +566,57 @@ export interface ImportReport {
   warnings: ImportWarning[]
   label_status_after_import: 'unreviewed'
   note: string
+}
+
+// ------------------------------------------------------------------ asset lifecycle (ADR-055)
+export interface StageChoice { key: string; label: string; kind: 'stage' | 'exit'; manager_only: boolean }
+export interface LifecycleTemplate {
+  mode: string
+  stages: StageChoice[]
+  exits_individual: StageChoice[]
+  exits_population: StageChoice[]
+  rules: string[]
+}
+export interface LifecycleEvent {
+  id: string
+  asset_id: string
+  stage: string
+  stage_label: string
+  previous_stage: string | null
+  entered_at: string
+  recorded_at: string
+  source: 'manual' | 'system'
+  correction: boolean
+  note: string | null
+  actor_id: string | null
+}
+export interface AssetLifecycle {
+  asset_id: string
+  current_stage: string
+  is_active: boolean
+  next_choices: StageChoice[]
+  history: LifecycleEvent[]
+}
+
+// ------------------------------------------------------------------ harvest records (ADR-056)
+export type HarvestUnit = 'kg' | 't' | 'count' | 'l'
+export interface HarvestRecord {
+  id: string
+  asset_id: string
+  harvested_at: string
+  quantity: number
+  unit: HarvestUnit
+  grade: string | null
+  note: string | null
+  supersedes_id: string | null
+  superseded_by: string | null
+  effective: boolean
+  withdrawn: boolean
+  recorded_by: string | null
+  recorded_at: string
+}
+export interface AssetHarvests {
+  asset_id: string
+  totals: { by_unit: Record<string, number>; mass_tonnes: number; records: number }
+  history: HarvestRecord[]
 }

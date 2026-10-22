@@ -8,21 +8,16 @@ import { DatasetStatusChip } from '../components/datasets/shared'
 import { PageHeader } from '../components/domain'
 import { ErrorState, LoadingBlock } from '../components/states'
 import { StatusChip } from '../components/StatusChip'
+import { useI18n } from '../i18n'
 import { useDataset } from '../lib/datasets'
 
-const TABS = [
-  { key: 'overview', text: 'Licence and approval' },
-  { key: 'samples', text: 'Samples and review' },
-  { key: 'quality', text: 'Quality' },
-  { key: 'splits', text: 'Splits' },
-  { key: 'agreement', text: 'Reviewer agreement' },
-  { key: 'claims', text: 'Claim gate' },
-] as const
-type Tab = (typeof TABS)[number]['key']
+const TABS = ['overview', 'samples', 'quality', 'splits', 'agreement', 'claims'] as const
+type Tab = (typeof TABS)[number]
 
 /** Each tab fetches only when it is open, so a reader who never opens one never requests it. */
 export function DatasetDetailPage() {
   const { ws, workspace } = useWorkspaceCtx()
+  const { t } = useI18n()
   const { datasetId = '' } = useParams()
   const q = useDataset(ws, datasetId)
   const [tab, setTab] = useState<Tab>('overview')
@@ -30,31 +25,31 @@ export function DatasetDetailPage() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm"><Link to={`/w/${ws}/ai/datasets`} className="text-moss underline">← All datasets</Link></p>
-      {q.isLoading && <LoadingBlock label="Loading dataset" />}
+      <p className="text-sm"><Link to={`/w/${ws}/ai/datasets`} className="text-moss underline">{t('ds.allDatasets')}</Link></p>
+      {q.isLoading && <LoadingBlock label={t('ds.loadingOne')} />}
       {q.error && <ErrorState error={q.error} onRetry={() => q.refetch()} />}
       {d && (
         <>
-          <PageHeader title={`${d.name} · version ${d.version}`} subtitle={d.kind === 'synthetic' ? 'Synthetic test fixture, not biological data.' : 'Dataset record'}>
+          <PageHeader title={t('ds.detailTitle', { name: d.name, version: d.version })} subtitle={d.kind === 'synthetic' ? t('ds.syntheticSubtitle') : t('ds.record')}>
             <DatasetStatusChip status={d.status} />
-            {d.kind === 'synthetic' && <StatusChip tone="neutral">Synthetic</StatusChip>}
-            <StatusChip tone="neutral">{d.sample_count} registered sample{d.sample_count === 1 ? '' : 's'}</StatusChip>
+            {d.kind === 'synthetic' && <StatusChip tone="neutral">{t('ds.synthetic')}</StatusChip>}
+            <StatusChip tone="neutral">{t('ds.registeredSamples', { count: d.sample_count })}</StatusChip>
           </PageHeader>
-          <div role="tablist" aria-label="Dataset sections" className="flex flex-wrap gap-1 border-b border-line">
-            {TABS.map((t) => (
+          <div role="tablist" aria-label={t('ds.sections')} className="flex flex-wrap gap-1 border-b border-line">
+            {TABS.map((k) => (
               <button
-                key={t.key}
+                key={k}
                 role="tab"
                 type="button"
-                aria-selected={tab === t.key}
-                onClick={() => setTab(t.key)}
-                className={`rounded-t border border-b-0 px-3 py-1.5 text-sm ${tab === t.key ? 'border-line bg-surface font-medium' : 'border-transparent text-ink-2 hover:bg-surface-2'}`}
+                aria-selected={tab === k}
+                onClick={() => setTab(k)}
+                className={`rounded-t border border-b-0 px-3 py-1.5 text-sm ${tab === k ? 'border-line bg-surface font-medium' : 'border-transparent text-ink-2 hover:bg-surface-2'}`}
               >
-                {t.text}
+                {t(`ds.tab.${k}`)}
               </button>
             ))}
           </div>
-          <div role="tabpanel" aria-label={TABS.find((t) => t.key === tab)?.text}>
+          <div role="tabpanel" aria-label={t(`ds.tab.${tab}`)}>
             {tab === 'overview' && <OverviewTab ws={ws} d={d} role={workspace.role} />}
             {tab === 'samples' && <SamplesTab ws={ws} d={d} role={workspace.role} />}
             {tab === 'quality' && <QualityTab ws={ws} d={d} />}
