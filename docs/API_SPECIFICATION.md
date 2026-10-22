@@ -27,8 +27,14 @@ POST  /workspaces/{ws}/assets                  create (+ optional initial observ
 POST  /workspaces/{ws}/assets:bulk             CSV/GeoJSON import (V2)
 GET   /workspaces/{ws}/assets/{id}             profile with asset_state
 PATCH /workspaces/{ws}/assets/{id}
-POST  /workspaces/{ws}/assets/{id}/lifecycle   {stage, entered_at, note}
-GET   /workspaces/{ws}/assets/{id}/timeline    merged observations/lifecycle/issues/tasks
+GET   /workspaces/{ws}/assets/{id}/lifecycle   current stage, stages recordable now, append-only history (viewer)
+POST  /workspaces/{ws}/assets/{id}/lifecycle   {stage, entered_at?, note?, correction?}  (worker; removed/replaced and corrections: manager)
+GET   /workspaces/{ws}/lifecycle-template      stages of the workspace's mode, exits per tracking mode, rules
+GET   /workspaces/{ws}/assets/{id}/harvests    effective totals per unit + append-only history (viewer)
+POST  /workspaces/{ws}/assets/{id}/harvests    {quantity>0, unit kg|t|count|l, harvested_at?, grade?, note?} (worker; not for exited assets)
+POST  /workspaces/{ws}/assets/{id}/harvests/{record_id}/correct   {quantity>=0, unit, harvested_at?, grade?, note>=10 chars} (manager; replaces, 0 withdraws, once per record)
+GET   /workspaces/{ws}/assets/{id}/timeline    merged observations/lifecycle/issues/tasks (lifecycle entries built)
+      assets list filters: `stage=`, `active=true|false`; `AssetCreate.stage` (optional initial stage); `AssetOut.is_active`
 GET   /workspaces/{ws}/assets/{id}/health      ?from=&to=   time series
 GET   /workspaces/{ws}/assets/{id}/growth      ?from=&to=
 ```
@@ -126,7 +132,7 @@ All paths are under `/api/v1/workspaces/{ws}`. Lists return `{items, total, limi
 | Datasets (Stage D) | `GET /datasets/licence-policy`, `GET|POST /datasets`, `GET /datasets/{id}`, `POST /datasets/{id}/evidence`, `POST /datasets/{id}/transitions` (approve/reject: owner or admin; 422 `dataset_not_approvable` with `blockers`), `GET|POST /datasets/{id}/samples`, `GET|POST /datasets/{id}/samples/{sid}/reviews`, `POST /datasets/{id}/samples/import` (CSV, `commit=false` previews, `commit=true` imports all or nothing; manager), `GET /datasets/{id}/review-summary|quality|agreement|claim-readiness`, `GET|POST /datasets/{id}/splits`, `GET /datasets/{id}/splits/{version}` | member / manager | samples of a real dataset only once approved; the reviewer is the signed-in user; nothing is downloaded and evidence URLs are never fetched |
 | Agent | `GET /agent/rules`, `POST /agent/run`, `GET /agent/runs`, `GET /agent/runs/{id}`, `GET /recommendations?status&asset_id`, `POST /recommendations/{id}/accept|dismiss` | member / manager | rule-based only; accepting creates an issue/task, or (irrigation advice) moves a watering task's due date, through the normal services; recommendations expose `agent_run_id`, `rule_version`, `outcome*`; tasks expose `recommendation_id` |
 
-**Conventions:** request bodies reject unknown fields; JSON blobs ≤ 10 KB; attachments are metadata (https URL or storage key, image types only, ≤ 10); `observed_at` may be back-dated but not future; `409` for illegal transitions (`allowed` lists the legal ones), open tasks blocking resolution (`open_tasks`), duplicates; `422` for validation and business-rule violations; `403` for role violations.
+**Conventions:** request bodies reject unknown fields; JSON blobs ≤ 10 KB; attachments are metadata (an https URL reference, image types only, ≤ 10; no client-supplied storage key, uploads go through `/evidence`); `observed_at` may be back-dated but not future; `409` for illegal transitions (`allowed` lists the legal ones), open tasks blocking resolution (`open_tasks`), duplicates; `422` for validation and business-rule violations; `403` for role violations.
 Still design only: `GET /dashboard`, `GET /map`, reports, bulk import, predictions (`501 capability_unavailable` is reserved). The Home dashboard currently composes counts from list totals.
 
 ## Cross-cutting behaviour (2026-10-17, ADR-032..034)

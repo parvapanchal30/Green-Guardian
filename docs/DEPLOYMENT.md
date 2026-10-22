@@ -109,8 +109,10 @@ Forward-only in shared environments. Make every migration **backward compatible 
 ## 9. Evidence storage in a real deployment
 Photos are written through the `ObjectStore` interface. The only production-capable adapter today writes to a directory, so:
 - **One API instance** with a durable volume mounted at `/data/storage` works.
-- **Several API instances** need a shared filesystem, or an S3-compatible adapter, which is **not built yet** (the interface and registry are ready; it is one module plus a dependency). Until then run a single API replica for the API, or accept the shared-volume constraint.
+- **Several API instances** need a shared filesystem or the S3-compatible adapter (`STORAGE_PROVIDER=s3`, built; see STAGING.md and STORAGE_REVIEW.md; verified against a simulated S3 only, never a real bucket).
 Include the storage volume in backups (`EVIDENCE_DIR` in `ops/backup.sh`).
+
+**Orphan blobs.** An upload writes the blob before the database row, so a crash in between (or a failed compensating delete) can leave an object nothing points to. `python -m app.tools.evidence_reconcile` lists them (dry run by default); `--delete` removes only objects with a server-shaped key, no evidence row (soft-deleted rows count as references), older than `--min-age-hours` (default 24, never below 1), and refuses when the database has no evidence rows or more than 20% of objects look orphaned. Point it at the SAME environment as the API (same `DATABASE_URL` and `STORAGE_*`), run the dry run first, and read the report. It is not scheduled by the worker. Soft-deleted evidence keeps its blob until a retention policy exists. A missing object normally answers 404; with a credential that cannot list the bucket some providers answer 403, which the API reports as 503 (permissions are not broadened to hide this).
 
 ## 10. The worker (Stage C, ADR-039)
 `python -m app.worker` from the same image, as its own service (`worker` in `docker-compose.yml`). Every `WORKER_POLL_INTERVAL_S` it runs the agent for each workspace that is due (default: once a day per workspace; per workspace `settings.agent.schedule_enabled` and `schedule_interval_hours`), fails runs abandoned by a dead worker, and every `HOUSEKEEPING_INTERVAL_S` runs the housekeeping job (audit retention, idle throttle counters; `python -m app.tools.housekeeping` still works on its own).

@@ -45,6 +45,15 @@ Protocol versions and sign-offs are append-only in the database and workspace-sc
 ## Hosting and CORS (HOSTING.md, ADR-048)
 In production the API refuses to start with a wildcard, non-https, local or path-carrying `CORS_ORIGINS` entry, or with a database connection that does not require TLS. CORS answers only the configured exact origins and never allows credentials (tokens travel in a header). A hosted frontend build fails if its API URL is missing, local or not https, carries a Content-Security-Policy naming exactly that API origin, and is scanned afterwards for development addresses. `VITE_*` values are public: no secret may be placed in one.
 
+## Object storage (ADR-052)
+With `STORAGE_PROVIDER=s3` the bucket must be private and exclusive to one environment, with credentials limited to that bucket. The browser never receives a storage URL: reads go through the API after the workspace check, and a row whose key is outside the caller's workspace prefix is refused. Application DEBUG logging does not enable client-library debug output (it would reveal the access key ID). Storage credentials exist only in the host's secret store; they are `SecretStr` in configuration and never appear in logs or errors. Verified with a simulated S3 only. Clients can no longer supply a storage key (observation/task attachments are https URL references; ADR-054). `python -m app.tools.evidence_reconcile` removes orphan blobs only on explicit `--delete`, behind age, wrong-database and fraction brakes, and audits each deletion; it has never been run against a real bucket.
+
+## Asset lifecycle (ADR-055)
+Lifecycle history is append-only (database trigger on PostgreSQL), tenant-scoped (composite foreign key, RLS) and audited. Recording needs a worker; reinstating, going back (corrections, with a written reason) and the management exits `removed`/`replaced` need a manager; role checks are server-side and tested per role. Concurrent changes to one asset are serialised with a row lock.
+
+## Harvest records (ADR-056)
+Append-only (database trigger), tenant-scoped (composite foreign keys, RLS) and audited. Recording needs a worker; corrections need a manager and a written reason; a record can be superseded once, enforced by a database index as well as by a row lock. Server-side checks reject future dates, dates before planting, non-positive quantities and unknown units.
+
 ## CSV import (ADR-050)
 Imports are authorised on the server (managers), tenant-scoped, size-limited, validated as a whole and all-or-nothing; they cannot carry review status, overwrite samples or touch review history or splits; cells are stored as text and formula-like cells are flagged; each import is audited with the file checksum.
 

@@ -2,6 +2,8 @@
 
 _Status 2026-10-18. **Nothing is deployed.** The frontend is configured for Vercel and verified locally and in CI; a Vercel project exists but has no successful deployment (see section 5). The API and worker have no host yet. Names of variables appear here; values never do._
 
+> Staging design, hosting options and the code-readiness audit: [STAGING.md](STAGING.md). **Zero-cost constraint (₹0 budget), verified free-tier limits and the Hobby non-commercial restriction: [ZERO_COST.md](ZERO_COST.md).** Review of the S3 adapter: [STORAGE_REVIEW.md](STORAGE_REVIEW.md).
+
 ## 1. Decision
 | Component | Where | Why |
 |---|---|---|
@@ -70,6 +72,8 @@ This is the topology the repository already supports: two images (`backend/Docke
 | `CORS_ORIGINS` | no | JSON list of **exact** https origins, for example `["https://app.example.org"]`. No wildcard. A Vercel preview URL is generated per deployment, so allow only a stable alias (for example the branch alias) on the staging API. |
 | `TRUSTED_PROXY_COUNT` | no | Number of reverse proxies in front of the API on that host (usually 1). Wrong values distort throttling and audit addresses. |
 | `STORAGE_PROVIDER`, `STORAGE_LOCAL_DIR`, `STORAGE_MAX_BYTES`, `STORAGE_MAX_PIXELS` | no | see section 6. |
+| `STORAGE_S3_BUCKET`, `STORAGE_S3_REGION`, `STORAGE_S3_ENDPOINT_URL`, `STORAGE_S3_PREFIX`, `STORAGE_S3_PATH_STYLE`, `STORAGE_S3_TIMEOUT_S`, `STORAGE_S3_MAX_ATTEMPTS` | no | with `STORAGE_PROVIDER=s3`; one private bucket per environment. |
+| `STORAGE_S3_ACCESS_KEY_ID`, `STORAGE_S3_SECRET_ACCESS_KEY` | **secret** | both or neither (neither = the platform's role); credentials limited to the one bucket. |
 | `WEATHER_PROVIDER`, `OPEN_METEO_BASE_URL`, `WEATHER_TIMEOUT_S`, `WEATHER_CACHE_TTL_S` | no | Open-Meteo's free tier is non-commercial (R-WX-1). |
 | `AUDIT_RETENTION_DAYS`, `AUDIT_DENIED_DEDUPE_S`, `LOG_LEVEL` | no | |
 | `WORKER_POLL_INTERVAL_S`, `AGENT_STALE_RUN_S`, `HOUSEKEEPING_INTERVAL_S`, `WORKER_HEARTBEAT_FILE` | no | worker only. |
@@ -107,7 +111,7 @@ Because the repository's default branch is currently `ci/first-run`, **Vercel tr
 **Can a preview be built safely before the backend is hosted?** Not honestly, by design. A hosted build needs a real https API URL. Two acceptable routes: (1) host a **staging API** first (preferred; section 9), then set Preview `VITE_API_BASE_URL` to it; or (2) deliberately build a *static shell* preview against a real but empty/unreachable staging hostname you own, accepting that every API call fails: this exercises routing, headers and CSP only, must be labelled as such, and still requires a valid, non-reserved https URL.
 
 ## 6. Storage for uploads
-Local filesystem uploads are acceptable only on a single API instance with a **persistent volume** (mount at `/data/storage`; back it up with the database). Several instances, or any host with ephemeral disks, need an S3-compatible adapter, which is **not built** (the `ObjectStore` interface and registry are ready; it is one module and one dependency). Recommended next engineering step before a multi-instance deployment: an S3 adapter against an S3-compatible bucket, with presigned reads or API-proxied reads.
+Local filesystem uploads are acceptable only on a single API instance with a **persistent volume** (mount at `/data/storage`; back it up with the database). Several instances, or any host with ephemeral disks, use the **S3-compatible adapter** (`STORAGE_PROVIDER=s3`, built 2026-10-22, ADR-052): a private bucket, API-proxied reads after the workspace check, no presigned or public URLs. It is verified against a simulated S3 only; **no real bucket exists or was contacted**, and the provider is not chosen. See [STAGING.md](STAGING.md) sections 4 and 6.
 
 ## 7. Authentication, tokens and CORS
 Access tokens are Bearer tokens kept in memory; the refresh token is in `sessionStorage` (a known limitation, SECURITY.md). **No cookies are used**, so `allow_credentials` is false and cross-origin calls need only exact-origin CORS. Moving the refresh token to an httpOnly cookie later would require the app and API to share a site (for example `app.example.org` and `api.example.org`) and SameSite settings; plan for custom domains on one registrable domain. Rate limiting, lockout, audit and tenant isolation (workspace-scoped queries, composite foreign keys, RLS) live in the API and database and are unchanged by where the frontend is hosted.

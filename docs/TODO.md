@@ -74,7 +74,7 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [x] Full API suite ran on PostgreSQL in CI (run 3)
 - [x] `GET /dashboard` and map read models
 - [x] Photo upload with storage abstraction and validation (2026-10-17); [ ] signed URLs / S3 adapter, thumbnails, purge job
-- [ ] Lifecycle events and templates (read-only `current_stage` today); species lifecycle durations
+- [x] Lifecycle events, templates, exits, corrections, survival and harvest KPIs (ADR-055); [ ] species lifecycle durations (need domain input), partial batch loss, harvest quantities and yield records, workspace-specific templates
 - [x] Worker + scheduler: periodic agent runs; weather-aware irrigation-deferral rule using the existing port (Stage C)
 - [ ] Recurring inspection tasks (the agent suggests inspections; recurring task templates are not built)
 - [ ] Member invite/role UI; workspace settings UI for agent thresholds
@@ -98,7 +98,20 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [x] Sample registration and CSV import in the UI (ADR-050)
 - [ ] Owner: connect GitHub to the Vercel project (or sign in the Vercel CLI), set the production branch, then create the first preview deployment (HOSTING.md section 9)
 - [ ] Owner: choose and approve an API/worker host, domains and a staging database; then deploy and verify (HOSTING.md section 10)
-- [ ] S3-compatible evidence storage adapter (needed before more than one API instance)
+- [x] S3-compatible evidence storage adapter (ADR-052); [ ] verify it against a real bucket with `python -m app.tools.storage_check` once a provider is approved
 - [ ] Error-reporting service and alerting; first real backup and restore rehearsal
 - [ ] Owner: read the `git_info_fail` build log or confirm Settings > Git on `greenguardian-web`; choose a release branch and set it as the Vercel Production Branch (ADR-051)
 - [ ] Owner: when a staging API exists, replace the Preview `VITE_API_BASE_URL` placeholder (it now fails builds on purpose)
+- [ ] Owner decisions for staging (STAGING.md section 8): API/worker host and plan, storage provider, staging Supabase project, region, aliases, alert recipients
+- [ ] Purge job for soft-deleted evidence blobs; database-backed worker heartbeat for hosts without exec health checks; error-reporting integration; advisory lock or single-step guard around `alembic upgrade`
+
+- [ ] Owner decision: is the project commercial? (Vercel Hobby is non-commercial only; Supabase Free terms to be checked) (ZERO_COST.md)
+- [ ] Zero-cost API on Vercel Functions: module-level `app` shim, transaction-pooler settings, `STORAGE_MAX_BYTES` about 4 MB with browser-side resize, region near Seoul, then measure cold start (needs owner approval to create the Vercel API project; not done)
+- [ ] Tick endpoint for a daily Vercel Cron (secret-protected, due-tolerance of about 2 h) as the zero-cost worker compromise; design in ZERO_COST.md section 2.3
+- [x] Evidence reconciler and `Attachment.storage_key` removal (ADR-054); [ ] retention policy and purge for soft-deleted evidence blobs; [ ] run the reconciler once against a real bucket after a provider is approved (deferred with hosting)
+- [ ] Verify unverified free-tier facts before relying on them (ZERO_COST.md section 6): Supabase S3 on Free, region ids, pause behaviour, Supabase Cron
+- [ ] Apply migration 0011 to the development database (`alembic upgrade head`; verified on throwaway schemas and on a backfill fixture, not yet applied to the dev schema)
+- [x] Harvest records, corrections, per-unit totals, Yield KPI, asset-page panel (ADR-056); [ ] seasons / crop cycles, yield per area (needs areas), prices and revenue, harvest forecasting (needs data and a protocol)
+- [ ] Tours: more in-app steps (tasks and issues detail, observation form), a first-run prompt for new workspaces, translations; keep `frontend/tour/steps.json` and `frontend/src/tour/steps.ts` aligned
+- [x] i18n foundation (English, Hindi) and the main screens (ADR-058); [x] migrate the remaining screens (2026-10-22); [ ] Hindi narration for the automated browser tour (`steps.json`, optional); [ ] API codes for server-composed text; [ ] **native-speaker review of the Hindi catalog**; [ ] language preference stored on the account
+- [ ] Next product milestone candidates: partial batch loss (a count ledger), recurring inspection tasks, treatments/actions as first-class records, workspace settings UI for agent thresholds, member invite/role UI

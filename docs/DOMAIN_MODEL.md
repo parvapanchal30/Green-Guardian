@@ -54,7 +54,8 @@ Report
 ## Invariants
 
 - Every tenant entity belongs to exactly one workspace; cross-workspace references are forbidden (FK + service check).
-- An asset's `current_stage` always equals its latest `LifecycleEvent.stage`.
+- **Harvest** is a stage and a *record*: `HarvestRecord` (ADR-056) holds quantity, unit, date and grade; corrections are new records that supersede (once); only kg and t are added together; the dashboard Yield KPI is the recorded weight of the last 12 months, never an estimate.
+- An asset's `current_stage` always equals its latest `LifecycleEvent.stage` (built, ADR-055: one transaction, row-locked, tested as an invariant). Stages advance (skipping ahead is allowed); moving back or reinstating an exited asset is a *correction* (manager, written reason, flagged in the history). Exits: individuals `dead`/`removed`/`replaced`, populations `failed`/`removed`/`replaced`; `removed`/`replaced` need a manager. An exited asset is excluded from active counts, inspections, agent runs and the map; it still has its history. No agronomic stage durations are stored (none are known).
 - An Issue's `state` always equals its latest `IssueStatusHistory.to_state` and is a legal transition per its workflow template.
 - Observation rows are immutable; corrections are new rows referencing `supersedes_id`.
 - Health score ∈ [0,100]; growth percent ∈ [0,100] (or null).
