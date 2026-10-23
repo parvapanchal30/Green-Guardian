@@ -441,41 +441,64 @@ def test_back_dating_before_registration_needs_the_planting_date(api_for, team):
 #
 # The usual `world` fixture runs every request on ONE shared connection inside an outer transaction (savepoints), so a
 # row lock can neither contend nor be observed across requests there. These tests therefore build their own app whose
-# requests use separate pooled connections that really commit, in their own workspaces of the throwaway schema.
+# requests use separate pooled connections that really commit. What they commit cannot be rolled back (and append-only
+# tables refuse deletes), so they get a throwaway schema of their own, dropped afterwards: nothing they write can leak
+# into the session schema that every other test shares (it once did: the scheduler then saw extra workspaces).
 
 
-@pytest.fixture
-def committed(pg_env):
+@pytest.fixture(scope="module")
+def committed():
+    import secrets
     from types import SimpleNamespace
 
+    from alembic import command
     from fastapi.testclient import TestClient
     from sqlalchemy.orm import sessionmaker
 
-    from app.core.config import get_settings
-    from app.core.db import get_db
+    from app.core.config import Settings, get_settings
+    from app.core.db import build_engine, get_db
     from app.main import create_app
-    from tests.conftest import seed_team
+    from tests.conftest import JWT_SECRET, PG_MODE, postgis_url, seed_team
+    from tests.pgsupport import SAFE_NAME, alembic_cfg, drop_test_schema
 
-    team = seed_team(pg_env.engine, pg_env.settings)  # committed, with its own workspaces
-    maker = sessionmaker(bind=pg_env.engine, expire_on_commit=False, autoflush=False)
+    if not PG_MODE:
+        pytest.skip("PostgreSQL mode is not active")
+    schema = f"gg_test_{secrets.token_hex(4)}"
+    assert SAFE_NAME.match(schema)
+    base = Settings(
+        env="test", database_url=postgis_url, jwt_secret=JWT_SECRET, weather_provider="mock", _env_file=None
+    )
+    settings = base.model_copy(update={"db_schema": schema})
+    admin = build_engine(base)
+    engine = None
+    try:
+        command.upgrade(alembic_cfg(postgis_url, schema), "head")
+        engine = build_engine(settings)
+        team = seed_team(engine, settings)  # committed, in the private schema
+        maker = sessionmaker(bind=engine, expire_on_commit=False, autoflush=False)
 
-    def _db():
-        db = maker()
-        try:
-            yield db
-        finally:
-            db.close()
+        def _db():
+            db = maker()
+            try:
+                yield db
+            finally:
+                db.close()
 
-    app = create_app(pg_env.settings)
-    app.dependency_overrides[get_db] = _db
-    app.dependency_overrides[get_settings] = lambda: pg_env.settings
-    base = f"/api/v1/workspaces/{team.ws}"
-    headers = team.headers(team.worker)
+        app = create_app(settings)
+        app.dependency_overrides[get_db] = _db
+        app.dependency_overrides[get_settings] = lambda: settings
+        base_path = f"/api/v1/workspaces/{team.ws}"
+        headers = team.headers(team.worker)
 
-    def post(path: str, body: dict):
-        return TestClient(app).post(base + path, json=body, headers=headers)  # a client per call: no shared state
+        def post(path: str, body: dict):
+            return TestClient(app).post(base_path + path, json=body, headers=headers)  # a client per call
 
-    yield SimpleNamespace(team=team, maker=maker, post=post)
+        yield SimpleNamespace(team=team, maker=maker, post=post)
+    finally:
+        if engine is not None:
+            engine.dispose()
+        drop_test_schema(admin, schema)
+        admin.dispose()
 
 
 @pg

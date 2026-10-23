@@ -46,5 +46,6 @@ def test_the_operational_loop_on_postgresql(api_for, team):
     assert state["open_issue_count"] == 0 and state["open_task_count"] == 0 and state["last_resolved_at"] is not None
 
     timeline = manager.get(f"/assets/{aid}/timeline").json()
-    assert {e["type"] for e in timeline} == {"observation", "issue", "task"}
+    # registration records the starting stage, so the lifecycle has its own entry
+    assert {e["type"] for e in timeline} == {"lifecycle", "observation", "issue", "task"}
     assert sum(e["type"] == "observation" for e in timeline) == 2

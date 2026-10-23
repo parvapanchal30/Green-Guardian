@@ -110,7 +110,7 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [ ] Tick endpoint for a daily Vercel Cron (secret-protected, due-tolerance of about 2 h) as the zero-cost worker compromise; design in ZERO_COST.md section 2.3
 - [x] Evidence reconciler and `Attachment.storage_key` removal (ADR-054); [ ] retention policy and purge for soft-deleted evidence blobs; [ ] run the reconciler once against a real bucket after a provider is approved (deferred with hosting)
 - [ ] Verify unverified free-tier facts before relying on them (ZERO_COST.md section 6): Supabase S3 on Free, region ids, pause behaviour, Supabase Cron
-- [ ] Apply migration 0011 to the development database (`alembic upgrade head`; verified on throwaway schemas and on a backfill fixture, not yet applied to the dev schema)
+- [x] Migrations 0011 and 0012 on the development database (found applied on 2026-10-23; `alembic check` clean) and the full backend suite on PostgreSQL (994 passed; the 6 test faults fixed and re-verified)
 - [x] Harvest records, corrections, per-unit totals, Yield KPI, asset-page panel (ADR-056); [ ] seasons / crop cycles, yield per area (needs areas), prices and revenue, harvest forecasting (needs data and a protocol)
 - [ ] Tours: more in-app steps (tasks and issues detail, observation form), a first-run prompt for new workspaces, translations; keep `frontend/tour/steps.json` and `frontend/src/tour/steps.ts` aligned
 - [x] i18n foundation (English, Hindi) and the main screens (ADR-058); [x] migrate the remaining screens (2026-10-22); [ ] Hindi narration for the automated browser tour (`steps.json`, optional); [ ] API codes for server-composed text; [ ] **native-speaker review of the Hindi catalog**; [ ] language preference stored on the account
