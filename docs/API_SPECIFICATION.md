@@ -33,6 +33,14 @@ GET   /workspaces/{ws}/lifecycle-template      stages of the workspace's mode, e
 GET   /workspaces/{ws}/assets/{id}/harvests    effective totals per unit + append-only history (viewer)
 POST  /workspaces/{ws}/assets/{id}/harvests    {quantity>0, unit kg|t|count|l, harvested_at?, grade?, note?} (worker; not for exited assets)
 POST  /workspaces/{ws}/assets/{id}/harvests/{record_id}/correct   {quantity>=0, unit, harvested_at?, grade?, note>=10 chars} (manager; replaces, 0 withdraws, once per record)
+GET   /workspaces/{ws}/assets/{id}/actions      work done to the asset, newest first, corrections included (viewer)
+GET   /workspaces/{ws}/schedules                recurring inspections (`asset_id`, `location_id`, `active`) (viewer)
+POST  /workspaces/{ws}/schedules                {asset_id | location_id, title?, task_type inspect|monitor, interval_days 1-365, lead_days 0-30 (< interval), first_due_at?, assignee_id?, priority?} (manager; a due first one gets its task at once)
+GET   /workspaces/{ws}/schedules/{id}           schedule + occurrences (what each due date produced), newest first (viewer)
+PATCH /workspaces/{ws}/schedules/{id}           {title?, interval_days?, lead_days?, next_due_at?, assignee_id?, priority?, active?} (manager; pause/resume, never delete)
+POST  /workspaces/{ws}/schedules/generate       create this workspace's due tasks now (manager; the worker does it on its own)
+POST  /workspaces/{ws}/assets/{id}/actions      {kind, product?, quantity?+unit?, performed_at?, note?, issue_id? (open, same asset), performed_by? (manager), follow_up_days? 1-90} (worker; not for exited assets)
+POST  /workspaces/{ws}/assets/{id}/actions/{action_id}/correct   {kind, product?, quantity?+unit?, performed_at?, withdrawn?, note>=10 chars} (manager; replaces, once per record)
 GET   /workspaces/{ws}/assets/{id}/timeline    merged observations/lifecycle/issues/tasks (lifecycle entries built)
       assets list filters: `stage=`, `active=true|false`; `AssetCreate.stage` (optional initial stage); `AssetOut.is_active`
 GET   /workspaces/{ws}/assets/{id}/health      ?from=&to=   time series
@@ -52,9 +60,9 @@ Observations are immutable; correct via `POST` with `supersedes_id`.
 ```
 GET   /workspaces/{ws}/issues                  ?state=&severity=&category=&assignee=&asset_id=&location_id=&q=
 POST  /workspaces/{ws}/issues
-GET   /workspaces/{ws}/issues/{id}             includes history, evidence, tasks, assets
+GET   /workspaces/{ws}/issues/{id}             includes history, evidence, tasks, actions and `verification` (RULE: baseline, follow-up, change, status)
 PATCH /workspaces/{ws}/issues/{id}             title/desc/severity/assignee (If-Match)
-POST  /workspaces/{ws}/issues/{id}/transitions {to_state, note}     → validated against workflow
+POST  /workspaces/{ws}/issues/{id}/transitions {to_state, note, resolution?{outcome, notes, cancel_open_tasks, follow_up?}}  → validated against workflow; fixed/mitigated on a plant issue needs an observation after the last action (409 follow_up_required)
 POST  /workspaces/{ws}/issues/{id}/evidence    {observation_id|attachment_id}
 GET   /workspaces/{ws}/issues/workflows        template states/transitions for UI
 ```
@@ -64,7 +72,7 @@ GET   /workspaces/{ws}/issues/workflows        template states/transitions for U
 GET   /workspaces/{ws}/tasks                   ?status=&assignee=me&due_before=&issue_id=&asset_id=&type=
 POST  /workspaces/{ws}/tasks
 GET/PATCH /workspaces/{ws}/tasks/{id}          (If-Match)
-POST  /workspaces/{ws}/tasks/{id}/transitions  {to_status, note, observation?}  → completion can attach an observation
+POST  /workspaces/{ws}/tasks/{id}/transitions  {to_status, note, observation?, action?}  → completion can record the work done and attach an observation
 GET/POST /workspaces/{ws}/recurrence-rules
 ```
 

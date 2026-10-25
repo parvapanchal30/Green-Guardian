@@ -6,10 +6,26 @@ database, and needs no cloud account.** Nothing in it is real data.
 ## Run it
 1. Double-click `demo.bat` in the repository root (or run it from a terminal). First run only: it installs the frontend packages
    (`npm ci`) if missing and builds the demo data (about 20 seconds).
-2. It opens `http://localhost:5173`. The console prints three demo accounts with fresh random passwords (also saved in
-   `backend/var/demo/DEMO_LOGIN.txt`) and asks whether to run the **automated tour** (below).
+2. It opens `http://localhost:5173`; sign in with one of the demo accounts below (also printed in the console and saved in
+   `backend/var/demo/DEMO_LOGIN.txt`). It asks whether to run the **automated tour** (below).
 3. `tour.bat` replays the tour any time (`--manual` waits for Enter between steps, `--speed 2` is twice as fast, `--only agent,map`
-   runs chosen steps). `demo.bat --fresh` throws the demo data away and rebuilds it. `demo-stop.bat` stops both servers.
+   runs chosen steps). `demo.bat --fresh` throws the demo data away and rebuilds it. On every start an existing demo database is brought up to date (`alembic upgrade head`: new tables only, the data is kept); demo data added for newer features, such as the recorded work on Neem #102, only appears after `--fresh`. `demo-stop.bat` stops both servers.
+
+## Demo accounts
+These exist **only in the local demo database** (`backend/var/demo/demo.db`). The passwords are fixed so these instructions stay
+true after `demo.bat --fresh`; they are not secrets, protect nothing real, and must never be used for a real account. Your
+browser may offer passwords saved for other local accounts (for example from the Supabase development database): ignore those.
+
+| Role | Email | Password | Can do |
+|---|---|---|---|
+| Owner | `demo.owner@example.com` | `GreenDemo-Owner-2026` | everything, in both workspaces |
+| Worker | `demo.worker@example.com` | `GreenDemo-Worker-2026` | record observations, work and harvests; cannot decide, correct or close |
+| Viewer | `demo.viewer@example.com` | `GreenDemo-Viewer-2026` | read only, campus workspace |
+
+Workspaces: **Riverside Campus Green Cover** (Green Management) and **Green Valley Farm** (Agricultural Production). Things to
+look at: issue *Neem #102 crown dieback* (work recorded, "Did the work help?" awaiting a check, a follow-up inspection task),
+the lifecycle of *Gulmohar #09* (dead) and *Okra block C* (failed), the corrected harvest of *Tomato block A*, and the monthly **recurring inspection** of *Banyan #01* (its first task already exists). Recurring tasks are created when a schedule is saved, by **Create due tasks now**, or by the worker (`python -m app.worker`), which the demo does not start.
+A demo database built before 2026-10-25 still has the old random passwords (see its `DEMO_LOGIN.txt`) until `demo.bat --fresh`.
 
 ## The two tours
 - **Automated browser tour** (`tour.bat`, or `npm run tour` in `frontend/`): drives your installed Microsoft Edge or Chrome by
@@ -25,6 +41,19 @@ database, and needs no cloud account.** Nothing in it is real data.
 
 Needs: Windows, Node 22+ and the backend virtual environment (`cd backend`, `python -m venv .venv`,
 `.venv\Scripts\python.exe -m pip install -e ".[dev]"`).
+
+## Running it in VS Code
+Open the repository folder, then open two terminals (Terminal → New Terminal, then the split button).
+
+- **Against the local demo data** (Command Prompt; in PowerShell write `$env:NAME="value"` instead of `set NAME=value`): in
+  terminal 1 run the commands under *Run it by hand* below; in terminal 2 run `cd frontend` and `npm run dev`; open
+  `http://localhost:5173`.
+- **Against your development database** (the settings in `backend\.env`): terminal 1, `cd backend`,
+  `.venv\Scripts\python -m alembic upgrade head`, `.venv\Scripts\python -m uvicorn app.main:create_app --factory --reload
+  --port 8000`; terminal 2 as above. The demo accounts do not exist there; register your own. Optional third terminal for
+  scheduled agent runs: `cd backend`, `.venv\Scripts\python -m app.worker`.
+- Tests: `cd backend` then `.venv\Scripts\python -m pytest -q` (fast SQLite mode); `cd frontend` then `npx vitest run`.
+- Stop a server with Ctrl+C in its terminal (or `demo-stop.bat`).
 
 ## Run it by hand (what the script does)
 ```

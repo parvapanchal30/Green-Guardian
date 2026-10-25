@@ -143,3 +143,10 @@ What follows for the project:
 1. **Deployment, not code, is the big lever:** run the API in the database's region (round trip ~1-5 ms instead of ~160 ms) and keep the browser far away instead.
 2. Locally against a remote database, run the integrity/RLS/migration tests and the compact smoke test; the complete suite runs against a local PostgreSQL container in CI, which also prints the same profile table (step "Request profile (local PostgreSQL)") so the local-database comparison appears on the first CI run.
 3. Candidate optimisations, **not implemented because they are not needed once the API is colocated** (apply only if measurements on the deployed system show a need): (a) run read-only GET requests in AUTOCOMMIT to drop `BEGIN`/`ROLLBACK` (about 2 of ~8 round trips); (b) fold `current_user` + `workspace_ctx` into one query (saves 1 round trip per request); (c) avoid re-reading rows after `commit()` when building responses. Each trades a little simplicity or snapshot consistency for fewer round trips.
+
+## Where the tables are in the Supabase dashboard
+The application keeps all its tables in its own schema, **`greenguardian`** (setting `DB_SCHEMA`), not in `public`. The
+Supabase **Table Editor** opens on `public`, so the project looks empty: choose **`greenguardian`** in the schema selector at
+the top left of the Table Editor (or run `select table_name from information_schema.tables where table_schema = 'greenguardian';`
+in the SQL Editor). PostGIS lives in `extensions`. Throwaway test schemas are named `gg_test_<random>` and are dropped after a
+test run. The app does not use Supabase Auth, Storage or the Data API: Supabase is only its hosted PostgreSQL + PostGIS server.
