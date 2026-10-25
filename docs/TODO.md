@@ -67,7 +67,7 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [x] Stage A3 (2026-10-18): Dockerfiles and compose stack, deployment doc, backup/restore procedure with CI proof, audit log UI and retention, 403 access-denied events
 - [ ] Take and rehearse the first real backup of the Supabase database (needs PostgreSQL 17 client tools on a machine you control)
 - [ ] S3-compatible storage adapter (needed before running more than one API replica)
-- [ ] Choose a hosting provider and a map tile provider; decide the Open-Meteo commercial question (R-WX-1)
+- [ ] Choose a hosting provider; [x] map tiles: public OpenStreetMap with attribution for this non-commercial project (ADR-065); [x] Open-Meteo commercial question: not commercial (ADR-065)
 - [x] Stage C (2026-10-18): scheduled agent worker, run history, `irrigation_defer`, rule versions, recommendation lifecycle (ADR-039..042)
 - [ ] Stage C follow-ups: workspace settings UI for the agent schedule and thresholds; retention for `agent_runs`; wire `symptom_cluster` (needs multi-asset issues); validate irrigation thresholds once irrigation logs or soil sensors exist
 - [ ] Stage D: data and ML foundations (dataset catalog and licences, labelling workflow, versioned splits, evaluation harness): investigate datasets and licensing before any model
@@ -81,7 +81,7 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [ ] Reports (analytics/impact, CSV) from records; survival rate once loss/planting records exist
 - [ ] Decide on a local PostgreSQL+PostGIS (or Docker) for developers so the whole suite can run locally on PostgreSQL
 - [ ] Revisit the advisor's unindexed-foreign-key notices with real query statistics before production
-- [ ] Open-Meteo commercial licence decision (R-WX-1) before any commercial deployment
+- [x] Open-Meteo licence: free non-commercial tier, the project is non-commercial (ADR-065); revisit only if that changes
 
 - [x] Stage D foundations (2026-10-18, synthetic fixtures only): dataset catalog and licence verification, label review, quality checks, grouped splits, evaluation harness, reviewer agreement, claim gate (ADR-044)
 - [ ] Datasets page (catalog + blocker checklist, evidence entry, review queue, quality and claim panels)
@@ -105,7 +105,7 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [ ] Owner decisions for staging (STAGING.md section 8): API/worker host and plan, storage provider, staging Supabase project, region, aliases, alert recipients
 - [ ] Purge job for soft-deleted evidence blobs; database-backed worker heartbeat for hosts without exec health checks; error-reporting integration; advisory lock or single-step guard around `alembic upgrade`
 
-- [ ] Owner decision: is the project commercial? (Vercel Hobby is non-commercial only; Supabase Free terms to be checked) (ZERO_COST.md)
+- [x] Owner decision: the project is non-commercial, a personal and college major project (ADR-065)
 - [ ] Zero-cost API on Vercel Functions: module-level `app` shim, transaction-pooler settings, `STORAGE_MAX_BYTES` about 4 MB with browser-side resize, region near Seoul, then measure cold start (needs owner approval to create the Vercel API project; not done)
 - [ ] Tick endpoint for a daily Vercel Cron (secret-protected, due-tolerance of about 2 h) as the zero-cost worker compromise; design in ZERO_COST.md section 2.3
 - [x] Evidence reconciler and `Attachment.storage_key` removal (ADR-054); [ ] retention policy and purge for soft-deleted evidence blobs; [ ] run the reconciler once against a real bucket after a provider is approved (deferred with hosting)
@@ -117,4 +117,8 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [x] Actions as records and the verification rule (ADR-059, 2026-10-23); [x] migration 0013 on the development database (2026-10-25); [x] recurring inspection schedules (ADR-062, 2026-10-25); [x] migration 0014 on the development database (2026-10-25); [ ] calendar rules (weekdays, months, seasons), per-plant tasks for a location, routines for watering and other work; [ ] location-level work, costs and stock; [ ] verification figures on the dashboard
 - [x] Every API timestamp is timezone-aware, also from SQLite (`UtcDateTime`, ADR-060)
 - [x] Fixed, documented passwords for the local demo accounts (ADR-061)
+- [x] In-development pages, batch 1 (ADR-063, 2026-10-25): Trees, Plants, Crop batches, Species, Crops, Fields and zones, Inspections
+- [x] Example data under your own account in the development database (`app.tools.example_data`, ADR-064)
+- [x] Batch 2 (ADR-066, 2026-10-25): Harvests overview with CSV, Health over time, Growth measurements and page, Growth KPI
+- [ ] Batch 3: Analytics and Impact reports with CSV export
 - [ ] Next product milestone candidates: recurring inspection schedules, partial batch loss (a count ledger), workspace settings UI for agent thresholds, member invite/role UI

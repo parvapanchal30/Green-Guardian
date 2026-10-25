@@ -24,7 +24,7 @@ browser may offer passwords saved for other local accounts (for example from the
 
 Workspaces: **Riverside Campus Green Cover** (Green Management) and **Green Valley Farm** (Agricultural Production). Things to
 look at: issue *Neem #102 crown dieback* (work recorded, "Did the work help?" awaiting a check, a follow-up inspection task),
-the lifecycle of *Gulmohar #09* (dead) and *Okra block C* (failed), the corrected harvest of *Tomato block A*, and the monthly **recurring inspection** of *Banyan #01* (its first task already exists). Recurring tasks are created when a schedule is saved, by **Create due tasks now**, or by the worker (`python -m app.worker`), which the demo does not start.
+the lifecycle of *Gulmohar #09* (dead) and *Okra block C* (failed), the corrected harvest of *Tomato block A*, and growth measurements of *Neem #101*, *Mango #07*, the sapling and *Wheat field 3* (Growth page and KPI), the monthly **recurring inspection** of *Banyan #01* (its first task already exists). Recurring tasks are created when a schedule is saved, by **Create due tasks now**, or by the worker (`python -m app.worker`), which the demo does not start.
 A demo database built before 2026-10-25 still has the old random passwords (see its `DEMO_LOGIN.txt`) until `demo.bat --fresh`.
 
 ## The two tours
@@ -54,6 +54,20 @@ Open the repository folder, then open two terminals (Terminal → New Terminal, 
   scheduled agent runs: `cd backend`, `.venv\Scripts\python -m app.worker`.
 - Tests: `cd backend` then `.venv\Scripts\python -m pytest -q` (fast SQLite mode); `cd frontend` then `npx vitest run`.
 - Stop a server with Ctrl+C in its terminal (or `demo-stop.bat`).
+
+## Example data in your development database
+The demo accounts exist only in the local demo file. To get the same example content in the database `backend\.env`
+points at (your Supabase development database), under **your own** account:
+
+1. Start the app against that database and **register** on the sign-in page (any email; 10+ character password).
+2. In a terminal: `cd backend`, then `.venv\Scripts\python -m app.tools.example_data --email you@example.com`
+   (the email you registered with). It shows the database host it will write to and asks you to type `yes`.
+3. Sign in as yourself: "Riverside Campus Green Cover (example)" and "Green Valley Farm (example)" are yours (owner).
+
+It creates no other accounts and needs no password (it signs in as you on the server). The field work is recorded under
+your name. It runs once per account, refuses production, and deletes nothing. With real weather configured
+(`WEATHER_PROVIDER=open_meteo`), the agent's irrigation advice for these examples uses the real forecast for their
+coordinates.
 
 ## Run it by hand (what the script does)
 ```
