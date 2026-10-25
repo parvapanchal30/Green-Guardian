@@ -6,14 +6,14 @@ It refuses to run unless DATABASE_URL is a local SQLite *demo* file, so it can n
 database or any hosted database. It creates the schema with the real Alembic migrations, seeds a few species, then
 populates two workspaces THROUGH THE REAL API (so everything shown went through the same rules, roles and audit trail as
 production code): a campus green-cover workspace and a mixed-crop farm, with assets, observations, lifecycle changes,
-a photo, issues, tasks, agent suggestions and harvests. Demo accounts get fresh random passwords, written to the demo
-folder and printed once. Nothing here is real data.
+a photo, issues, tasks, agent suggestions, work records and harvests. The demo accounts have FIXED, documented
+passwords (docs/DEMO.md) so the instructions stay true after a rebuild: they exist only in this local SQLite file, which
+this tool refuses to create anywhere else, and they must never be used for a real account. Nothing here is real data.
 """
 
 from __future__ import annotations
 
 import io
-import secrets
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -31,6 +31,8 @@ from app.models import Species, User
 
 BACKEND = Path(__file__).resolve().parents[2]
 API = "/api/v1"
+# Local demo only (see the module docstring and docs/DEMO.md). Never reuse these for a real account.
+DEMO_PASSWORDS = {"owner": "GreenDemo-Owner-2026", "worker": "GreenDemo-Worker-2026", "viewer": "GreenDemo-Viewer-2026"}
 SPECIES = [
     ("tree", "Neem"),
     ("tree", "Mango"),
@@ -107,7 +109,7 @@ def main() -> int:
 
     app = create_app()
     client = TestClient(app)
-    pw = {k: secrets.token_urlsafe(12) for k in ("owner", "worker", "viewer")}
+    pw = DEMO_PASSWORDS
     owner = Person(client, "demo.owner@example.com", "Asha (owner)", pw["owner"])
     worker = Person(client, "demo.worker@example.com", "Ravi (field worker)", pw["worker"])
     viewer = Person(client, "demo.viewer@example.com", "Meera (viewer)", pw["viewer"])
@@ -221,6 +223,37 @@ def main() -> int:
         f"{w}/tasks",
         {"title": "Remove the stump of Gulmohar #09", "type": "replace", "asset_id": lost["id"], "priority": "p3"},
     )
+    # Work done (ADR-059): a treatment for the issue with a follow-up check, so the issue shows "awaiting a follow-up
+    # check" until someone looks at the tree again; and routine watering with no issue.
+    worker.post(
+        f"{w}/assets/{neem2['id']}/actions",
+        {
+            "kind": "treat",
+            "issue_id": issue["id"],
+            "product": "Copper oxychloride 0.3%",
+            "quantity": 5,
+            "unit": "l",
+            "performed_at": ago(days=5),
+            "note": "Sprayed the north side of the crown",
+            "follow_up_days": 3,
+        },
+    )
+    worker.post(
+        f"{w}/assets/{neem1['id']}/actions", {"kind": "water", "quantity": 20, "unit": "l", "performed_at": ago(days=2)}
+    )
+    # Recurring inspections (ADR-062): the heritage banyan is checked every 30 days, the task appearing 3 days ahead;
+    # the first one is due in 2 days, so its task already exists.
+    owner.post(
+        f"{w}/schedules",
+        {
+            "asset_id": banyan["id"],
+            "title": "Monthly check of the heritage Banyan #01",
+            "interval_days": 30,
+            "lead_days": 3,
+            "first_due_at": (datetime.now(UTC) + timedelta(days=2)).isoformat(),
+            "assignee_id": worker_id(owner, w, worker.email),
+        },
+    )
     owner.post(f"{w}/agent/run", {})  # the rule-based agent looks at everything above and suggests next steps
 
     # ------------------------------------------------------------------ workspace 2: Agricultural Production
@@ -294,6 +327,10 @@ def main() -> int:
     )
     owner.post(
         f"{f}/assets/{failed['id']}/lifecycle", {"stage": "failed", "note": "Damping-off across the whole block"}
+    )
+    worker.post(
+        f"{f}/assets/{tomato['id']}/actions",
+        {"kind": "fertilize", "product": "NPK 19:19:19", "quantity": 2, "unit": "kg", "performed_at": ago(days=10)},
     )
     for qty, unit, days, grade in ((140, "kg", 21, "A"), (165, "kg", 14, "A"), (180, "kg", 7, "B"), (60, "kg", 2, "A")):
         worker.post(

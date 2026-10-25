@@ -71,6 +71,17 @@ if not exist "%BACK%\var\demo\demo.db" (
   popd
 )
 
+rem ---- an existing demo database is brought up to date (new tables only; the demo data is kept) -------------
+pushd "%BACK%"
+"%PY%" -m alembic upgrade head >"%BACK%\var\demo\upgrade.log" 2>&1
+if errorlevel 1 (
+  popd
+  echo [!] The demo database could not be updated. Last lines of backend\var\demo\upgrade.log:
+  powershell -NoProfile -Command "Get-Content '%BACK%\var\demo\upgrade.log' -Tail 8"
+  goto :fail
+)
+popd
+
 rem ---- start the two servers in their own windows ---------------------------------------------------------------
 echo [..] Starting the API on http://127.0.0.1:%API_PORT% ...
 start "GreenGuardian API (demo)" /d "%BACK%" cmd /k ""%PY%" -m uvicorn app.main:create_app --factory --host 127.0.0.1 --port %API_PORT%"
