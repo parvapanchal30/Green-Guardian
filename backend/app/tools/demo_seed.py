@@ -49,12 +49,16 @@ def ago(**kw) -> str:
 
 
 class Person:
-    def __init__(self, client: TestClient, email: str, name: str, password: str):
-        self.client, self.email, self.name, self.password = client, email, name, password
-        r = client.post(f"{API}/auth/register", json={"email": email, "password": password, "name": name})
-        assert r.status_code == 201, r.text
-        tokens = client.post(f"{API}/auth/login", json={"email": email, "password": password}).json()
-        self.headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+    def __init__(
+        self, client: TestClient, email: str, name: str, password: str | None = None, token: str | None = None
+    ):
+        """A new demo account (registered with `password`) or an existing account acting through `token`."""
+        self.client, self.email, self.name = client, email, name
+        if token is None:
+            r = client.post(f"{API}/auth/register", json={"email": email, "password": password, "name": name})
+            assert r.status_code == 201, r.text
+            token = client.post(f"{API}/auth/login", json={"email": email, "password": password}).json()["access_token"]
+        self.headers = {"Authorization": f"Bearer {token}"}
 
     def call(self, method: str, path: str, expect: int | tuple[int, ...] = (200, 201), **kw):
         r = self.client.request(method, f"{API}{path}", headers=self.headers, **kw)
@@ -103,8 +107,11 @@ def main() -> int:
     with get_sessionmaker()() as db:
         if db.scalar(select(func.count()).select_from(User)):
             raise SystemExit("this demo database already has users; run demo.bat --fresh to start again")
+        # The migrations already seed a catalog; add only names it does not have (no duplicate species).
+        known = {n.lower() for n in db.scalars(select(Species.common_name).where(Species.workspace_id.is_(None)))}
         for category, name in SPECIES:
-            db.add(Species(workspace_id=None, category=category, common_name=name, attributes={"seed": True}))
+            if name.lower() not in known:
+                db.add(Species(workspace_id=None, category=category, common_name=name, attributes={"seed": True}))
         db.commit()
 
     app = create_app()
@@ -113,13 +120,46 @@ def main() -> int:
     owner = Person(client, "demo.owner@example.com", "Asha (owner)", pw["owner"])
     worker = Person(client, "demo.worker@example.com", "Ravi (field worker)", pw["worker"])
     viewer = Person(client, "demo.viewer@example.com", "Meera (viewer)", pw["viewer"])
+    populate(owner, worker, viewer)
 
+    out = BACKEND / "var" / "demo" / "DEMO_LOGIN.txt"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "GreenGuardian local DEMO accounts (throwaway data in backend/var/demo; nothing here is real)",
+        "",
+        f"Owner   {owner.email}   {pw['owner']}   (everything: both workspaces)",
+        f"Worker  {worker.email}   {pw['worker']}   (can record; cannot decide or correct)",
+        f"Viewer  {viewer.email}   {pw['viewer']}   (read only; campus workspace)",
+        "",
+        "Workspaces: 'Riverside Campus Green Cover' (Green Management), 'Green Valley Farm' (Agricultural Production)",
+    ]
+    out.write_text("\n".join(lines) + "\n", encoding="utf8")
+    print("\n".join(lines))
+    return 0
+
+
+def _species(owner: Person, ws_path: str) -> dict[str, str]:
+    """{name: id} for the example species, adding to this workspace any the catalog lacks (as workspace species)."""
+    have = {s["common_name"]: s["id"] for s in owner.get(f"{ws_path}/species?limit=200")["items"]}
+    for category, name in SPECIES:
+        if name not in have:
+            have[name] = owner.post(f"{ws_path}/species", {"category": category, "common_name": name})["id"]
+    return have
+
+
+def populate(owner: Person, worker: Person, viewer: Person | None, suffix: str = "") -> tuple[str, str]:
+    """The two example workspaces, built THROUGH THE API as `owner`. `worker` does the field work; it may be the owner
+    (example data under one account), and `viewer` may be None. Returns the two workspace ids."""
     # ------------------------------------------------------------------ workspace 1: Green Management
-    campus = owner.post("/workspaces", {"name": "Riverside Campus Green Cover", "mode": "green_management"})["id"]
+    campus = owner.post("/workspaces", {"name": f"Riverside Campus Green Cover{suffix}", "mode": "green_management"})[
+        "id"
+    ]
     w = f"/workspaces/{campus}"
-    owner.post(f"{w}/members", {"email": worker.email, "role": "worker"})
-    owner.post(f"{w}/members", {"email": viewer.email, "role": "viewer"})
-    species = {s["common_name"]: s["id"] for s in owner.get(f"{w}/species?limit=100")["items"]}
+    if worker.email != owner.email:
+        owner.post(f"{w}/members", {"email": worker.email, "role": "worker"})
+    if viewer is not None:
+        owner.post(f"{w}/members", {"email": viewer.email, "role": "viewer"})
+    species = _species(owner, w)
     site = owner.post(
         f"{w}/locations", {"name": "Main campus", "kind": "site", "latitude": 19.1334, "longitude": 72.9133}
     )
@@ -184,6 +224,19 @@ def main() -> int:
     observe(banyan, 74, 28, None, "Aerial roots need trimming near the path")
     observe(sapling, 92, 2, None, "Staked and watered after planting")
     observe(gulmohar, 83, 70)  # old reading: an inspection is due
+    # Growth measurements (height, trunk girth, canopy width), two months apart, for the Growth page and KPI.
+    for asset, days, values in (
+        (neem1, 62, {"height_cm": 410, "girth_cm": 96, "canopy_m": 5.2}),
+        (neem1, 2, {"height_cm": 422, "girth_cm": 98, "canopy_m": 5.5}),
+        (sapling, 58, {"height_cm": 118}),
+        (sapling, 1, {"height_cm": 141}),
+        (mango, 60, {"height_cm": 640, "girth_cm": 132}),
+        (mango, 5, {"height_cm": 648, "girth_cm": 133}),
+    ):
+        worker.post(
+            f"{w}/observations",
+            {"asset_id": asset["id"], "kind": "growth", "observed_at": ago(days=days), "data": values},
+        )
     observe(lost, 22, 25, ["bark_cracking"], "Trunk split after the storm")
     owner.post(
         f"{w}/assets/{lost['id']}/lifecycle",
@@ -257,13 +310,14 @@ def main() -> int:
     owner.post(f"{w}/agent/run", {})  # the rule-based agent looks at everything above and suggests next steps
 
     # ------------------------------------------------------------------ workspace 2: Agricultural Production
-    farm = owner.post("/workspaces", {"name": "Green Valley Farm", "mode": "agricultural_production"})["id"]
+    farm = owner.post("/workspaces", {"name": f"Green Valley Farm{suffix}", "mode": "agricultural_production"})["id"]
     f = f"/workspaces/{farm}"
-    owner.post(f"{f}/members", {"email": worker.email, "role": "worker"})
+    if worker.email != owner.email:
+        owner.post(f"{f}/members", {"email": worker.email, "role": "worker"})
     farm_site = owner.post(
         f"{f}/locations", {"name": "Valley fields", "kind": "site", "latitude": 18.5204, "longitude": 73.8567}
     )
-    species_f = {s["common_name"]: s["id"] for s in owner.get(f"{f}/species?limit=100")["items"]}
+    species_f = _species(owner, f)
 
     def batch(label, sp, count, stage, planted, lat, lon):
         return owner.post(
@@ -321,6 +375,11 @@ def main() -> int:
     for d, s in ((30, 88), (14, 85), (4, 79)):
         worker.post(f"{f}/observations", {"asset_id": tomato["id"], "health_score": s, "observed_at": ago(days=d)})
     worker.post(f"{f}/observations", {"asset_id": wheat["id"], "health_score": 91, "observed_at": ago(days=6)})
+    for days, height in ((40, 31), (6, 64)):  # average plant height of the wheat batch
+        worker.post(
+            f"{f}/observations",
+            {"asset_id": wheat["id"], "kind": "growth", "observed_at": ago(days=days), "data": {"height_cm": height}},
+        )
     worker.post(
         f"{f}/observations",
         {"asset_id": failed["id"], "health_score": 20, "symptoms": ["damping_off"], "observed_at": ago(days=5)},
@@ -347,20 +406,7 @@ def main() -> int:
     )
     owner.post(f"{f}/agent/run", {})
 
-    out = BACKEND / "var" / "demo" / "DEMO_LOGIN.txt"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    lines = [
-        "GreenGuardian local DEMO accounts (throwaway data in backend/var/demo; nothing here is real)",
-        "",
-        f"Owner   {owner.email}   {pw['owner']}   (everything: both workspaces)",
-        f"Worker  {worker.email}   {pw['worker']}   (can record; cannot decide or correct)",
-        f"Viewer  {viewer.email}   {pw['viewer']}   (read only; campus workspace)",
-        "",
-        "Workspaces: 'Riverside Campus Green Cover' (Green Management), 'Green Valley Farm' (Agricultural Production)",
-    ]
-    out.write_text("\n".join(lines) + "\n", encoding="utf8")
-    print("\n".join(lines))
-    return 0
+    return campus, farm
 
 
 def worker_id(owner: Person, ws_path: str, email: str) -> str:
