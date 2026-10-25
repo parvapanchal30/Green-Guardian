@@ -263,6 +263,10 @@ def transition(db: Session, ctx: WorkspaceContext, task_id: uuid.UUID, data: Tas
         )
     if data.observation is not None and task.asset_id is None:
         raise Unprocessable("this task has no asset to observe", code="task_has_no_asset")
+    if data.action is not None and to_status != TaskStatus.DONE.value:
+        raise Unprocessable("what was done can only be recorded when completing a task", code="action_needs_done")
+    if data.action is not None and task.asset_id is None:
+        raise Unprocessable("this task has no asset to record work on", code="task_has_no_asset")
 
     now = utcnow()
     from_status = task.status
@@ -277,6 +281,11 @@ def transition(db: Session, ctx: WorkspaceContext, task_id: uuid.UUID, data: Tas
         task.completed_at = None  # reopened
     _history(db, ctx, task, from_status, to_status, data.note)
 
+    if data.action is not None and task.asset_id is not None:
+        # ACT: what was done is its own record (ADR-059); the observation below, if any, then counts as its follow-up.
+        from app.modules.actions.service import record_entity
+
+        record_entity(db, ctx, get_asset(db, ctx, task.asset_id), data.action, task=task, performed_at=now)
     if data.observation is not None and task.asset_id is not None:
         # ACT -> UPDATE ASSET: completing the work records what was found, which updates the asset's state.
         create_observation(
@@ -314,6 +323,7 @@ def transition(db: Session, ctx: WorkspaceContext, task_id: uuid.UUID, data: Tas
             "from": from_status,
             "to": to_status,
             "follow_up_observation": data.observation is not None,
+            "action": data.action.kind if data.action else None,
         },
     )
     db.commit()

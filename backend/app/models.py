@@ -1,6 +1,7 @@
 """Import every ORM model so Base.metadata is complete (used by Alembic and tests)."""
 
 from app.core.orm import Base
+from app.modules.actions.models import ActionRecord
 from app.modules.assets.models import AssetState, BiologicalAsset, LifecycleEvent
 from app.modules.audit.models import AuditEvent
 from app.modules.catalog.models import Species
@@ -20,10 +21,12 @@ from app.modules.issues.models import Issue, IssueObservation, IssueStatusHistor
 from app.modules.locations.models import Location
 from app.modules.observations.models import Observation
 from app.modules.protocols.models import EvaluationProtocol, ProtocolSignoff
+from app.modules.schedules.models import InspectionSchedule, ScheduleOccurrence
 from app.modules.tasks.models import Task, TaskStatusHistory
 from app.modules.workspaces.models import Membership, Workspace
 
 __all__ = [
+    "ActionRecord",
     "AssetState",
     "AuditEvent",
     "AuthThrottle",
@@ -38,6 +41,7 @@ __all__ = [
     "Evidence",
     "EvaluationProtocol",
     "HarvestRecord",
+    "InspectionSchedule",
     "Issue",
     "LifecycleEvent",
     "IssueObservation",
@@ -50,6 +54,7 @@ __all__ = [
     "AgentRun",
     "Recommendation",
     "RefreshTokenRow",
+    "ScheduleOccurrence",
     "Species",
     "Task",
     "TaskStatusHistory",

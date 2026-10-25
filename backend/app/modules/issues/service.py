@@ -9,6 +9,8 @@ from app.core.deps import WorkspaceContext
 from app.core.errors import Conflict, NotFound, Unprocessable
 from app.core.pagination import Page, PageParams
 from app.core.timeutil import utcnow
+from app.modules.actions import service as actions
+from app.modules.actions import verification
 from app.modules.assets.models import BiologicalAsset
 from app.modules.assets.service import get_asset
 from app.modules.assets.state import refresh_counts
@@ -124,6 +126,8 @@ def detail(db: Session, ctx: WorkspaceContext, issue: Issue) -> IssueDetail:
         ],
         evidence=[ObservationOut.model_validate(o) for o in evidence],
         tasks=load_task_outs(db, ctx.workspace_id, list(tasks)),
+        actions=actions.for_issue(db, ctx, issue.id),
+        verification=verification.compute(db, issue),
         allowed_transitions=list(wf.allowed(issue.state)),
     )
 
@@ -335,6 +339,29 @@ def _cancel_open_tasks(db: Session, ctx: WorkspaceContext, issue: Issue) -> list
     return [t.key for t in tasks]
 
 
+def _record_follow_up(db: Session, ctx: WorkspaceContext, issue: Issue, data) -> None:
+    """The follow-up observation sent with a resolution: stored like any observation and attached as evidence."""
+    from app.modules.observations.models import ObservationKind
+    from app.modules.observations.schemas import ObservationCreate
+    from app.modules.observations.service import create_observation
+
+    assert issue.asset_id is not None  # checked by the caller
+    created = create_observation(
+        db,
+        ctx,
+        ObservationCreate(
+            asset_id=issue.asset_id,
+            kind=ObservationKind.HEALTH,
+            health_score=data.health_score,
+            symptoms=data.symptoms,
+            notes=data.notes or f"Follow-up recorded when closing {issue.key}",
+            attachments=data.attachments,
+        ),
+        commit=False,
+    )
+    _link_evidence(db, ctx, issue, created.observation.id)
+
+
 def transition(db: Session, ctx: WorkspaceContext, issue_id: uuid.UUID, data: IssueTransition) -> IssueDetail:
     issue = get_issue(db, ctx, issue_id, lock=True)
     wf = _workflow(issue)
@@ -370,6 +397,20 @@ def transition(db: Session, ctx: WorkspaceContext, issue_id: uuid.UUID, data: Is
                 code="open_tasks",
                 extra={"tasks": open_keys},
             )
+        if res.follow_up is not None:
+            if issue.asset_id is None:
+                raise Unprocessable("this issue has no asset to observe", code="issue_has_no_asset")
+            _record_follow_up(db, ctx, issue, res.follow_up)
+            now = utcnow()  # the closing time comes after the follow-up, so it falls inside the verified window
+        if verification.requires_follow_up(issue, res.outcome.value):
+            check = verification.compute(db, issue, until=utcnow())
+            if check.status == "awaiting_follow_up":
+                raise Conflict(
+                    "record an observation of the asset after the last action (or send one as follow_up) before "
+                    "closing this issue as fixed or mitigated",
+                    code="follow_up_required",
+                    extra={"last_action_at": check.last_action_at.isoformat() if check.last_action_at else None},
+                )
         if open_keys:
             _cancel_open_tasks(db, ctx, issue)
         issue.resolved_at = now
@@ -413,6 +454,7 @@ def transition(db: Session, ctx: WorkspaceContext, issue_id: uuid.UUID, data: Is
             "from": from_state,
             "to": to_state,
             "resolution": data.resolution.outcome.value if data.resolution else None,
+            "follow_up_observation": bool(data.resolution and data.resolution.follow_up),
         },
     )
     db.commit()

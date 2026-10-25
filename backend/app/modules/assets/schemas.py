@@ -130,7 +130,7 @@ class AssetLifecycleOut(BaseModel):
 
 class TimelineEvent(BaseModel):
     at: datetime
-    type: str  # observation | issue | task | lifecycle | harvest
+    type: str  # observation | issue | task | lifecycle | harvest | action
     ref_id: uuid.UUID
     key: str | None
     title: str

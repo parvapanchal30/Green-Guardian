@@ -27,6 +27,7 @@ from app.core.db import get_sessionmaker
 from app.core.logging import configure_logging
 from app.modules.intelligence import scheduler
 from app.modules.intelligence.ports import WeatherContextProvider
+from app.modules.schedules import service as schedules
 from app.tools import housekeeping
 
 log = structlog.get_logger()
@@ -79,6 +80,13 @@ def run(stop: threading.Event, *, once: bool = False) -> None:
                 log.info("worker_tick", **t.__dict__)
         except Exception:  # never die on a transient failure (database restart, network): try again next tick
             log.exception("worker_tick_failed")
+        try:  # recurring inspections (ADR-062): due schedules become tasks
+            with get_sessionmaker()() as db:
+                g = schedules.generate(db)
+            if g.due:
+                log.info("schedules_generated", **g.model_dump(exclude={"task_keys"}))
+        except Exception:
+            log.exception("schedules_generate_failed")
         if time.monotonic() >= next_housekeeping and not stop.is_set():
             try:
                 log.info("housekeeping_done", **housekeeping.run())

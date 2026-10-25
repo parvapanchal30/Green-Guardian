@@ -11,6 +11,7 @@ from app.core.db import dispose_engine, get_engine
 from app.core.errors import install_error_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware
+from app.modules.actions.router import router as actions_router
 from app.modules.assets.router import router as assets_router
 from app.modules.assets.router import template_router as lifecycle_template_router
 from app.modules.audit import denied as audit_denied
@@ -29,6 +30,7 @@ from app.modules.locations.router import router as locations_router
 from app.modules.map.router import router as map_router
 from app.modules.observations.router import router as observations_router
 from app.modules.protocols.router import router as protocols_router
+from app.modules.schedules.router import router as schedules_router
 from app.modules.tasks.router import router as tasks_router
 from app.modules.weather.context import ForecastWeatherContext
 from app.modules.weather.registry import UnknownWeatherProvider, available_providers
@@ -106,6 +108,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         map_router,
         evidence_router,
         harvests_router,
+        actions_router,
+        schedules_router,
         audit_router,
         datasets_router,
         protocols_router,

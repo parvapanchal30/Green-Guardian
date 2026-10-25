@@ -6,8 +6,9 @@ from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 
 from app.core.schemas import StrictModel
+from app.modules.actions.schemas import ActionOut, Verification
 from app.modules.observations.schemas import ObservationOut
-from app.modules.tasks.schemas import TaskOut
+from app.modules.tasks.schemas import FollowUpObservation, TaskOut
 
 from .models import IssueCategory, IssueSource, ResolutionOutcome, Severity
 
@@ -40,6 +41,9 @@ class Resolution(StrictModel):
     outcome: ResolutionOutcome
     notes: str | None = Field(default=None, max_length=5000)
     cancel_open_tasks: bool = False  # explicit opt-in: otherwise open tasks block resolution
+    # Recorded on the issue's asset before the check below: closing a plant issue as fixed or mitigated needs an
+    # observation after the last action (ADR-059), and this lets the person closing it provide one in the same step.
+    follow_up: FollowUpObservation | None = None
 
 
 class IssueTransition(StrictModel):
@@ -91,6 +95,8 @@ class IssueDetail(IssueOut):
     history: list[HistoryOut]
     evidence: list[ObservationOut]
     tasks: list[TaskOut]
+    actions: list[ActionOut]
+    verification: Verification
     allowed_transitions: list[str]
 
 

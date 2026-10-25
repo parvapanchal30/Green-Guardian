@@ -58,5 +58,15 @@ def make_task(api: Api, **over) -> dict:
     return r.json()
 
 
+CHECKED = {"notes": "checked after the work"}  # a follow-up observation without a score: changes no health state
+
+
 def resolve_body(outcome: str = "fixed", notes: str = "done", **extra) -> dict:
-    return {"outcome": outcome, "notes": notes, **extra}
+    """A resolution. Closing a plant issue as fixed or mitigated needs a follow-up observation (ADR-059), so one is
+    sent by default for those outcomes; pass follow_up=None to send none."""
+    body = {"outcome": outcome, "notes": notes, **extra}
+    if outcome in ("fixed", "mitigated") and "follow_up" not in extra:
+        body["follow_up"] = CHECKED
+    elif body.get("follow_up") is None:
+        body.pop("follow_up", None)
+    return body

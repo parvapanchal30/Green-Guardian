@@ -6,6 +6,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.core.schemas import Attachment, StrictModel
+from app.modules.actions.schemas import ActionDone
 
 from .models import Priority, TaskSource, TaskStatus, TaskType
 
@@ -43,6 +44,7 @@ class TaskTransition(StrictModel):
     to_status: TaskStatus
     note: str | None = Field(default=None, max_length=2000)
     observation: FollowUpObservation | None = None
+    action: ActionDone | None = None  # what was done, recorded as an action on the task's asset (and issue)
 
 
 class TaskHistoryOut(BaseModel):

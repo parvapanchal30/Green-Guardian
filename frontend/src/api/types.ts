@@ -234,6 +234,8 @@ export interface IssueDetail extends Issue {
   history: IssueHistory[]
   evidence: Observation[]
   tasks: Task[]
+  actions: ActionRecord[]
+  verification: Verification
   allowed_transitions: string[]
 }
 
@@ -280,7 +282,7 @@ export interface TaskDetail extends Task {
 
 export interface TimelineEvent {
   at: string
-  type: 'observation' | 'issue' | 'task' | 'lifecycle' | 'harvest'
+  type: 'observation' | 'issue' | 'task' | 'lifecycle' | 'harvest' | 'action'
   ref_id: string
   key: string | null
   title: string
@@ -619,4 +621,90 @@ export interface AssetHarvests {
   asset_id: string
   totals: { by_unit: Record<string, number>; mass_tonnes: number; records: number }
   history: HarvestRecord[]
+}
+
+// ------------------------------------------------------------------ actions and verification (ADR-059)
+export type ActionKind = 'treat' | 'water' | 'fertilize' | 'prune' | 'pest_control' | 'weed' | 'mulch' | 'replant' | 'other'
+export type ActionUnit = 'l' | 'ml' | 'kg' | 'g' | 'count'
+export interface ActionRecord {
+  id: string
+  asset_id: string
+  issue_id: string | null
+  issue_key: string | null
+  task_id: string | null
+  task_key: string | null
+  kind: ActionKind
+  product: string | null
+  quantity: number | null
+  unit: ActionUnit | null
+  performed_at: string
+  performed_by: string | null
+  note: string | null
+  follow_up_task_id: string | null
+  follow_up_task_key: string | null
+  supersedes_id: string | null
+  superseded_by: string | null
+  effective: boolean
+  withdrawn: boolean
+  recorded_by: string | null
+  recorded_at: string
+}
+export interface AssetActions {
+  asset_id: string
+  history: ActionRecord[]
+}
+export type VerificationStatus = 'not_applicable' | 'awaiting_follow_up' | 'improved' | 'unchanged' | 'worse' | 'observed_without_score'
+export interface Verification {
+  status: VerificationStatus
+  method: 'rule'
+  min_change: number
+  actions: number
+  last_action_at: string | null
+  baseline_score: number | null
+  baseline_at: string | null
+  follow_up_score: number | null
+  follow_up_at: string | null
+  change: number | null
+  required_for_success: boolean
+}
+
+// ------------------------------------------------------------------ recurring inspections (ADR-062)
+export type ScheduleOutcome = 'created' | 'skipped_open_task' | 'skipped_inactive_asset'
+export interface ScheduleOccurrence {
+  due_at: string
+  outcome: ScheduleOutcome
+  task_id: string | null
+  task_key: string | null
+  task_status: string | null
+  missed: number
+  created_at: string
+}
+export interface InspectionSchedule {
+  id: string
+  asset_id: string | null
+  asset_label: string | null
+  location_id: string | null
+  location_name: string | null
+  title: string
+  task_type: 'inspect' | 'monitor'
+  interval_days: number
+  lead_days: number
+  next_due_at: string
+  assignee_id: string | null
+  priority: string
+  active: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  version: number
+}
+export interface ScheduleDetail extends InspectionSchedule {
+  occurrences: ScheduleOccurrence[]
+}
+export interface GenerateResult {
+  due: number
+  created: number
+  skipped_open_task: number
+  skipped_inactive_asset: number
+  task_keys: string[]
 }

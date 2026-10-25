@@ -180,7 +180,7 @@ def test_dismissal_and_resolution_are_audited(api_for, team, world):
     issue = make_issue(w, a["id"])
     m.post(
         f"/issues/{issue['id']}/transitions",
-        {"to_state": "resolved", "resolution": {"outcome": "fixed", "notes": "done"}},
+        {"to_state": "resolved", "resolution": {"outcome": "fixed", "notes": "done", "follow_up": {"notes": "looked"}}},
     )
     d = next(e for e in rows(world) if e.action == "recommendation.dismiss")
     assert d.details["reason"] == "already handled on site"

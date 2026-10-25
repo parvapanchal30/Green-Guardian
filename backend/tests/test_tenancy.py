@@ -38,6 +38,23 @@ ENDPOINTS = [
         "/api/v1/workspaces/{ws}/assets/{asset_id}/harvests/{record_id}/correct",
         {"quantity": 1, "unit": "kg", "note": "a written reason"},
     ),
+    ("GET", "/api/v1/workspaces/{ws}/assets/{asset_id}/actions", None),
+    ("POST", "/api/v1/workspaces/{ws}/assets/{asset_id}/actions", {"kind": "water"}),
+    (
+        "POST",
+        "/api/v1/workspaces/{ws}/assets/{asset_id}/actions/{action_id}/correct",
+        {"kind": "water", "note": "a written reason"},
+    ),
+    # recurring inspections
+    ("GET", "/api/v1/workspaces/{ws}/schedules", None),
+    (
+        "POST",
+        "/api/v1/workspaces/{ws}/schedules",
+        {"asset_id": "00000000-0000-0000-0000-000000000000", "interval_days": 7},
+    ),
+    ("POST", "/api/v1/workspaces/{ws}/schedules/generate", None),
+    ("GET", "/api/v1/workspaces/{ws}/schedules/{schedule_id}", None),
+    ("PATCH", "/api/v1/workspaces/{ws}/schedules/{schedule_id}", {"active": False}),
     # observations
     ("POST", "/api/v1/workspaces/{ws}/observations", {"asset_id": "00000000-0000-0000-0000-000000000000"}),
     ("GET", "/api/v1/workspaces/{ws}/observations", None),

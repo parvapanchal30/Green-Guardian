@@ -347,5 +347,28 @@ def timeline(db: Session, ctx: WorkspaceContext, asset_id: uuid.UUID, limit: int
                 actor_id=hr.recorded_by,
             )
         )
+    from app.modules.actions.models import ActionRecord
+    from app.modules.actions.service import KIND_LABELS
+
+    for ar in db.scalars(
+        select(ActionRecord)
+        .where(ActionRecord.workspace_id == ctx.workspace_id, ActionRecord.asset_id == asset_id)
+        .order_by(ActionRecord.performed_at.desc())
+        .limit(limit)
+    ):
+        what = KIND_LABELS.get(ar.kind, ar.kind).capitalize()
+        amount = f"{ar.quantity:g} {ar.unit}" if ar.quantity is not None else None
+        prefix = "Action withdrawn: " if ar.withdrawn else "Action correction: " if ar.supersedes_id else "Action: "
+        events.append(
+            TimelineEvent(
+                at=ar.performed_at,
+                type="action",
+                ref_id=ar.id,
+                key=None,
+                title=prefix + what,
+                detail=" · ".join(b for b in (ar.product, amount, ar.note) if b) or None,
+                actor_id=ar.performed_by,
+            )
+        )
     events.sort(key=lambda e: e.at, reverse=True)
     return events[:limit]

@@ -19,7 +19,7 @@ export function qs(params: Params = {}): string {
 const base = (ws: string, path: string, params?: Params) => `/workspaces/${ws}${path}${qs(params)}`
 
 /** Everything that can change after an observation, issue, task or recommendation action. */
-const DATA = new Set(['assets', 'asset', 'timeline', 'observations', 'issues', 'issue', 'tasks', 'task', 'recommendations', 'dashboard', 'map', 'evidence', 'agent-runs', 'lifecycle', 'harvests'])
+const DATA = new Set(['assets', 'asset', 'timeline', 'observations', 'issues', 'issue', 'tasks', 'task', 'recommendations', 'dashboard', 'map', 'evidence', 'agent-runs', 'lifecycle', 'harvests', 'actions', 'schedules', 'schedule'])
 export function refreshWorkspaceData(qc: QueryClient, ws: string) {
   return qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === ws && DATA.has(String(q.queryKey[1])) })
 }

@@ -3,7 +3,9 @@ import { Link, useParams } from 'react-router-dom'
 import type { ObservationCreated } from '../api/types'
 import { useWorkspaceCtx } from '../app/WorkspaceLayout'
 import { EvidenceGallery } from '../components/EvidenceGallery'
+import { ActionPanel } from '../components/ActionPanel'
 import { HarvestPanel } from '../components/HarvestPanel'
+import { SchedulePanel } from '../components/SchedulePanel'
 import { LifecyclePanel } from '../components/LifecyclePanel'
 import { RecommendationCard } from '../components/RecommendationCard'
 import { Field, HealthChip, PageHeader, SeverityChip, StateChip, TaskStatusChip, btn, btnPrimary, input } from '../components/domain'
@@ -205,6 +207,8 @@ export function AssetProfilePage() {
       </div>
 
       <LifecyclePanel ws={ws} asset={a} role={workspace.role} />
+      <ActionPanel ws={ws} asset={a} role={workspace.role} />
+      <SchedulePanel ws={ws} asset={a} role={workspace.role} />
       {workspace.mode === 'agricultural_production' && <HarvestPanel ws={ws} asset={a} role={workspace.role} />}
 
       <section aria-labelledby="photos">

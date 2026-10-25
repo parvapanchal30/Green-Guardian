@@ -217,7 +217,10 @@ def test_an_issue_resolved_with_the_asset_still_critical_can_be_flagged_again(ap
     accepted = manager.post(f"/recommendations/{first['id']}/accept", {}).json()
     manager.post(
         f"/issues/{accepted['accepted_entity_id']}/transitions",
-        {"to_state": "resolved", "resolution": {"outcome": "mitigated", "notes": "n"}},
+        {
+            "to_state": "resolved",
+            "resolution": {"outcome": "mitigated", "notes": "n", "follow_up": {"notes": "looked"}},
+        },
     )
     run = manager.post("/agent/run").json()
     assert any(r["rule_key"] == "critical_health" for r in run["created"])  # the score never recovered: say so

@@ -4,7 +4,9 @@ import { ProblemError } from '../api/client'
 import type { IssueDetail, Workflow } from '../api/types'
 import { useWorkspaceCtx } from '../app/WorkspaceLayout'
 import { Field, PageHeader, SeverityChip, StateChip, TaskStatusChip, btn, btnPrimary, input } from '../components/domain'
+import { ActionForm, ActionList } from '../components/ActionPanel'
 import { EvidenceGallery } from '../components/EvidenceGallery'
+import { VerificationCard } from '../components/VerificationCard'
 import { ErrorState, LoadingBlock, errorMessage } from '../components/states'
 import { useI18n } from '../i18n'
 import { atLeast, toIsoOrUndefined } from '../lib/format'
@@ -12,6 +14,7 @@ import { useCreateTask, useIssue, useTransitionIssue, useWorkflows } from '../li
 import { useMembers } from '../lib/queries'
 
 const OUTCOMES = ['fixed', 'mitigated', 'no_action_needed', 'duplicate']
+const SUCCESS = new Set(['fixed', 'mitigated'])
 const TASK_TYPES = ['inspect', 'treat', 'water', 'fertilize', 'prune', 'replace', 'monitor', 'other']
 
 function Stepper({ wf, current, visited }: { wf: Workflow; current: string; visited: Set<string> }) {
@@ -40,9 +43,14 @@ function TransitionPanel({ issue, wf, ws }: { issue: IssueDetail; wf: Workflow; 
   const { t, te } = useI18n()
   const move = useTransitionIssue(ws, issue.id)
   const [target, setTarget] = useState<string | null>(null)
+  const [outcome, setOutcome] = useState('fixed')
+  const [problem, setProblem] = useState<string | null>(null)
   const openTasks = issue.tasks.filter((task) => ['todo', 'in_progress', 'blocked'].includes(task.status))
   const terminal = target != null && wf.terminal.includes(target)
   const wontFix = target === 'closed_wont_fix'
+  // Closing a plant issue as fixed or mitigated needs a look at the asset after the last work (ADR-059).
+  const askFollowUp = terminal && !wontFix && SUCCESS.has(outcome) && issue.verification.required_for_success
+  const followUpNeeded = askFollowUp && issue.verification.status === 'awaiting_follow_up'
 
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -50,8 +58,16 @@ function TransitionPanel({ issue, wf, ws }: { issue: IssueDetail; wf: Workflow; 
     const note = String(f.get('note') ?? '').trim() || undefined
     const body: Record<string, unknown> = { to_state: target, note }
     if (terminal) {
-      body.resolution = { outcome: wontFix ? 'wont_fix' : f.get('outcome'), notes: String(f.get('notes') ?? '').trim() || undefined, cancel_open_tasks: f.get('cancel') === 'on' }
+      const resolution: Record<string, unknown> = { outcome: wontFix ? 'wont_fix' : f.get('outcome'), notes: String(f.get('notes') ?? '').trim() || undefined, cancel_open_tasks: f.get('cancel') === 'on' }
+      if (askFollowUp) {
+        const score = String(f.get('fscore') ?? '').trim()
+        const seen = String(f.get('fnotes') ?? '').trim()
+        if (score !== '' || seen) resolution.follow_up = { health_score: score === '' ? undefined : Number(score), notes: seen || undefined }
+        else if (followUpNeeded) return setProblem(t('verify.needFollowUp'))
+      }
+      body.resolution = resolution
     }
+    setProblem(null)
     move.mutate(body, { onSuccess: () => setTarget(null) })
   }
 
@@ -80,7 +96,7 @@ function TransitionPanel({ issue, wf, ws }: { issue: IssueDetail; wf: Workflow; 
           <p className="text-sm">{t('issue.movingTo')} <strong>{te('issueState', target)}</strong></p>
           {terminal && !wontFix && (
             <Field id="outcome" label={t('issue.outcome')}>
-              <select id="outcome" name="outcome" className={`${input} max-w-xs`} defaultValue="fixed">{OUTCOMES.map((o) => <option key={o} value={o}>{te('outcome', o)}</option>)}</select>
+              <select id="outcome" name="outcome" className={`${input} max-w-xs`} value={outcome} onChange={(e) => setOutcome(e.target.value)}>{OUTCOMES.map((o) => <option key={o} value={o}>{te('outcome', o)}</option>)}</select>
             </Field>
           )}
           {terminal && (
@@ -88,10 +104,18 @@ function TransitionPanel({ issue, wf, ws }: { issue: IssueDetail; wf: Workflow; 
               <textarea id="notes" name="notes" rows={2} required={wontFix} className={input} />
             </Field>
           )}
+          {askFollowUp && (
+            <fieldset className="grid gap-2 rounded border border-line p-2 sm:grid-cols-2">
+              <legend className="px-1 text-xs text-ink-3">{followUpNeeded ? t('verify.followUpRequired') : t('verify.followUpOptional')}</legend>
+              <Field id="fscore" label={t('tasks.scoreNow')}><input id="fscore" name="fscore" type="number" min={0} max={100} step="any" className={input} /></Field>
+              <Field id="fnotes" label={t('tasks.observed')}><input id="fnotes" name="fnotes" className={input} maxLength={5000} /></Field>
+            </fieldset>
+          )}
           {terminal && openTasks.length > 0 && (
             <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="cancel" className="mt-1" /> {t('issue.cancelOpenTasks', { count: openTasks.length, keys: openTasks.map((task) => task.key).join(', ') })}</label>
           )}
           <Field id="note" label={t('issue.noteOptional')}><input id="note" name="note" className={input} maxLength={2000} /></Field>
+          {problem && <p role="alert" className="text-sm text-critical">{problem}</p>}
           {err && (
             <p role="alert" className="text-sm text-critical">
               {err.message}
@@ -99,7 +123,7 @@ function TransitionPanel({ issue, wf, ws }: { issue: IssueDetail; wf: Workflow; 
             </p>
           )}
           {move.error != null && !err && <p role="alert" className="text-sm text-critical">{errorMessage(move.error)}</p>}
-          <div className="flex gap-2"><button className={btnPrimary} disabled={move.isPending}>{move.isPending ? t('issue.saving') : t('issue.confirm')}</button><button type="button" className={btn} onClick={() => setTarget(null)}>{t('issue.cancel')}</button></div>
+          <div className="flex gap-2"><button className={btnPrimary} disabled={move.isPending}>{move.isPending ? t('issue.saving') : t('issue.confirm')}</button><button type="button" className={btn} onClick={() => { setTarget(null); setProblem(null) }}>{t('issue.cancel')}</button></div>
         </form>
       )}
     </section>
@@ -139,6 +163,28 @@ function AddTask({ issue, ws, canAssign }: { issue: IssueDetail; ws: string; can
   )
 }
 
+function IssueWork({ issue, ws, canRecord }: { issue: IssueDetail; ws: string; canRecord: boolean }) {
+  const { t } = useI18n()
+  const [open, setOpen] = useState(false)
+  if (!issue.asset_id) return null
+  const can = canRecord && issue.is_open
+  return (
+    <section aria-labelledby="wk">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h2 id="wk" className="font-semibold">{t('action.workOnIssue')}</h2>
+        {can && !open && <button type="button" className={btn} onClick={() => setOpen(true)}>{t('action.recordWork')}</button>}
+      </div>
+      {issue.actions.length === 0 ? <p className="text-sm text-ink-3">{t('action.noneOnIssue')}</p> : <ActionList ws={ws} actions={issue.actions} />}
+      {can && open && (
+        <div className="mt-3">
+          <ActionForm ws={ws} assetId={issue.asset_id} issueId={issue.id} onDone={() => setOpen(false)} />
+          <button type="button" className={`${btn} mt-2`} onClick={() => setOpen(false)}>{t('issue.cancel')}</button>
+        </div>
+      )}
+    </section>
+  )
+}
+
 export function IssueDetailPage() {
   const { issueId = '' } = useParams()
   const { ws, workspace } = useWorkspaceCtx()
@@ -166,6 +212,8 @@ export function IssueDetailPage() {
         </p>
       )}
 
+      <VerificationCard v={i.verification} />
+
       {canManage && wf ? <TransitionPanel key={`${i.state}-${i.version}`} issue={i} wf={wf} ws={ws} /> : <p className="text-sm text-ink-3">{t('issue.onlyManager')}</p>}
 
       <section aria-labelledby="tk">
@@ -179,6 +227,8 @@ export function IssueDetailPage() {
         )}
         <p className="mt-2 text-xs text-ink-3">{t('issue.updateOnTasks')} <Link className="underline" to={`/w/${ws}/tasks`}>{t('issue.tasksPage')}</Link> {t('issue.page')}</p>
       </section>
+
+      <IssueWork issue={i} ws={ws} canRecord={atLeast(workspace.role, 'worker')} />
 
       <section aria-labelledby="ev">
         <h2 id="ev" className="mb-2 font-semibold">{t('issue.evidence')}</h2>

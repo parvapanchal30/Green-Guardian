@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom'
 import type { Task } from '../api/types'
 import { useWorkspaceCtx } from '../app/WorkspaceLayout'
 import { Field, PageHeader, Pagination, TaskStatusChip, btn, btnPrimary, input } from '../components/domain'
+import { StatusChip } from '../components/StatusChip'
 import { EmptyState, ErrorState, LoadingBlock, errorMessage } from '../components/states'
 import { useI18n, type TKey } from '../i18n'
 import { atLeast } from '../lib/format'
 import { useMembers } from '../lib/queries'
+import { ACTION_KINDS, ACTION_UNITS, KIND_FOR_TASK, amount } from '../lib/actions'
 import { useTasks, useTransitionTask } from '../lib/slice'
 import { useAuth } from '../lib/auth'
 
@@ -21,8 +23,9 @@ const NEXT: Record<string, { to: string; text: TKey }[]> = {
 }
 
 function Row({ t: task, ws, canMove, isManager }: { t: Task; ws: string; canMove: boolean; isManager: boolean }) {
-  const { t, fmt } = useI18n()
+  const { t, te, fmt } = useI18n()
   const move = useTransitionTask(ws)
+  const [problem, setProblem] = useState<string | null>(null)
   const [completing, setCompleting] = useState(false)
   const members = useMembers(ws)
   const who = members.data?.find((m) => m.user_id === task.assignee_id)?.name ?? (task.assignee_id ? t('tasks.assigned') : t('tasks.unassigned'))
@@ -35,6 +38,13 @@ function Row({ t: task, ws, canMove, isManager }: { t: Task; ws: string; canMove
     const notes = String(f.get('fnotes') ?? '').trim()
     const body: Record<string, unknown> = { to_status: 'done', note: String(f.get('note') ?? '').trim() || undefined }
     if (task.asset_id && (score !== '' || notes)) body.observation = { health_score: score === '' ? undefined : Number(score), notes: notes || undefined }
+    const kind = String(f.get('akind') ?? '')
+    if (task.asset_id && kind) {
+      const measured = amount(String(f.get('aqty') ?? ''), String(f.get('aunit') ?? ''))
+      if (measured === 'invalid') return setProblem(t('action.errQuantity'))
+      body.action = { kind, product: String(f.get('aproduct') ?? '').trim() || undefined, ...measured }
+    }
+    setProblem(null)
     move.mutate({ id: task.id, body }, { onSuccess: () => setCompleting(false) })
   }
 
@@ -45,6 +55,7 @@ function Row({ t: task, ws, canMove, isManager }: { t: Task; ws: string; canMove
         <span>{task.title}</span>
         <span className="text-xs uppercase text-ink-3">{task.priority}</span>
         <TaskStatusChip status={task.status} overdue={task.overdue} />
+        {task.source === 'schedule' && <StatusChip tone="neutral">{te('taskSource', 'schedule')}</StatusChip>}
       </div>
       <p className="mt-1 text-sm text-ink-2">
         {who} · {task.due_at ? t('tasks.due', { when: fmt.relative(task.due_at) }) : t('tasks.noDue')}
@@ -66,6 +77,22 @@ function Row({ t: task, ws, canMove, isManager }: { t: Task; ws: string; canMove
         <form onSubmit={complete} className="mt-2 space-y-2" aria-label={t('tasks.completeForm', { key: task.key })}>
           <Field id={`n-${task.id}`} label={t('tasks.whatDone')}><input id={`n-${task.id}`} name="note" className={input} maxLength={2000} /></Field>
           {task.asset_id && (
+            <fieldset className="grid gap-2 rounded border border-line p-2 sm:grid-cols-4">
+              <legend className="px-1 text-xs text-ink-3">{t('action.taskLegend')}</legend>
+              <Field id={`ak-${task.id}`} label={t('action.kind')}>
+                <select id={`ak-${task.id}`} name="akind" className={input} defaultValue={KIND_FOR_TASK[task.type] ?? ''}>
+                  <option value="">{t('action.notRecorded')}</option>
+                  {ACTION_KINDS.map((k) => <option key={k} value={k}>{te('actionKind', k)}</option>)}
+                </select>
+              </Field>
+              <Field id={`ap-${task.id}`} label={t('action.product')}><input id={`ap-${task.id}`} name="aproduct" className={input} maxLength={120} /></Field>
+              <Field id={`aq-${task.id}`} label={t('action.quantity')}><input id={`aq-${task.id}`} name="aqty" type="number" step="any" min={0} className={input} /></Field>
+              <Field id={`au-${task.id}`} label={t('action.unit')}>
+                <select id={`au-${task.id}`} name="aunit" className={input} defaultValue="l">{ACTION_UNITS.map((u) => <option key={u} value={u}>{te('unit', u)}</option>)}</select>
+              </Field>
+            </fieldset>
+          )}
+          {task.asset_id && (
             <fieldset className="grid gap-2 rounded border border-line p-2 sm:grid-cols-2">
               <legend className="px-1 text-xs text-ink-3">{t('tasks.followUp')}</legend>
               <Field id={`s-${task.id}`} label={t('tasks.scoreNow')}><input id={`s-${task.id}`} name="score" type="number" min={0} max={100} step="any" className={input} /></Field>
@@ -75,6 +102,7 @@ function Row({ t: task, ws, canMove, isManager }: { t: Task; ws: string; canMove
           <div className="flex gap-2"><button className={btnPrimary} disabled={move.isPending}>{t('tasks.markDone')}</button><button type="button" className={btn} onClick={() => setCompleting(false)}>{t('tasks.cancel')}</button></div>
         </form>
       )}
+      {problem && <p role="alert" className="mt-2 text-sm text-critical">{problem}</p>}
       {move.error != null && <p role="alert" className="mt-2 text-sm text-critical">{errorMessage(move.error)}</p>}
     </li>
   )
