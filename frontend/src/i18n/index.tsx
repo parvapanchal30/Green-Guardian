@@ -52,6 +52,7 @@ export function detectLocale(): Locale {
 
 export interface Formatters {
   date(iso: string | null | undefined): string
+  month(iso: string | null | undefined): string // e.g. Oct 2026
   dateTime(iso: string | null | undefined): string
   number(n: number, options?: Intl.NumberFormatOptions): string
   /** "3 days ago" / "in 2 days" / "just now", in the chosen language. */
@@ -66,6 +67,7 @@ function formatters(locale: Locale): Formatters {
   }
   return {
     date: (iso) => parse(iso)?.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) ?? '—',
+    month: (iso) => parse(iso)?.toLocaleDateString(locale, { month: 'short', year: 'numeric', timeZone: 'UTC' }) ?? '—',
     dateTime: (iso) =>
       parse(iso)?.toLocaleString(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) ?? '—',
     number: (n, options) => n.toLocaleString(locale, options),

@@ -17,7 +17,17 @@ from app.modules.assets.models import BiologicalAsset
 from app.modules.audit import service as audit
 
 from .models import MASS_TO_TONNES, HarvestRecord
-from .schemas import AssetHarvests, HarvestCorrect, HarvestCreate, HarvestOut, HarvestTotals
+from .schemas import (
+    AssetHarvests,
+    AssetTotals,
+    HarvestCorrect,
+    HarvestCreate,
+    HarvestOut,
+    HarvestOverview,
+    HarvestRow,
+    HarvestTotals,
+    MonthTotals,
+)
 
 FUTURE_TOLERANCE = timedelta(minutes=5)
 HISTORY_LIMIT = 500
@@ -172,6 +182,64 @@ def correct(
     )
     db.commit()
     return view(db, ctx, asset)
+
+
+OVERVIEW_LIMIT = 500
+
+
+def _sum(rows: list[HarvestOut]) -> dict:
+    t = totals_of(rows)
+    return {"by_unit": t.by_unit, "mass_tonnes": t.mass_tonnes, "records": t.records}
+
+
+def overview(
+    db: Session, ctx: WorkspaceContext, *, since: datetime, until: datetime, asset_id: uuid.UUID | None = None
+) -> HarvestOverview:
+    """Effective harvests of the workspace between `since` and `until`, with totals per unit, month and asset."""
+    if until <= since:
+        raise Unprocessable("'until' must be after 'since'", code="bad_period")
+    if until - since > timedelta(days=3 * 366):
+        raise Unprocessable("the period can be at most three years", code="period_too_long")
+    replaced = select(HarvestRecord.supersedes_id).where(
+        HarvestRecord.workspace_id == ctx.workspace_id, HarvestRecord.supersedes_id.is_not(None)
+    )
+    q = (
+        select(HarvestRecord, BiologicalAsset.label)
+        .join(
+            BiologicalAsset,
+            (BiologicalAsset.workspace_id == HarvestRecord.workspace_id)
+            & (BiologicalAsset.id == HarvestRecord.asset_id),
+        )
+        .where(
+            HarvestRecord.workspace_id == ctx.workspace_id,
+            HarvestRecord.harvested_at >= since,
+            HarvestRecord.harvested_at < until,
+            HarvestRecord.quantity > 0,
+            HarvestRecord.id.not_in(replaced),
+        )
+        .order_by(HarvestRecord.harvested_at.desc(), HarvestRecord.id.desc())
+    )
+    if asset_id:
+        q = q.where(HarvestRecord.asset_id == asset_id)
+    rows = db.execute(q).all()
+    outs = [(_out(r, {}), label) for r, label in rows]
+    every = [o for o, _ in outs]
+    months: dict[str, list[HarvestOut]] = {}
+    assets: dict[uuid.UUID, tuple[str, list[HarvestOut]]] = {}
+    for o, label in outs:
+        months.setdefault(as_utc(o.harvested_at).strftime("%Y-%m"), []).append(o)
+        assets.setdefault(o.asset_id, (label, []))[1].append(o)
+    by_asset = [AssetTotals(asset_id=aid, asset_label=label, **_sum(group)) for aid, (label, group) in assets.items()]
+    by_asset.sort(key=lambda a: (-a.mass_tonnes, -a.records, a.asset_label))
+    return HarvestOverview(
+        since=since,
+        until=until,
+        totals=totals_of(every),
+        by_month=[MonthTotals(month=m, **_sum(group)) for m, group in sorted(months.items())],
+        by_asset=by_asset,
+        records=[HarvestRow(**o.model_dump(), asset_label=label) for o, label in outs[:OVERVIEW_LIMIT]],
+        truncated=len(outs) > OVERVIEW_LIMIT,
+    )
 
 
 def window_totals(

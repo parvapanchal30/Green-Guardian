@@ -6,6 +6,7 @@ import { EvidenceGallery } from '../components/EvidenceGallery'
 import { ActionPanel } from '../components/ActionPanel'
 import { HarvestPanel } from '../components/HarvestPanel'
 import { SchedulePanel } from '../components/SchedulePanel'
+import { GrowthPanel } from './GrowthPage'
 import { LifecyclePanel } from '../components/LifecyclePanel'
 import { RecommendationCard } from '../components/RecommendationCard'
 import { Field, HealthChip, PageHeader, SeverityChip, StateChip, TaskStatusChip, btn, btnPrimary, input } from '../components/domain'
@@ -37,8 +38,23 @@ function ObservationForm({ ws, assetId, onCreated }: { ws: string; assetId: stri
     const symptoms = text('symptoms').split(',').map((s) => s.trim()).filter(Boolean)
     if (symptoms.length) body.symptoms = symptoms
     if (text('notes')) body.notes = text('notes')
+    // Optional measurements (Growth): stored in the observation's data, checked again by the server.
+    const measures: Record<string, number> = {}
+    for (const [key, max] of [['height_cm', 10_000], ['girth_cm', 3_000], ['canopy_m', 100]] as const) {
+      if (text(key) === '') continue
+      const n = Number(text(key))
+      if (!Number.isFinite(n) || n <= 0 || n > max) {
+        setError(t('obs.badMeasure'))
+        return
+      }
+      measures[key] = n
+    }
+    if (Object.keys(measures).length) {
+      body.data = measures
+      if (body.health_score === undefined) body.kind = 'growth'
+    }
     const file = (form.elements.namedItem('photo') as HTMLInputElement | null)?.files?.[0] ?? null
-    if (!body.health_score && body.health_score !== 0 && !symptoms.length && !body.notes) {
+    if (!body.health_score && body.health_score !== 0 && !symptoms.length && !body.notes && !body.data) {
       setError(t('obs.needSomething'))
       return
     }
@@ -79,6 +95,12 @@ function ObservationForm({ ws, assetId, onCreated }: { ws: string; assetId: stri
       <Field id="notes" label={t('obs.notes')}>
         <textarea id="notes" name="notes" rows={2} maxLength={5000} className={input} />
       </Field>
+      <fieldset className="grid gap-3 rounded border border-line p-2 sm:grid-cols-3">
+        <legend className="px-1 text-xs text-ink-3">{t('obs.measurements')}</legend>
+        <Field id="height_cm" label={t('obs.height')}><input id="height_cm" name="height_cm" type="number" min={0} step="any" className={input} /></Field>
+        <Field id="girth_cm" label={t('obs.girth')} hint={t('obs.girthHint')}><input id="girth_cm" name="girth_cm" type="number" min={0} step="any" className={input} /></Field>
+        <Field id="canopy_m" label={t('obs.canopy')}><input id="canopy_m" name="canopy_m" type="number" min={0} step="any" className={input} /></Field>
+      </fieldset>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field id="photo" label={t('obs.photo')} hint={t('obs.photoHint')}>
           <input id="photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" className={input} />
@@ -209,6 +231,7 @@ export function AssetProfilePage() {
       <LifecyclePanel ws={ws} asset={a} role={workspace.role} />
       <ActionPanel ws={ws} asset={a} role={workspace.role} />
       <SchedulePanel ws={ws} asset={a} role={workspace.role} />
+      <GrowthPanel ws={ws} assetId={a.id} />
       {workspace.mode === 'agricultural_production' && <HarvestPanel ws={ws} asset={a} role={workspace.role} />}
 
       <section aria-labelledby="photos">

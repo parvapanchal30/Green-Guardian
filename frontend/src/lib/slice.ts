@@ -19,7 +19,7 @@ export function qs(params: Params = {}): string {
 const base = (ws: string, path: string, params?: Params) => `/workspaces/${ws}${path}${qs(params)}`
 
 /** Everything that can change after an observation, issue, task or recommendation action. */
-const DATA = new Set(['assets', 'asset', 'timeline', 'observations', 'issues', 'issue', 'tasks', 'task', 'recommendations', 'dashboard', 'map', 'evidence', 'agent-runs', 'lifecycle', 'harvests', 'actions', 'schedules', 'schedule'])
+const DATA = new Set(['species', 'assets', 'asset', 'timeline', 'observations', 'issues', 'issue', 'tasks', 'task', 'recommendations', 'dashboard', 'map', 'evidence', 'agent-runs', 'lifecycle', 'harvests', 'actions', 'schedules', 'schedule'])
 export function refreshWorkspaceData(qc: QueryClient, ws: string) {
   return qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === ws && DATA.has(String(q.queryKey[1])) })
 }
@@ -101,10 +101,14 @@ function useWsMutation<TIn, TOut>(ws: string, fn: (input: TIn) => Promise<TOut>)
 export const useCreateAsset = (ws: string) =>
   useWsMutation(ws, (body: Record<string, unknown>) => api<Asset>(base(ws, '/assets'), { method: 'POST', body }))
 
+export const useCreateSpecies = (ws: string) =>
+  useWsMutation(ws, (body: Record<string, unknown>) => api<SpeciesItem>(base(ws, '/species'), { method: 'POST', body }))
+
 export function useCreateLocation(ws: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: { name: string; kind: string }) => api<LocationItem>(base(ws, '/locations'), { method: 'POST', body }),
+    mutationFn: (body: { name: string; kind: string; parent_id?: string; latitude?: number; longitude?: number }) =>
+      api<LocationItem>(base(ws, '/locations'), { method: 'POST', body }),
     onSuccess: () => qc.invalidateQueries({ queryKey: [ws, 'locations'] }),
   })
 }

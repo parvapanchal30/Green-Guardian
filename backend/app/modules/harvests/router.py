@@ -1,18 +1,36 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.deps import WorkspaceContext, manager_ctx, viewer_ctx, worker_ctx
+from app.core.timeutil import as_utc, utcnow
 from app.modules.assets.service import get_asset
 
 from . import service
-from .schemas import AssetHarvests, HarvestCorrect, HarvestCreate
+from .schemas import AssetHarvests, HarvestCorrect, HarvestCreate, HarvestOverview
 
 router = APIRouter(prefix="/workspaces/{ws}/assets/{asset_id}/harvests", tags=["harvests"])
+overview_router = APIRouter(prefix="/workspaces/{ws}/harvests", tags=["harvests"])
+
+
+@overview_router.get("", response_model=HarvestOverview)
+def harvest_overview(
+    since: datetime | None = None,
+    until: datetime | None = None,
+    asset_id: uuid.UUID | None = None,
+    ctx: WorkspaceContext = Depends(viewer_ctx),
+    db: Session = Depends(get_db),
+):
+    """Every effective harvest of the workspace in a period (default: the last 12 months), with totals per unit, per
+    month and per asset. Only kg and t are added together."""
+    end = as_utc(until) if until else utcnow()
+    start = as_utc(since) if since else end - timedelta(days=365)
+    return service.overview(db, ctx, since=start, until=end, asset_id=asset_id)
 
 
 @router.get("", response_model=AssetHarvests)

@@ -16,6 +16,12 @@ import { LoginPage, RegisterPage } from '../pages/AuthPages'
 import { MapPage } from '../pages/MapPage'
 import { MembersPage } from '../pages/MembersPage'
 import { PlannedPage } from '../pages/PlannedPage'
+import { SpeciesPage } from '../pages/SpeciesPage'
+import { LocationsPage } from '../pages/LocationsPage'
+import { InspectionsPage } from '../pages/InspectionsPage'
+import { HarvestsPage } from '../pages/HarvestsPage'
+import { HealthPage } from '../pages/HealthPage'
+import { GrowthPage } from '../pages/GrowthPage'
 import { WeatherPage } from '../pages/WeatherPage'
 import { WorkspacesPage } from '../pages/WorkspacesPage'
 import { ROUTES } from './routes'
@@ -48,6 +54,16 @@ function NotFound() {
 const LIVE: Record<string, () => React.JSX.Element> = {
   '': HomePage,
   assets: AssetsPage,
+  'assets/trees': () => <AssetsPage only="tree" />,
+  'assets/plants': () => <AssetsPage only="plant" />,
+  'assets/batches': () => <AssetsPage only="crop_batch" />,
+  'assets/species': () => <SpeciesPage />,
+  'assets/crops': () => <SpeciesPage crops />,
+  locations: LocationsPage,
+  inspections: InspectionsPage,
+  harvests: HarvestsPage,
+  'monitor/health': HealthPage,
+  'monitor/growth': GrowthPage,
   tasks: TasksPage,
   issues: IssuesPage,
   'ai/agent': AgentPage,

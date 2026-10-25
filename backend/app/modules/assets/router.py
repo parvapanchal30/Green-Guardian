@@ -40,6 +40,7 @@ def list_assets(
     has_open_issue: bool | None = None,
     stage: str | None = None,
     active: bool | None = None,
+    species_id: uuid.UUID | None = None,
     page: PageParams = Depends(page_params),
     ctx: WorkspaceContext = Depends(viewer_ctx),
     db: Session = Depends(get_db),
@@ -55,6 +56,7 @@ def list_assets(
         has_open_issue=has_open_issue,
         stage=stage,
         active=active,
+        species_id=species_id,
     )
 
 

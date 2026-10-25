@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
@@ -23,7 +23,7 @@ def list_tasks(
     assignee: str | None = None,
     issue_id: uuid.UUID | None = None,
     asset_id: uuid.UUID | None = None,
-    type: TaskType | None = None,  # noqa: A002
+    type: list[TaskType] | None = Query(default=None),  # noqa: A002 - repeat for several: ?type=inspect&type=monitor
     overdue: bool | None = None,
     q: str | None = None,
     page: PageParams = Depends(page_params),

@@ -96,6 +96,9 @@ export interface LocationItem {
   latitude: number | null
   longitude: number | null
   attributes: Record<string, unknown>
+  assets: number // living assets placed here
+  needs_attention: number // of those, at risk or critical
+  schedules: number // active recurring inspections of the location
 }
 
 export interface SpeciesItem {
@@ -104,6 +107,8 @@ export interface SpeciesItem {
   common_name: string
   scientific_name: string | null
   is_global: boolean
+  assets: number // live assets of this workspace that use it
+  plants: number | null // estimated plants across its crop batches
 }
 
 export interface AssetState {
@@ -616,6 +621,20 @@ export interface HarvestRecord {
   withdrawn: boolean
   recorded_by: string | null
   recorded_at: string
+}
+export interface HarvestPeriodTotals {
+  by_unit: Record<string, number>
+  mass_tonnes: number
+  records: number
+}
+export interface HarvestOverview {
+  since: string
+  until: string
+  totals: HarvestPeriodTotals
+  by_month: (HarvestPeriodTotals & { month: string })[]
+  by_asset: (HarvestPeriodTotals & { asset_id: string; asset_label: string })[]
+  records: (HarvestRecord & { asset_label: string })[]
+  truncated: boolean
 }
 export interface AssetHarvests {
   asset_id: string

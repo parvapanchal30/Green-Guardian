@@ -320,3 +320,55 @@ def test_the_database_allows_one_correction_per_record(api_for, team, world):
     )
     with world.db() as db, pytest.raises(IntegrityError, match="uq_harvest_records_supersedes"):
         db.execute(text(sql), {"ws": team.ws, "a": a["id"], "s": rec})
+
+
+# ------------------------------------------------------------------ workspace overview (Harvests page)
+
+
+def overview(api, **params) -> dict:
+    r = api.get("/harvests", params=params)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_the_overview_adds_up_every_asset_by_unit_month_and_asset(api_for, team):
+    owner = api_for(team.owner, team.agri_ws)
+    a = make_asset(owner, label="Block A", kind="crop_batch", tracking_mode="population", estimated_count=10)
+    b = make_asset(owner, label="Block B", kind="crop_batch", tracking_mode="population", estimated_count=10)
+    harvest(owner, a["id"], 100, "kg", harvested_at=ago(days=40))
+    harvest(owner, a["id"], 0.2, "t", harvested_at=ago(days=5))
+    harvest(owner, b["id"], 30, "count", harvested_at=ago(days=5))
+    harvest(owner, b["id"], 999, "kg", harvested_at=ago(days=3))
+    mistake = [h for h in harvests(owner, b["id"])["history"] if h["quantity"] == 999][0]["id"]
+    correct(owner, b["id"], mistake, quantity=0, note="this was entered twice by mistake")  # withdrawn
+    body = overview(owner)
+    assert body["totals"]["by_unit"] == {"kg": 100.0, "t": 0.2, "count": 30.0}
+    assert body["totals"]["mass_tonnes"] == 0.3 and body["totals"]["records"] == 3  # the withdrawn record is gone
+    assert [(r["asset_label"], r["unit"]) for r in body["records"]] == [
+        ("Block B", "count"),
+        ("Block A", "t"),
+        ("Block A", "kg"),
+    ]
+    assert {m["month"] for m in body["by_month"]} <= {ago(days=40)[:7], ago(days=5)[:7]}
+    first = body["by_asset"][0]
+    assert (first["asset_label"], first["mass_tonnes"]) == ("Block A", 0.3)  # heaviest first
+    assert overview(owner, asset_id=b["id"])["totals"]["by_unit"] == {"count": 30.0}
+
+
+def test_the_overview_period(api_for, team):
+    owner = api_for(team.owner, team.agri_ws)
+    a = make_asset(owner, label="Block C", kind="crop_batch", tracking_mode="population", estimated_count=10)
+    harvest(owner, a["id"], 50, "kg", harvested_at=ago(days=400))  # older than the default 12 months
+    assert overview(owner)["totals"]["records"] == 0
+    assert overview(owner, since=ago(days=500))["totals"]["records"] == 1
+    r = owner.get("/harvests", params={"since": ago(days=1), "until": ago(days=2)})
+    assert r.status_code == 422 and r.json()["code"] == "bad_period"
+    r = owner.get("/harvests", params={"since": ago(days=1200)})
+    assert r.status_code == 422 and r.json()["code"] == "period_too_long"
+
+
+def test_the_overview_is_per_workspace(api_for, team):
+    owner = api_for(team.owner, team.agri_ws)
+    a = make_asset(owner, label="Block D", kind="crop_batch", tracking_mode="population", estimated_count=10)
+    harvest(owner, a["id"], 10, "kg")
+    assert overview(api_for(team.manager))["totals"]["records"] == 0  # the campus workspace has no harvests

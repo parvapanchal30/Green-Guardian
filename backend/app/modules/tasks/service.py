@@ -169,7 +169,7 @@ def list_tasks(
     assignee: str | None = None,
     issue_id: uuid.UUID | None = None,
     asset_id: uuid.UUID | None = None,
-    type: TaskType | None = None,  # noqa: A002 - mirrors the query parameter name
+    type: TaskType | list[TaskType] | None = None,  # noqa: A002 - mirrors the query parameter name
     overdue: bool | None = None,
     q: str | None = None,
 ) -> Page[TaskOut]:
@@ -195,7 +195,8 @@ def list_tasks(
     if asset_id:
         stmt = stmt.where(Task.asset_id == asset_id)
     if type:
-        stmt = stmt.where(Task.type == type.value)
+        types = type if isinstance(type, list) else [type]
+        stmt = stmt.where(Task.type.in_([t.value for t in types]))
     if overdue is True:
         stmt = stmt.where(Task.status.in_(open_values), Task.due_at.is_not(None), Task.due_at < utcnow())
     if q:

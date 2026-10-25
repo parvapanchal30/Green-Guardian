@@ -21,6 +21,7 @@ from app.modules.dashboard.router import router as dashboard_router
 from app.modules.datasets.router import router as datasets_router
 from app.modules.evidence.router import router as evidence_router
 from app.modules.evidence.storage import UnknownStorageProvider, available_stores, s3_dependency_problem
+from app.modules.harvests.router import overview_router as harvest_overview_router
 from app.modules.harvests.router import router as harvests_router
 from app.modules.identity.router import router as identity_router
 from app.modules.intelligence.ports import WeatherContextProvider, get_weather_context_provider
@@ -28,6 +29,7 @@ from app.modules.intelligence.router import router as intelligence_router
 from app.modules.issues.router import router as issues_router
 from app.modules.locations.router import router as locations_router
 from app.modules.map.router import router as map_router
+from app.modules.monitor.router import router as monitor_router
 from app.modules.observations.router import router as observations_router
 from app.modules.protocols.router import router as protocols_router
 from app.modules.schedules.router import router as schedules_router
@@ -108,8 +110,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         map_router,
         evidence_router,
         harvests_router,
+        harvest_overview_router,
         actions_router,
         schedules_router,
+        monitor_router,
         audit_router,
         datasets_router,
         protocols_router,

@@ -1,11 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
-import type { AssetHarvests, HarvestUnit } from '../api/types'
+import type { AssetHarvests, HarvestOverview, HarvestUnit } from '../api/types'
 import { refreshWorkspaceData } from './slice'
 
 /** Harvest records (ADR-056). Append-only on the server: a mistake is replaced by a manager's correction. */
 export const useHarvests = (ws: string, assetId: string) =>
   useQuery({ queryKey: [ws, 'harvests', assetId], queryFn: () => api<AssetHarvests>(`/workspaces/${ws}/assets/${assetId}/harvests`) })
+
+/** Every effective harvest of the workspace in a period (Harvests page). */
+export const useHarvestOverview = (ws: string, params: { since?: string; asset_id?: string }) =>
+  useQuery({
+    queryKey: [ws, 'harvests', 'overview', params],
+    queryFn: () => {
+      const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString()
+      return api<HarvestOverview>(`/workspaces/${ws}/harvests${q ? `?${q}` : ''}`)
+    },
+  })
 
 export interface HarvestInput {
   quantity: number

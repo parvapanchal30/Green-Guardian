@@ -39,6 +39,9 @@ def create_observation(
         raise InvalidObservation("observed_at cannot be in the future")
     if observed_at < now - MAX_BACKDATE:
         raise InvalidObservation("observed_at is too far in the past")
+    from app.modules.monitor.service import check_measurements
+
+    check_measurements(data.data)  # height_cm, girth_cm, canopy_m: numbers in range when present
     if data.health_score is None and not data.notes and not data.symptoms and not data.attachments and not data.data:
         raise InvalidObservation("an observation needs a health score, symptoms, notes, data or an attachment")
     if data.supersedes_id is not None:

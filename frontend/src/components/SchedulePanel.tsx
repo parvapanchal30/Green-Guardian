@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import type { Asset, InspectionSchedule, Role } from '../api/types'
+import type { Asset, InspectionSchedule, LocationItem, Role } from '../api/types'
 import { useI18n } from '../i18n'
 import { atLeast } from '../lib/format'
 import { enteredAt } from '../lib/lifecycle'
@@ -62,7 +62,15 @@ function Row({ ws, s, isManager }: { ws: string; s: InspectionSchedule; isManage
   )
 }
 
-function CreateForm({ ws, asset, onDone }: { ws: string; asset: Asset; onDone: () => void }) {
+/** What a schedule covers: one asset or one location. */
+interface Subject {
+  asset_id?: string
+  location_id?: string
+  label: string
+  active: boolean
+}
+
+function CreateForm({ ws, subject, onDone }: { ws: string; subject: Subject; onDone: () => void }) {
   const { t, te } = useI18n()
   const create = useCreateSchedule(ws)
   const members = useMembers(ws)
@@ -79,7 +87,8 @@ function CreateForm({ ws, asset, onDone }: { ws: string; asset: Asset; onDone: (
     setProblem(null)
     create.mutate(
       {
-        asset_id: asset.id,
+        asset_id: subject.asset_id,
+        location_id: subject.location_id,
         title: text('title') || undefined,
         task_type: text('type') as 'inspect' | 'monitor',
         interval_days: interval,
@@ -97,7 +106,7 @@ function CreateForm({ ws, asset, onDone }: { ws: string; asset: Asset; onDone: (
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="sm:col-span-3">
           <Field id="sc-title" label={t('schedule.title')}>
-            <input id="sc-title" name="title" className={input} maxLength={200} placeholder={t('schedule.titlePlaceholder', { label: asset.label })} />
+            <input id="sc-title" name="title" className={input} maxLength={200} placeholder={t('schedule.titlePlaceholder', { label: subject.label })} />
           </Field>
         </div>
         <Field id="sc-type" label={t('schedule.type')}>
@@ -133,10 +142,16 @@ function CreateForm({ ws, asset, onDone }: { ws: string; asset: Asset; onDone: (
   )
 }
 
-/** Recurring inspections of one asset (asset page). Everyone sees them; a manager sets them up, pauses or resumes them. */
-export function SchedulePanel({ ws, asset, role }: { ws: string; asset: Asset; role: Role }) {
+/**
+ * Recurring inspections of one asset (asset page) or one location (Fields and zones). Everyone sees them; a manager sets
+ * them up, pauses or resumes them.
+ */
+export function SchedulePanel({ ws, asset, location, role, compact = false }: { ws: string; asset?: Asset; location?: LocationItem; role: Role; compact?: boolean }) {
   const { t } = useI18n()
-  const list = useSchedules(ws, { asset_id: asset.id })
+  const subject: Subject = asset
+    ? { asset_id: asset.id, label: asset.label, active: asset.is_active }
+    : { location_id: location?.id, label: location?.name ?? '', active: true }
+  const list = useSchedules(ws, asset ? { asset_id: asset.id } : { location_id: location?.id })
   const generate = useGenerateDue(ws)
   const [adding, setAdding] = useState(false)
   const isManager = atLeast(role, 'manager')
@@ -145,24 +160,24 @@ export function SchedulePanel({ ws, asset, role }: { ws: string; asset: Asset; r
   if (list.error || !list.data) return <ErrorState error={list.error ?? new Error(t('schedule.unavailable'))} onRetry={() => list.refetch()} />
 
   return (
-    <section aria-labelledby="schedules">
+    <section aria-labelledby={compact ? undefined : 'schedules'} aria-label={compact ? t('schedule.panelTitle') : undefined}>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 id="schedules" className="font-semibold">{t('schedule.panelTitle')}</h2>
+        {compact ? <h3 className="text-sm font-semibold">{t('schedule.panelTitle')}</h3> : <h2 id="schedules" className="font-semibold">{t('schedule.panelTitle')}</h2>}
         {isManager && (
           <div className="flex gap-2">
             {list.data.some((s) => s.active) && (
               <button type="button" className={btn} disabled={generate.isPending} onClick={() => generate.mutate(undefined as never)}>{t('schedule.generate')}</button>
             )}
-            {asset.is_active && !adding && <button type="button" className={btn} onClick={() => setAdding(true)}>{t('schedule.add')}</button>}
+            {subject.active && !adding && <button type="button" className={btn} onClick={() => setAdding(true)}>{t('schedule.add')}</button>}
           </div>
         )}
       </div>
       {generate.data && <p role="status" className="mb-2 text-sm text-ink-2">{t('schedule.generated', { count: generate.data.created })}</p>}
       {generate.error != null && <p role="alert" className="mb-2 text-sm text-critical">{errorMessage(generate.error)}</p>}
-      {list.data.length === 0 && !adding && <p className="text-sm text-ink-3">{t('schedule.none')}</p>}
+      {list.data.length === 0 && !adding && <p className="text-sm text-ink-3">{asset ? t('schedule.none') : t('schedule.noneLocation')}</p>}
       <ul className="space-y-2">{list.data.map((s) => <Row key={`${s.id}-${s.version}`} ws={ws} s={s} isManager={isManager} />)}</ul>
-      {adding && <div className="mt-3"><CreateForm ws={ws} asset={asset} onDone={() => setAdding(false)} /></div>}
-      <p className="mt-2 text-xs text-ink-3">{t('schedule.explain')}</p>
+      {adding && <div className="mt-3"><CreateForm ws={ws} subject={subject} onDone={() => setAdding(false)} /></div>}
+      {!compact && <p className="mt-2 text-xs text-ink-3">{t('schedule.explain')}</p>}
     </section>
   )
 }

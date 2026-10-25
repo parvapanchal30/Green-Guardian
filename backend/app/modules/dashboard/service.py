@@ -50,7 +50,7 @@ KPI_DEFS: dict[str, list[tuple[str, str, str]]] = {
 }
 NOT_COMPUTABLE = {
     "survival": "No individually tracked assets yet",
-    "growth": "Needs growth records",
+    "growth": "Needs two height measurements of an asset at least 30 days apart",
     "canopy": "Needs canopy measurements",
     "coverage": "Needs zone areas",
     "yield": "No harvests recorded in the last 12 months",
@@ -151,8 +151,33 @@ def _yield(by_unit: dict[str, float], records: int, assets: int) -> Kpi:
     )
 
 
+def _growth(db: Session, ctx: WorkspaceContext, filters: Filters) -> Kpi:
+    """Median height change over the last 12 months, among living assets with two height measurements at least 30
+    days apart. A comparison of recorded measurements, never an estimate of unmeasured growth."""
+    from app.modules.monitor import service as monitor
+
+    g = monitor.growth(db, ctx, metric="height_cm", months=12, kind=filters.kind, location_id=filters.location_id)
+    if g.median_change_pct is None:
+        return Kpi(key="growth", label="Growth", available=False, reason=NOT_COMPUTABLE["growth"])
+    return Kpi(
+        key="growth",
+        label="Growth",
+        available=True,
+        unit="%",
+        value=g.median_change_pct,
+        basis=(
+            f"median height change of {g.comparable_assets} assets measured twice or more at least "
+            f"{g.min_span_days} days apart in the last 12 months ({g.measured_assets} measured in all)"
+        ),
+    )
+
+
 def _kpis(
-    mode: str, health: HealthCounts, stages: dict[tuple[str, str], int], yield_kpi: Kpi | None = None
+    mode: str,
+    health: HealthCounts,
+    stages: dict[tuple[str, str], int],
+    yield_kpi: Kpi | None = None,
+    growth_kpi: Kpi | None = None,
 ) -> list[Kpi]:
     observed = health.healthy + health.at_risk + health.critical
     out = []
@@ -177,6 +202,8 @@ def _kpis(
             out.append(_harvest(stages))
         elif key == "yield" and yield_kpi is not None:
             out.append(yield_kpi)
+        elif key == "growth" and growth_kpi is not None:
+            out.append(growth_kpi)
         else:
             out.append(Kpi(key=key, label=label, available=False, reason=NOT_COMPUTABLE[key]))
     return out
@@ -291,7 +318,7 @@ def build(db: Session, ctx: WorkspaceContext, filters: Filters) -> Dashboard:
         filters=filters,
         assets=AssetMetrics(total=sum(by_kind.values()), by_kind=dict(by_kind), health=health, exited=exited),
         work=work,
-        kpis=_kpis(ctx.workspace.mode, health, stages, yield_kpi),
+        kpis=_kpis(ctx.workspace.mode, health, stages, yield_kpi, _growth(db, ctx, filters)),
         recent_activity=_recent_activity(db, ctx, scope if scoped else None),
     )
 

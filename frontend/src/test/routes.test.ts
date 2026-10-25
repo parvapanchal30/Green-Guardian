@@ -11,7 +11,7 @@ describe('route registry', () => {
   })
 
   it('only marks as live what is implemented', () => {
-    expect(ROUTES.filter((r) => r.status === 'live').map((r) => r.path).sort()).toEqual(['', 'ai/agent', 'ai/datasets', 'ai/protocols', 'assets', 'issues', 'monitor/map', 'monitor/weather', 'settings/audit', 'settings/members', 'tasks'])
+    expect(ROUTES.filter((r) => r.status === 'live').map((r) => r.path).sort()).toEqual(['', 'ai/agent', 'ai/datasets', 'ai/protocols', 'assets', 'assets/batches', 'assets/crops', 'assets/plants', 'assets/species', 'assets/trees', 'harvests', 'inspections', 'issues', 'locations', 'monitor/growth', 'monitor/health', 'monitor/map', 'monitor/weather', 'settings/audit', 'settings/members', 'tasks'])
   })
 
   it('every future (soon) surface is gated by a backend capability and names its technique', () => {
@@ -38,7 +38,7 @@ describe('route registry', () => {
   })
 
   it('labels MVP items "In development" and V2+ items "Coming soon"', () => {
-    const tasks = ROUTES.find((r) => r.path === 'monitor/health')!
+    const tasks = ROUTES.find((r) => r.path === 'reports/analytics')!
     const disease = ROUTES.find((r) => r.path === 'ai/disease-detection')!
     expect(statusLabel(tasks)).toBe('In development')
     expect(statusLabel(disease)).toMatch(/^Coming soon/)

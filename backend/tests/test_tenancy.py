@@ -32,6 +32,10 @@ ENDPOINTS = [
     ("POST", "/api/v1/workspaces/{ws}/assets/{asset_id}/lifecycle", {"stage": "growing"}),
     ("GET", "/api/v1/workspaces/{ws}/lifecycle-template", None),
     ("GET", "/api/v1/workspaces/{ws}/assets/{asset_id}/harvests", None),
+    ("GET", "/api/v1/workspaces/{ws}/harvests", None),
+    ("GET", "/api/v1/workspaces/{ws}/monitor/health", None),
+    ("GET", "/api/v1/workspaces/{ws}/monitor/growth", None),
+    ("GET", "/api/v1/workspaces/{ws}/assets/{asset_id}/growth", None),
     ("POST", "/api/v1/workspaces/{ws}/assets/{asset_id}/harvests", {"quantity": 1, "unit": "kg"}),
     (
         "POST",

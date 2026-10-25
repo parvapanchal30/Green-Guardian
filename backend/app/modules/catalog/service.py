@@ -30,6 +30,9 @@ class SpeciesOut(BaseModel):
     common_name: str
     scientific_name: str | None
     is_global: bool = False
+    # Use in THIS workspace (live assets: not archived, not exited); plants = sum of estimated counts of batches.
+    assets: int = 0
+    plants: int | None = None
 
 
 def _visible(ctx: WorkspaceContext):
@@ -54,10 +57,46 @@ def get_visible_species(db: Session, ctx: WorkspaceContext, species_id: uuid.UUI
     return s
 
 
+def _usage(db: Session, ctx: WorkspaceContext):
+    """Per species: live assets of this workspace and, for population assets, their estimated plant count."""
+    from app.modules.assets import lifecycle as lc
+    from app.modules.assets.models import BiologicalAsset
+
+    return (
+        select(
+            BiologicalAsset.species_id.label("species_id"),
+            func.count().label("assets"),
+            func.sum(BiologicalAsset.estimated_count).label("plants"),
+        )
+        .where(
+            BiologicalAsset.workspace_id == ctx.workspace_id,
+            BiologicalAsset.archived_at.is_(None),
+            BiologicalAsset.current_stage.notin_(lc.EXIT_STAGES),
+            BiologicalAsset.species_id.is_not(None),
+        )
+        .group_by(BiologicalAsset.species_id)
+        .subquery()
+    )
+
+
 def list_species(
-    db: Session, ctx: WorkspaceContext, page: PageParams, category: SpeciesCategory | None = None, q: str | None = None
+    db: Session,
+    ctx: WorkspaceContext,
+    page: PageParams,
+    category: SpeciesCategory | None = None,
+    q: str | None = None,
+    in_use: bool | None = None,
 ) -> Page[SpeciesOut]:
-    stmt = select(Species).where(_visible(ctx))
+    usage = _usage(db, ctx)
+    stmt = (
+        select(Species, usage.c.assets, usage.c.plants)
+        .outerjoin(usage, usage.c.species_id == Species.id)
+        .where(_visible(ctx))
+    )
+    if in_use is True:
+        stmt = stmt.where(usage.c.assets > 0)
+    if in_use is False:
+        stmt = stmt.where(usage.c.assets.is_(None))
     if category:
         stmt = stmt.where(Species.category == category.value)
     if q:
@@ -69,8 +108,12 @@ def list_species(
             )
         )
     total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
-    rows = db.scalars(stmt.order_by(Species.common_name, Species.id).limit(page.limit).offset(page.offset)).all()
-    return Page(items=[to_out(r) for r in rows], total=total, limit=page.limit, offset=page.offset)
+    rows = db.execute(stmt.order_by(Species.common_name, Species.id).limit(page.limit).offset(page.offset)).all()
+    items = [
+        to_out(r).model_copy(update={"assets": int(n or 0), "plants": int(p) if p is not None else None})
+        for r, n, p in rows
+    ]
+    return Page(items=items, total=total, limit=page.limit, offset=page.offset)
 
 
 def create_species(db: Session, ctx: WorkspaceContext, data: SpeciesCreate) -> Species:

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import type { AssetKind, HealthBand } from '../api/types'
 import { useWorkspaceCtx } from '../app/WorkspaceLayout'
 import { Field, HealthChip, PageHeader, Pagination, btn, btnPrimary, input } from '../components/domain'
@@ -18,7 +18,7 @@ function fieldErrors(e: unknown): Record<string, string> {
   return Object.fromEntries(e.fieldErrors.map((f) => [f.loc[f.loc.length - 1], f.msg]))
 }
 
-function RegisterAssetForm({ onDone }: { onDone: () => void }) {
+function RegisterAssetForm({ onDone, preset }: { onDone: () => void; preset?: AssetKind }) {
   const { ws, workspace } = useWorkspaceCtx()
   const { t, te } = useI18n()
   const navigate = useNavigate()
@@ -26,7 +26,7 @@ function RegisterAssetForm({ onDone }: { onDone: () => void }) {
   const locations = useLocations(ws)
   const create = useCreateAsset(ws)
   const template = useLifecycleTemplate(ws, true)
-  const [kind, setKind] = useState<AssetKind>(workspace.mode === 'agricultural_production' ? 'crop_batch' : 'tree')
+  const [kind, setKind] = useState<AssetKind>(preset ?? (workspace.mode === 'agricultural_production' ? 'crop_batch' : 'tree'))
   const fe = fieldErrors(create.error)
 
   function submit(e: FormEvent<HTMLFormElement>) {
@@ -141,37 +141,59 @@ function AddLocation() {
   )
 }
 
-export function AssetsPage() {
+/**
+ * The asset registry. With `only`, it is a view of one kind (Trees, Plants, Crop batches): the same list, filters and
+ * registration, with the kind fixed. These views are filters of one model, not separate registers (ADR-006).
+ */
+export function AssetsPage({ only }: { only?: AssetKind } = {}) {
   const { ws, workspace } = useWorkspaceCtx()
   const { t, te, fmt } = useI18n()
   const [adding, setAdding] = useState(false)
   const [q, setQ] = useState('')
-  const [kind, setKind] = useState('')
+  const [chosenKind, setKind] = useState('')
+  const kind = only ?? chosenKind
+  const [params, setParams] = useSearchParams()
+  const speciesId = params.get('species') ?? undefined
+  const locationId = params.get('location') ?? undefined
+  const locations = useLocations(ws)
+  const locationName = locations.data?.items.find((l) => l.id === locationId)?.name
+  const species = useSpecies(ws)
+  const speciesName = species.data?.items.find((s) => s.id === speciesId)?.common_name
   const [band, setBand] = useState('')
   const [lifecycle, setLifecycle] = useState('active')
   const [offset, setOffset] = useState(0)
   const list = useAssets(ws, {
-    q, kind: kind || undefined, health_band: (band as HealthBand) || undefined, limit: PAGE, offset,
+    q, kind: kind || undefined, health_band: (band as HealthBand) || undefined, species_id: speciesId, location_id: locationId, limit: PAGE, offset,
     active: lifecycle === 'all' ? undefined : lifecycle === 'active',
   })
   const canRegister = atLeast(workspace.role, 'worker')
 
   return (
     <div>
-      <PageHeader title={t('assets.title')} subtitle={t(`assets.subtitle.${workspace.mode}` as TKey, { name: workspace.name })}>
+      <PageHeader title={only ? t(`assets.view.${only}` as TKey) : t('assets.title')} subtitle={only ? t(`assets.viewSubtitle.${only}` as TKey) : t(`assets.subtitle.${workspace.mode}` as TKey, { name: workspace.name })}>
         {canRegister && !adding && <button type="button" className={btnPrimary} onClick={() => setAdding(true)}>{t('assets.register')}</button>}
       </PageHeader>
-      {adding && <RegisterAssetForm onDone={() => setAdding(false)} />}
-      {atLeast(workspace.role, 'manager') && <AddLocation />}
+      {adding && <RegisterAssetForm onDone={() => setAdding(false)} preset={only} />}
+      {!only && atLeast(workspace.role, 'manager') && <AddLocation />}
 
+      {(speciesId || locationId) && (
+        <p className="mb-2 flex items-center gap-2 text-sm">
+          {speciesId ? t('assets.speciesFilter', { name: speciesName ?? '…' }) : t('assets.locationFilter', { name: locationName ?? '…' })}
+          <button type="button" className={`${btn} px-2 py-0.5 text-xs`} onClick={() => setParams({}, { replace: true })}>{t('assets.clearFilter')}</button>
+        </p>
+      )}
       <div className="mb-3 flex flex-wrap gap-2" role="search">
         <label className="sr-only" htmlFor="q">{t('assets.search')}</label>
         <input id="q" value={q} onChange={(e) => { setQ(e.target.value); setOffset(0) }} placeholder={t('assets.searchPlaceholder')} className={`${input} max-w-xs`} />
-        <label className="sr-only" htmlFor="kindf">{t('assets.filterType')}</label>
-        <select id="kindf" value={kind} onChange={(e) => { setKind(e.target.value); setOffset(0) }} className={`${input} max-w-[10rem]`}>
-          <option value="">{t('assets.allTypes')}</option>
-          {KINDS.map((k) => <option key={k} value={k}>{te('kind', k)}</option>)}
-        </select>
+        {!only && (
+          <>
+            <label className="sr-only" htmlFor="kindf">{t('assets.filterType')}</label>
+            <select id="kindf" value={kind} onChange={(e) => { setKind(e.target.value); setOffset(0) }} className={`${input} max-w-[10rem]`}>
+              <option value="">{t('assets.allTypes')}</option>
+              {KINDS.map((k) => <option key={k} value={k}>{te('kind', k)}</option>)}
+            </select>
+          </>
+        )}
         <label className="sr-only" htmlFor="bandf">{t('assets.filterHealth')}</label>
         <select id="bandf" value={band} onChange={(e) => { setBand(e.target.value); setOffset(0) }} className={`${input} max-w-[10rem]`}>
           <option value="">{t('assets.anyHealth')}</option>
@@ -190,7 +212,7 @@ export function AssetsPage() {
       {list.isLoading && <LoadingBlock label={t('assets.loading')} />}
       {list.error && <ErrorState error={list.error} onRetry={() => list.refetch()} />}
       {list.data && list.data.total === 0 && (
-        <EmptyState title={q || kind || band || lifecycle !== 'active' ? t('assets.emptyFiltered') : t('assets.empty')} action={canRegister && !adding ? <button type="button" className={btnPrimary} onClick={() => setAdding(true)}>{t('assets.registerFirst')}</button> : undefined}>
+        <EmptyState title={q || chosenKind || band || lifecycle !== 'active' ? t('assets.emptyFiltered') : only ? t(`assets.viewEmpty.${only}` as TKey) : t('assets.empty')} action={canRegister && !adding ? <button type="button" className={btnPrimary} onClick={() => setAdding(true)}>{t('assets.registerFirst')}</button> : undefined}>
           {t('assets.emptyBody')}
         </EmptyState>
       )}

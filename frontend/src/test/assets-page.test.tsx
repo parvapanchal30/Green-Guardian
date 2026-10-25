@@ -36,13 +36,13 @@ const asset = (over: Partial<Asset>): Asset => ({
   ...over,
 })
 
-function renderPage() {
+function renderPage(only?: 'tree' | 'plant' | 'crop_batch') {
   const ctx = { ws: 'w1', workspace: { id: 'w1', name: 'Campus', mode: 'green_management', role: 'worker' }, capabilities: [] }
   return render(
     <MemoryRouter initialEntries={['/w/w1/assets']}>
       <Routes>
         <Route path="/w/:ws" element={<Outlet context={ctx} />}>
-          <Route path="assets" element={<AssetsPage />} />
+          <Route path="assets" element={<AssetsPage only={only} />} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -87,5 +87,23 @@ describe('assets list and lifecycle', () => {
     await userEvent.selectOptions(select, 'mature')
     await userEvent.click(within(screen.getByRole('form', { name: 'Register asset' })).getByRole('button', { name: 'Register asset' }))
     expect(state.create.mock.calls[1][0]).toMatchObject({ label: 'Teak #9', stage: 'mature' })
+  })
+})
+
+describe('views of one kind', () => {
+  it('Trees is the same register, fixed to trees: no kind filter, its own title, trees registered by default', async () => {
+    renderPage('tree')
+    expect(screen.getByRole('heading', { name: 'Trees' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Filter by type')).not.toBeInTheDocument()
+    expect(state.params.every((p) => p.kind === 'tree')).toBe(true)
+    await userEvent.click(screen.getByRole('button', { name: 'Register asset' }))
+    expect((screen.getByLabelText('Type') as HTMLSelectElement).value).toBe('tree')
+  })
+
+  it('Crop batches asks only for batches and says so when there are none', () => {
+    state.list = { isLoading: false, error: null, refetch: vi.fn(), data: { total: 0, limit: 25, offset: 0, items: [] } }
+    renderPage('crop_batch')
+    expect(state.params.every((p) => p.kind === 'crop_batch')).toBe(true)
+    expect(screen.getByText('No crop batches registered yet')).toBeInTheDocument()
   })
 })

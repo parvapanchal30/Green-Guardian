@@ -159,6 +159,7 @@ def list_assets(
     has_open_issue: bool | None = None,
     stage: str | None = None,
     active: bool | None = None,
+    species_id: uuid.UUID | None = None,
 ) -> Page[AssetOut]:
     stmt = (
         select(BiologicalAsset, AssetState, Species.common_name, Location.name)
@@ -171,6 +172,8 @@ def list_assets(
         stmt = stmt.where(BiologicalAsset.kind == kind.value)
     if location_id:
         stmt = stmt.where(BiologicalAsset.location_id == location_id)
+    if species_id:
+        stmt = stmt.where(BiologicalAsset.species_id == species_id)
     if health_band:
         stmt = stmt.where(AssetState.health_band == health_band.value)
     if stage:

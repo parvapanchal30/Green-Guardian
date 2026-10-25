@@ -53,6 +53,38 @@ class HarvestTotals(BaseModel):
     records: int
 
 
+class PeriodTotals(BaseModel):
+    by_unit: dict[str, float]
+    mass_tonnes: float
+    records: int
+
+
+class MonthTotals(PeriodTotals):
+    month: str  # YYYY-MM (UTC)
+
+
+class AssetTotals(PeriodTotals):
+    asset_id: uuid.UUID
+    asset_label: str
+
+
+class HarvestRow(HarvestOut):
+    asset_label: str
+
+
+class HarvestOverview(BaseModel):
+    """Every EFFECTIVE harvest of the workspace in a period (corrections applied, withdrawn records left out).
+    Units are never converted into each other except kg and t (mass)."""
+
+    since: datetime
+    until: datetime
+    totals: HarvestTotals
+    by_month: list[MonthTotals]
+    by_asset: list[AssetTotals]
+    records: list[HarvestRow]  # newest first
+    truncated: bool  # more records than listed (the totals still cover all of them)
+
+
 class AssetHarvests(BaseModel):
     asset_id: uuid.UUID
     totals: HarvestTotals
