@@ -6,7 +6,6 @@ from enum import StrEnum
 
 from sqlalchemy import (
     CheckConstraint,
-    DateTime,
     Float,
     ForeignKey,
     ForeignKeyConstraint,
@@ -18,7 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.orm import Base, IdMixin, JsonType
+from app.core.orm import Base, IdMixin, JsonType, UtcDateTime
 from app.core.timeutil import utcnow
 
 
@@ -79,7 +78,7 @@ class Observation(IdMixin, Base):
     workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
     asset_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     location_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
-    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    observed_at: Mapped[datetime] = mapped_column(UtcDateTime(), nullable=False)
     # RESTRICT, not SET NULL: observations are append-only, so a user with history is anonymised, never deleted
     observer_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
     kind: Mapped[str] = mapped_column(String(16), default=ObservationKind.HEALTH.value, nullable=False)
@@ -92,4 +91,4 @@ class Observation(IdMixin, Base):
     # Photo/evidence METADATA only: [{name, content_type, url, caption}]. Upload/storage arrives with the storage slice.
     attachments: Mapped[list] = mapped_column(JsonType, default=list, nullable=False)
     supersedes_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)

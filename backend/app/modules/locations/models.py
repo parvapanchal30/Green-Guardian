@@ -6,7 +6,6 @@ from enum import StrEnum
 
 from sqlalchemy import (
     CheckConstraint,
-    DateTime,
     Float,
     ForeignKey,
     ForeignKeyConstraint,
@@ -17,7 +16,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.orm import Base, IdMixin, JsonType, TimestampMixin
+from app.core.orm import Base, IdMixin, JsonType, TimestampMixin, UtcDateTime
 
 
 class LocationKind(StrEnum):
@@ -61,4 +60,4 @@ class Location(IdMixin, TimestampMixin, Base):
     latitude: Mapped[float | None] = mapped_column(Float)
     longitude: Mapped[float | None] = mapped_column(Float)
     attributes: Mapped[dict] = mapped_column(JsonType, default=dict, nullable=False)
-    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    archived_at: Mapped[datetime | None] = mapped_column(UtcDateTime())

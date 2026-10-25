@@ -5,7 +5,6 @@ from datetime import datetime
 
 from sqlalchemy import (
     CheckConstraint,
-    DateTime,
     Float,
     ForeignKey,
     ForeignKeyConstraint,
@@ -18,7 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.orm import Base, IdMixin
+from app.core.orm import Base, IdMixin, UtcDateTime
 from app.core.timeutil import utcnow
 
 UNITS = ("kg", "t", "count", "l")
@@ -66,11 +65,11 @@ class HarvestRecord(IdMixin, Base):
 
     workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
     asset_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
-    harvested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    harvested_at: Mapped[datetime] = mapped_column(UtcDateTime(), nullable=False)
     quantity: Mapped[float] = mapped_column(Float, nullable=False)
     unit: Mapped[str] = mapped_column(String(8), nullable=False)
     grade: Mapped[str | None] = mapped_column(String(40))
     note: Mapped[str | None] = mapped_column(Text)
     supersedes_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     recorded_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)

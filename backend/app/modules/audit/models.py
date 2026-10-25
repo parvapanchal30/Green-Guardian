@@ -3,10 +3,10 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Uuid, event
+from sqlalchemy import CheckConstraint, ForeignKey, Index, String, Uuid, event
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.orm import Base, IdMixin, JsonType
+from app.core.orm import Base, IdMixin, JsonType, UtcDateTime
 from app.core.timeutil import utcnow
 
 OUTCOMES = ("success", "failure", "denied")
@@ -30,7 +30,7 @@ class AuditEvent(IdMixin, Base):
         Index("ix_audit_events_request", "request_id"),
     )
 
-    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)
     # RESTRICT: workspaces are archived, users are anonymised, never deleted; the trail must outlive both.
     workspace_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("workspaces.id", ondelete="RESTRICT"))
     actor_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))

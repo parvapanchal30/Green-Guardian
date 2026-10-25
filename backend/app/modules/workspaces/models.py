@@ -4,10 +4,10 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.orm import Base, IdMixin, JsonType, TimestampMixin
+from app.core.orm import Base, IdMixin, JsonType, TimestampMixin, UtcDateTime
 from app.core.timeutil import utcnow
 
 
@@ -46,7 +46,7 @@ class Workspace(IdMixin, TimestampMixin, Base):
     capabilities: Mapped[dict] = mapped_column(JsonType, default=dict, nullable=False)
     # Human-readable key counters (GG-001, T-014 ...) are allocated here in later slices.
     key_counters: Mapped[dict] = mapped_column(JsonType, default=dict, nullable=False)
-    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    archived_at: Mapped[datetime | None] = mapped_column(UtcDateTime())
 
 
 class Membership(IdMixin, Base):
@@ -61,4 +61,4 @@ class Membership(IdMixin, Base):
     )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
     role: Mapped[str] = mapped_column(String(16), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)

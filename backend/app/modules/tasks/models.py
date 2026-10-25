@@ -6,7 +6,6 @@ from enum import StrEnum
 
 from sqlalchemy import (
     CheckConstraint,
-    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -18,7 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.orm import Base, IdMixin
+from app.core.orm import Base, IdMixin, UtcDateTime
 from app.core.timeutil import utcnow
 
 
@@ -112,14 +111,12 @@ class Task(IdMixin, Base):
     recommendation_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("recommendations.id", ondelete="SET NULL"), index=True
     )
-    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    due_at: Mapped[datetime | None] = mapped_column(UtcDateTime())
+    started_at: Mapped[datetime | None] = mapped_column(UtcDateTime())
+    completed_at: Mapped[datetime | None] = mapped_column(UtcDateTime())
     completion_notes: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
 
@@ -143,4 +140,4 @@ class TaskStatusHistory(IdMixin, Base):
     to_status: Mapped[str] = mapped_column(String(16), nullable=False)
     actor_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
     note: Mapped[str | None] = mapped_column(Text)
-    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)

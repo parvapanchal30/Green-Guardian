@@ -6,7 +6,6 @@ from datetime import datetime
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
-    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -18,7 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.orm import Base, IdMixin, JsonType
+from app.core.orm import Base, IdMixin, JsonType, UtcDateTime
 from app.core.timeutil import utcnow
 
 
@@ -39,7 +38,7 @@ class EvaluationProtocol(IdMixin, Base):
     content: Mapped[dict] = mapped_column(JsonType, nullable=False)
     content_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)
 
 
 class ProtocolSignoff(IdMixin, Base):
@@ -69,4 +68,4 @@ class ProtocolSignoff(IdMixin, Base):
     declared_qualification: Mapped[str | None] = mapped_column(String(300))
     qualification_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     note: Mapped[str] = mapped_column(Text, nullable=False)
-    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)

@@ -6,7 +6,6 @@ from enum import StrEnum
 
 from sqlalchemy import (
     CheckConstraint,
-    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -19,7 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.orm import Base, IdMixin, JsonType
+from app.core.orm import Base, IdMixin, JsonType, UtcDateTime
 from app.core.timeutil import utcnow
 
 
@@ -89,8 +88,8 @@ class AgentRun(IdMixin, Base):
     status: Mapped[str] = mapped_column(String(16), default=RunStatus.RUNNING.value, nullable=False)
     requested_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     worker_id: Mapped[str | None] = mapped_column(String(120))
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(UtcDateTime())
     evaluated_assets: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     findings: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     recommendations_created: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -152,12 +151,12 @@ class Recommendation(IdMixin, Base):
     accepted_entity_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     dismissed_reason: Mapped[str | None] = mapped_column(Text)
     decided_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    decided_at: Mapped[datetime | None] = mapped_column(UtcDateTime())
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)
     # traceability: which run produced it (None = evaluated inline when an observation was saved) and under which rule
     agent_run_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     rule_version: Mapped[int | None] = mapped_column(Integer)
     # follow-up: what eventually happened to the work this recommendation led to
     outcome: Mapped[str | None] = mapped_column(String(24))
-    outcome_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    outcome_at: Mapped[datetime | None] = mapped_column(UtcDateTime())
     outcome_detail: Mapped[str | None] = mapped_column(Text)

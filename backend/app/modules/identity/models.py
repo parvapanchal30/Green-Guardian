@@ -3,10 +3,10 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Uuid
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.orm import Base, IdMixin, TimestampMixin
+from app.core.orm import Base, IdMixin, TimestampMixin, UtcDateTime
 
 
 class User(IdMixin, TimestampMixin, Base):
@@ -17,7 +17,7 @@ class User(IdMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     phone: Mapped[str | None] = mapped_column(String(40))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_login_at: Mapped[datetime | None] = mapped_column(UtcDateTime())
 
 
 class Organization(IdMixin, TimestampMixin, Base):
@@ -32,9 +32,9 @@ class RefreshTokenRow(IdMixin, Base):
 
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(UtcDateTime(), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(UtcDateTime())
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), nullable=False)
 
 
 class AuthThrottle(Base):
@@ -45,9 +45,9 @@ class AuthThrottle(Base):
 
     key: Mapped[str] = mapped_column(String(200), primary_key=True)
     failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    window_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    window_started_at: Mapped[datetime] = mapped_column(UtcDateTime(), nullable=False)
+    locked_until: Mapped[datetime | None] = mapped_column(UtcDateTime())
+    updated_at: Mapped[datetime] = mapped_column(UtcDateTime(), nullable=False)
 
 
 __all__ = ["User", "Organization", "RefreshTokenRow", "AuthThrottle", "Uuid"]

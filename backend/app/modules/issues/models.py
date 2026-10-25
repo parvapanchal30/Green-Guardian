@@ -6,7 +6,6 @@ from enum import StrEnum
 
 from sqlalchemy import (
     CheckConstraint,
-    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -19,7 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.orm import Base, IdMixin
+from app.core.orm import Base, IdMixin, UtcDateTime
 from app.core.timeutil import utcnow
 
 
@@ -122,11 +121,9 @@ class Issue(IdMixin, Base):
     recommendation_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("recommendations.id", ondelete="SET NULL"), index=True
     )
-    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
-    )
-    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    opened_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
+    resolved_at: Mapped[datetime | None] = mapped_column(UtcDateTime())
     resolution_outcome: Mapped[str | None] = mapped_column(String(24))
     resolution_notes: Mapped[str | None] = mapped_column(Text)
     resolved_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
@@ -157,7 +154,7 @@ class IssueObservation(Base):
     observation_id: Mapped[uuid.UUID] = mapped_column(Uuid)
     workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
     added_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    added_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)
 
 
 class IssueStatusHistory(IdMixin, Base):
@@ -180,4 +177,4 @@ class IssueStatusHistory(IdMixin, Base):
     to_state: Mapped[str] = mapped_column(String(48), nullable=False)
     actor_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
     note: Mapped[str | None] = mapped_column(Text)
-    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)

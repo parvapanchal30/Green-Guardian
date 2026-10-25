@@ -6,7 +6,6 @@ from datetime import datetime
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
-    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -18,7 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.orm import Base, IdMixin, JsonType
+from app.core.orm import Base, IdMixin, JsonType, UtcDateTime
 from app.core.timeutil import utcnow
 
 DATASET_STATUSES = ("proposed", "under_review", "approved", "rejected")
@@ -54,7 +53,7 @@ class Dataset(IdMixin, Base):
     version: Mapped[str] = mapped_column(String(40), nullable=False)
     kind: Mapped[str] = mapped_column(String(12), nullable=False)
     source_url: Mapped[str] = mapped_column(String(500), nullable=False)
-    accessed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    accessed_at: Mapped[datetime | None] = mapped_column(UtcDateTime())
     licence_spdx: Mapped[str] = mapped_column(String(60), nullable=False)
     images_licence_spdx: Mapped[str] = mapped_column(String(60), nullable=False)
     annotations_licence_spdx: Mapped[str | None] = mapped_column(String(60))
@@ -69,9 +68,9 @@ class Dataset(IdMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="proposed")
     created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)
     approved_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_at: Mapped[datetime | None] = mapped_column(UtcDateTime())
 
 
 class DatasetEvidence(IdMixin, Base):
@@ -98,9 +97,9 @@ class DatasetEvidence(IdMixin, Base):
     licence_spdx: Mapped[str] = mapped_column(String(60), nullable=False)
     excerpt: Mapped[str] = mapped_column(Text, nullable=False)
     official: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    accessed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    accessed_at: Mapped[datetime] = mapped_column(UtcDateTime(), nullable=False)
     recorded_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)
 
 
 class DatasetStatusHistory(IdMixin, Base):
@@ -124,7 +123,7 @@ class DatasetStatusHistory(IdMixin, Base):
     actor_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     note: Mapped[str | None] = mapped_column(Text)
     blockers: Mapped[list] = mapped_column(JsonType, default=list, nullable=False)
-    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)
 
 
 class DatasetSample(IdMixin, Base):
@@ -159,7 +158,7 @@ class DatasetSample(IdMixin, Base):
     provenance: Mapped[dict] = mapped_column(JsonType, default=dict, nullable=False)
     is_synthetic: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)
 
 
 class LabelReview(IdMixin, Base):
@@ -187,7 +186,7 @@ class LabelReview(IdMixin, Base):
     from_label: Mapped[str | None] = mapped_column(String(120))
     to_label: Mapped[str | None] = mapped_column(String(120))
     evidence: Mapped[str | None] = mapped_column(Text)
-    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)
 
 
 class DatasetSplit(IdMixin, Base):
@@ -217,4 +216,4 @@ class DatasetSplit(IdMixin, Base):
     warnings: Mapped[list] = mapped_column(JsonType, nullable=False)
     leakage_violations: Mapped[list] = mapped_column(JsonType, nullable=False)
     created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)

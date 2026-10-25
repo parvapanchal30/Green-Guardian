@@ -8,7 +8,6 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Date,
-    DateTime,
     Float,
     ForeignKey,
     ForeignKeyConstraint,
@@ -21,7 +20,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.orm import Base, IdMixin, JsonType, TimestampMixin
+from app.core.orm import Base, IdMixin, JsonType, TimestampMixin, UtcDateTime
 from app.core.timeutil import utcnow
 
 from .lifecycle import ALL_STAGES
@@ -90,7 +89,7 @@ class BiologicalAsset(IdMixin, TimestampMixin, Base):
     attributes: Mapped[dict] = mapped_column(JsonType, default=dict, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    archived_at: Mapped[datetime | None] = mapped_column(UtcDateTime())
 
 
 class AssetState(Base):
@@ -117,14 +116,12 @@ class AssetState(Base):
     workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
     health_score: Mapped[float | None] = mapped_column(Float)
     health_band: Mapped[str | None] = mapped_column(String(16))
-    health_observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    last_observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    health_observed_at: Mapped[datetime | None] = mapped_column(UtcDateTime())
+    last_observed_at: Mapped[datetime | None] = mapped_column(UtcDateTime())
     open_issue_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     open_task_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    last_resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
-    )
+    last_resolved_at: Mapped[datetime | None] = mapped_column(UtcDateTime())
+    updated_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
 
 
 class LifecycleEvent(IdMixin, Base):
@@ -153,9 +150,9 @@ class LifecycleEvent(IdMixin, Base):
     asset_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
     stage: Mapped[str] = mapped_column(String(32), nullable=False)
     previous_stage: Mapped[str | None] = mapped_column(String(32))
-    entered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    entered_at: Mapped[datetime] = mapped_column(UtcDateTime(), nullable=False)
     source: Mapped[str] = mapped_column(String(16), default="manual", nullable=False)
     correction: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     note: Mapped[str | None] = mapped_column(Text)
     actor_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), default=utcnow, nullable=False)
