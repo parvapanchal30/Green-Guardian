@@ -14,7 +14,7 @@ const MIN_REASON = 10
  * The server is the authority: it lists the stages that can be recorded now, enforces roles and the correction rule,
  * and the list of exits depends on whether the asset is an individual or a population.
  */
-export function LifecyclePanel({ ws, asset, role }: { ws: string; asset: Asset; role: Role }) {
+export function LifecyclePanel({ ws, asset, role, show = 'all', onDone }: { ws: string; asset: Asset; role: Role; show?: 'all' | 'history' | 'form'; onDone?: () => void }) {
   const { t, te, fmt } = useI18n()
   const lifecycle = useLifecycle(ws, asset.id)
   const isManager = atLeast(role, 'manager')
@@ -46,7 +46,7 @@ export function LifecyclePanel({ ws, asset, role }: { ws: string; asset: Asset; 
     setProblem(null)
     record.mutate(
       { stage, correction, entered_at: enteredAt(text('entered')), note: text('note') || undefined },
-      { onSuccess: () => { form.reset(); setCorrection(false) } },
+      { onSuccess: () => { form.reset(); setCorrection(false); onDone?.() } },
     )
   }
 
@@ -58,7 +58,7 @@ export function LifecyclePanel({ ws, asset, role }: { ws: string; asset: Asset; 
         {!lc.is_active && <span className="text-sm font-normal text-ink-2">{t('lifecycle.exitedNote')}</span>}
       </h2>
 
-      <ol aria-label={t('lifecycle.history')} className="mb-3 space-y-1 text-sm">
+      {show !== 'form' && <ol aria-label={t('lifecycle.history')} className="mb-3 space-y-1 text-sm">
         {lc.history.map((h) => (
           <li key={h.id} className="flex flex-wrap items-baseline gap-x-2">
             <span className="text-xs text-ink-3">{fmt.dateTime(h.entered_at)}</span>
@@ -67,13 +67,13 @@ export function LifecyclePanel({ ws, asset, role }: { ws: string; asset: Asset; 
             {h.note && <span className="text-ink-2">{h.note}</span>}
           </li>
         ))}
-      </ol>
+      </ol>}
 
-      {!canRecord && <p className="text-sm text-ink-3">{t('lifecycle.onlyWorkers')}</p>}
-      {canRecord && !lc.is_active && !isManager && (
+      {show !== 'history' && !canRecord && <p className="text-sm text-ink-3">{t('lifecycle.onlyWorkers')}</p>}
+      {show !== 'history' && canRecord && !lc.is_active && !isManager && (
         <p className="text-sm text-ink-2">{t('lifecycle.managerCanReinstate')}</p>
       )}
-      {formVisible && (
+      {show !== 'history' && formVisible && (
         <form onSubmit={submit} className="space-y-3 rounded-lg border border-line bg-surface p-3" aria-label={t('lifecycle.formLabel')}>
           <div className="grid gap-3 sm:grid-cols-3">
             <Field id="lc-stage" label={correction ? t('lifecycle.correctTo') : t('lifecycle.newStage')}>

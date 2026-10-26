@@ -22,7 +22,7 @@ function useBlobUrl(blob: Blob | undefined): string | null {
   return url
 }
 
-function EvidenceImage({ ws, ev, className }: { ws: string; ev: Evidence; className?: string }) {
+export function EvidenceImage({ ws, ev, className }: { ws: string; ev: Evidence; className?: string }) {
   const { t } = useI18n()
   const q = useEvidenceBlob(ws, ev)
   const url = useBlobUrl(q.data)
@@ -117,10 +117,13 @@ export function EvidenceUploader({
 
 /** Photos for an asset (optionally narrowed to one issue). Read-only for viewers; workers upload; the uploader or a manager removes. */
 export function EvidenceGallery({
-  ws, assetId, issueId, canUpload, isManager, issueOptions,
+  ws, assetId, issueId, canUpload, isManager, issueOptions, labelFor, columns = 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4',
 }: {
   ws: string; assetId?: string; issueId?: string; canUpload: boolean; isManager: boolean
   issueOptions?: { id: string; label: string }[]
+  /** The line under each photo; defaults to its caption, else when it was taken. */
+  labelFor?: (ev: Evidence) => string
+  columns?: string
 }) {
   const { t, fmt } = useI18n()
   const { user } = useAuth()
@@ -137,12 +140,12 @@ export function EvidenceGallery({
         <EmptyState title={t('evidence.none')}>{canUpload ? t('evidence.noneCanUpload') : t('evidence.noneReadOnly')}</EmptyState>
       )}
       {items.length > 0 && (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <ul className={`grid gap-3 ${columns}`}>
           {items.map((ev) => (
             <li key={ev.id}>
               <button type="button" onClick={() => setOpen(ev)} className="block w-full overflow-hidden rounded-lg border border-line bg-surface text-left hover:border-ink-3" aria-label={ev.caption ? t('evidence.openWithCaption', { caption: ev.caption }) : t('evidence.open')}>
                 <EvidenceImage ws={ws} ev={ev} className="aspect-[4/3] w-full object-cover" />
-                <span className="block truncate p-1.5 text-xs text-ink-2">{ev.caption ?? fmt.dateTime(ev.created_at)}</span>
+                <span className="block truncate p-1.5 text-xs text-ink-2">{labelFor ? labelFor(ev) : ev.caption ?? fmt.dateTime(ev.created_at)}</span>
               </button>
             </li>
           ))}

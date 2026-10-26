@@ -140,7 +140,7 @@ export function ActionForm({
 }
 
 /** The work done to this asset (asset page). Workers record; managers correct. */
-export function ActionPanel({ ws, asset, role }: { ws: string; asset: Asset; role: Role }) {
+export function ActionPanel({ ws, asset, role, show = 'all' }: { ws: string; asset: Asset; role: Role; show?: 'all' | 'history' }) {
   const { t } = useI18n()
   const actions = useActions(ws, asset.id)
   const [correcting, setCorrecting] = useState<ActionRecord | null>(null)
@@ -158,7 +158,7 @@ export function ActionPanel({ ws, asset, role }: { ws: string; asset: Asset; rol
         <div className="mb-3"><ActionList ws={ws} actions={history} onCorrect={isManager ? setCorrecting : undefined} /></div>
       )}
       {!asset.is_active && <p className="text-sm text-ink-3">{t('action.exited')}</p>}
-      {canRecord && (
+      {canRecord && (show === 'all' || correcting) && (
         <ActionForm key={correcting?.id ?? 'new'} ws={ws} assetId={asset.id} correcting={correcting} onDone={() => setCorrecting(null)} onCancelCorrection={() => setCorrecting(null)} />
       )}
     </section>

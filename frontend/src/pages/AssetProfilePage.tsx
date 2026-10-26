@@ -1,118 +1,27 @@
-import { useState, type FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import type { ObservationCreated } from '../api/types'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import type { Evidence, Observation, TimelineEvent } from '../api/types'
 import { useWorkspaceCtx } from '../app/WorkspaceLayout'
-import { EvidenceGallery } from '../components/EvidenceGallery'
 import { ActionPanel } from '../components/ActionPanel'
+import { HealthChart } from '../components/asset/HealthChart'
+import { RecordSheet, type RecordTab } from '../components/asset/RecordSheet'
+import { Field, HealthChip, SeverityChip, StateChip, btn, btnPrimary, input } from '../components/domain'
+import { EvidenceGallery, EvidenceImage } from '../components/EvidenceGallery'
 import { HarvestPanel } from '../components/HarvestPanel'
-import { SchedulePanel } from '../components/SchedulePanel'
-import { GrowthPanel } from './GrowthPage'
+import { Icon } from '../components/icons'
 import { LifecyclePanel } from '../components/LifecyclePanel'
 import { RecommendationCard } from '../components/RecommendationCard'
-import { Field, HealthChip, PageHeader, SeverityChip, StateChip, TaskStatusChip, btn, btnPrimary, input } from '../components/domain'
+import { SchedulePanel } from '../components/SchedulePanel'
 import { ErrorState, LoadingBlock, errorMessage } from '../components/states'
 import { StatusChip } from '../components/StatusChip'
-import { ProblemError } from '../api/client'
-import { checkImageFile } from '../lib/evidence'
+import { Card, SectionHeading, Segmented, Tag } from '../components/ui'
 import { useI18n } from '../i18n'
+import { useActions } from '../lib/actions'
 import { atLeast } from '../lib/format'
-import { useAsset, useCreateIssue, useCreateObservation, useIssues, useObservations, useRecommendations, useTasks, useTimeline, useUploadEvidence } from '../lib/slice'
+import { useAsset, useCreateIssue, useEvidence, useIssues, useObservations, useRecommendations, useTasks, useTimeline } from '../lib/slice'
+import { GrowthPanel } from './GrowthPage'
 
 const CATEGORIES = ['disease', 'pest', 'nutrient', 'water_stress', 'irrigation_failure', 'physical_damage', 'growth_anomaly', 'harvest_readiness', 'maintenance', 'other']
-
-function ObservationForm({ ws, assetId, onCreated }: { ws: string; assetId: string; onCreated: (r: ObservationCreated) => void }) {
-  // Suggestions made by the rules arrive through the (refreshed) open-suggestions list, not from this response.
-  const { t } = useI18n()
-  const create = useCreateObservation(ws)
-  const upload = useUploadEvidence(ws)
-  const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
-
-  function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const form = e.currentTarget
-    const f = new FormData(form)
-    const text = (k: string) => String(f.get(k) ?? '').trim()
-    const body: Record<string, unknown> = { asset_id: assetId }
-    if (text('health_score') !== '') body.health_score = Number(text('health_score'))
-    const symptoms = text('symptoms').split(',').map((s) => s.trim()).filter(Boolean)
-    if (symptoms.length) body.symptoms = symptoms
-    if (text('notes')) body.notes = text('notes')
-    // Optional measurements (Growth): stored in the observation's data, checked again by the server.
-    const measures: Record<string, number> = {}
-    for (const [key, max] of [['height_cm', 10_000], ['girth_cm', 3_000], ['canopy_m', 100]] as const) {
-      if (text(key) === '') continue
-      const n = Number(text(key))
-      if (!Number.isFinite(n) || n <= 0 || n > max) {
-        setError(t('obs.badMeasure'))
-        return
-      }
-      measures[key] = n
-    }
-    if (Object.keys(measures).length) {
-      body.data = measures
-      if (body.health_score === undefined) body.kind = 'growth'
-    }
-    const file = (form.elements.namedItem('photo') as HTMLInputElement | null)?.files?.[0] ?? null
-    if (!body.health_score && body.health_score !== 0 && !symptoms.length && !body.notes && !body.data) {
-      setError(t('obs.needSomething'))
-      return
-    }
-    const problem = file ? checkImageFile(file, t) : null
-    if (problem) {
-      setError(problem)
-      return
-    }
-    setError(null)
-    setNotice(null)
-    create.mutate(body, {
-      onSuccess: (r) => {
-        form.reset()
-        onCreated(r)
-        // Observations are immutable, so a failed photo cannot undo the saved record: say exactly what happened.
-        if (file) {
-          upload.mutate(
-            { assetId, file, caption: text('photo_caption'), observationId: r.observation.id },
-            { onError: (err) => setNotice(t('obs.photoFailed', { error: errorMessage(err) })) },
-          )
-        }
-      },
-    })
-  }
-
-  const serverError = create.error instanceof ProblemError ? create.error.message : create.error ? errorMessage(create.error) : null
-  return (
-    <form onSubmit={submit} className="space-y-3 rounded-lg border border-line bg-surface p-4" aria-label={t('obs.formLabel')}>
-      <h2 className="font-semibold">{t('obs.title')}</h2>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field id="health_score" label={t('obs.health')} hint={t('obs.healthHint')}>
-          <input id="health_score" name="health_score" type="number" min={0} max={100} step="any" className={input} />
-        </Field>
-        <Field id="symptoms" label={t('obs.symptoms')}>
-          <input id="symptoms" name="symptoms" className={input} placeholder="leaf_yellowing, leaf_drop" />
-        </Field>
-      </div>
-      <Field id="notes" label={t('obs.notes')}>
-        <textarea id="notes" name="notes" rows={2} maxLength={5000} className={input} />
-      </Field>
-      <fieldset className="grid gap-3 rounded border border-line p-2 sm:grid-cols-3">
-        <legend className="px-1 text-xs text-ink-3">{t('obs.measurements')}</legend>
-        <Field id="height_cm" label={t('obs.height')}><input id="height_cm" name="height_cm" type="number" min={0} step="any" className={input} /></Field>
-        <Field id="girth_cm" label={t('obs.girth')} hint={t('obs.girthHint')}><input id="girth_cm" name="girth_cm" type="number" min={0} step="any" className={input} /></Field>
-        <Field id="canopy_m" label={t('obs.canopy')}><input id="canopy_m" name="canopy_m" type="number" min={0} step="any" className={input} /></Field>
-      </fieldset>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field id="photo" label={t('obs.photo')} hint={t('obs.photoHint')}>
-          <input id="photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" className={input} />
-        </Field>
-        <Field id="photo_caption" label={t('obs.photoCaption')}><input id="photo_caption" name="photo_caption" maxLength={500} className={input} /></Field>
-      </div>
-      {(error || serverError) && <p role="alert" className="text-sm text-critical">{error ?? serverError}</p>}
-      {notice && <p role="alert" className="text-sm text-at-risk">{notice}</p>}
-      <button className={btnPrimary} disabled={create.isPending || upload.isPending}>{create.isPending ? t('obs.saving') : upload.isPending ? t('obs.uploading') : t('obs.save')}</button>
-    </form>
-  )
-}
 
 function CreateIssueForm({ ws, assetId, latestObservationId, onDone }: { ws: string; assetId: string; latestObservationId?: string; onDone: () => void }) {
   const { t, te } = useI18n()
@@ -130,7 +39,7 @@ function CreateIssueForm({ ws, assetId, latestObservationId, onDone }: { ws: str
   }
   return (
     <form onSubmit={submit} className="space-y-3 rounded-lg border border-line bg-surface p-4" aria-label={t('issueForm.label')}>
-      <h2 className="font-semibold">{t('issueForm.title')}</h2>
+      <h2 className="text-lg font-semibold">{t('issueForm.title')}</h2>
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="sm:col-span-3"><Field id="title" label={t('issueForm.field.title')}><input id="title" name="title" required maxLength={300} className={input} placeholder={t('issueForm.field.titlePlaceholder')} /></Field></div>
         <Field id="category" label={t('issueForm.field.category')}>
@@ -150,115 +59,239 @@ function CreateIssueForm({ ws, assetId, latestObservationId, onDone }: { ws: str
   )
 }
 
+/** One figure in the facts strip. */
+function Fact({ label, value, note, tone }: { label: string; value: ReactNode; note?: ReactNode; tone?: string }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5 border-b border-line-soft px-4 py-3 odd:border-r sm:border-b-0 sm:odd:border-r-0 sm:not-last:border-r">
+      <span className="text-[12.5px] text-ink-2">{label}</span>
+      <span className={`font-display text-[22px] leading-tight font-bold ${tone ?? ''}`}>{value}</span>
+      {note && <span className="text-xs text-ink-2">{note}</span>}
+    </div>
+  )
+}
+
+type TimelineFilter = 'all' | 'observation' | 'work' | 'issues' | 'stage'
+const FILTER_OF: Record<TimelineEvent['type'], TimelineFilter> = { observation: 'observation', action: 'work', harvest: 'work', issue: 'issues', task: 'issues', lifecycle: 'stage' }
+
+function scoreOf(observations: Observation[], ev: Evidence): number | null {
+  const o = ev.observation_id ? observations.find((x) => x.id === ev.observation_id) : undefined
+  return o?.health_score ?? null
+}
+
+/**
+ * The plant page (ADR-072): who it is (latest photo, tag, health, stage), how it has been (recorded scores with
+ * photos on the same timeline), what happened, and what is open. Everything is recorded through one Record sheet.
+ */
 export function AssetProfilePage() {
   const { assetId = '' } = useParams()
   const { ws, workspace } = useWorkspaceCtx()
-  const { t, te, fmt } = useI18n()
+  const { t, te, fmt, locale } = useI18n()
+  const { hash } = useLocation()
+  const navigate = useNavigate()
   const asset = useAsset(ws, assetId)
   const timeline = useTimeline(ws, assetId)
   const observations = useObservations(ws, assetId)
   const issues = useIssues(ws, { asset_id: assetId, limit: 50 })
-  const tasks = useTasks(ws, { asset_id: assetId, limit: 50 })
+  const tasks = useTasks(ws, { asset_id: assetId, is_open: true, limit: 50 })
   const recs = useRecommendations(ws, { status: 'open', asset_id: assetId })
+  const evidence = useEvidence(ws, { asset_id: assetId, limit: 50 })
+  const actions = useActions(ws, assetId)
   const [showIssue, setShowIssue] = useState(false)
+  const [sheet, setSheet] = useState<RecordTab | null>(null)
+  const [filter, setFilter] = useState<TimelineFilter>('all')
   const canObserve = atLeast(workspace.role, 'worker')
   const canDecide = atLeast(workspace.role, 'manager')
+
+  // "Record" from the phone bar or the plant picker arrives as #record: open the sheet once, then drop the hash.
+  useEffect(() => {
+    if (hash !== '#record' || !canObserve) return
+    // oxlint-disable-next-line react/set-state-in-effect -- reacting to navigation, which is an external event
+    setSheet('observation')
+    navigate({ hash: '' }, { replace: true })
+  }, [hash, canObserve, navigate])
 
   if (asset.isLoading) return <LoadingBlock label={t('asset.loading')} />
   if (asset.error || !asset.data) return <ErrorState error={asset.error ?? new Error(t('asset.notFound'))} onRetry={() => asset.refetch()} />
   const a = asset.data
-  const latestObs = observations.data?.items[0]
+  const obs = observations.data?.items ?? []
+  const latestObs = obs[0]
+  const scored = obs.filter((o) => o.health_score != null).sort((x, y) => x.observed_at.localeCompare(y.observed_at))
+  const firstScore = scored[0]
+  const lastScore = scored[scored.length - 1]
+  const change = scored.length > 1 ? Math.round((lastScore.health_score as number) - (firstScore.health_score as number)) : null
+  const photos = evidence.data?.items ?? []
+  const latestPhoto = photos[0]
+  const photoObs = new Set(photos.map((p) => p.observation_id).filter(Boolean))
+  const openIssues = (issues.data?.items ?? []).filter((i) => i.is_open)
+  const openTasks = [...(tasks.data?.items ?? [])].sort((x, y) => (x.due_at ?? '9999').localeCompare(y.due_at ?? '9999'))
+  const workDays = (actions.data?.history ?? []).filter((x) => x.effective && !x.withdrawn).map((x) => x.performed_at)
   const openRecs = recs.data?.items ?? []
+  const issueOptions = openIssues.map((i) => ({ id: i.id, label: `${i.key} · ${i.title}` }))
+  const events = (timeline.data ?? []).filter((e) => filter === 'all' || FILTER_OF[e.type] === filter)
+  const photoLabel = (ev: Evidence) => {
+    const s = scoreOf(obs, ev)
+    return s == null ? fmt.date(ev.created_at) : t('asset2.photoScore', { date: fmt.date(ev.created_at), score: Math.round(s) })
+  }
+  const healthTone = a.state.health_band === 'critical' ? 'text-critical' : a.state.health_band === 'at_risk' ? 'text-at-risk' : ''
 
   return (
-    <div className="space-y-6">
-      <nav aria-label={t('asset.breadcrumb')} className="text-sm text-ink-3"><Link to={`/w/${ws}/assets`} className="hover:underline">{t('assets.title')}</Link> / {a.label}</nav>
-      <PageHeader
-        title={a.label}
-        subtitle={<>{[a.species_name, a.location_name, a.tag_code].filter(Boolean).join(' · ') || t('asset.noSpecies')}</>}
-      >
-        <HealthChip band={a.state.health_band} score={a.state.health_score} />
-        <StatusChip tone="neutral">{t('asset.stage', { stage: te('stage', a.current_stage) })}</StatusChip>
-        {canDecide && !showIssue && <button type="button" className={btn} onClick={() => setShowIssue(true)}>{t('issueForm.open')}</button>}
-        {!canDecide && atLeast(workspace.role, 'worker') && !showIssue && <button type="button" className={btn} onClick={() => setShowIssue(true)}>{t('issueForm.report')}</button>}
-      </PageHeader>
+    <div className="flex flex-col gap-5">
+      <nav aria-label={t('asset.breadcrumb')} className="text-sm text-ink-2"><Link to={`/w/${ws}/assets`} className="hover:underline">{t('assets.title')}</Link> / {a.label}</nav>
 
-      <section aria-label={t('asset.currentState')} className="grid gap-3 sm:grid-cols-4">
-        {[
-          [t('asset.tile.health'), a.state.health_score == null ? t('asset.tile.unknown') : `${Math.round(a.state.health_score)} / 100`],
-          [t('asset.tile.lastObserved'), a.state.last_observed_at ? fmt.relative(a.state.last_observed_at) : t('asset.tile.never')],
-          [t('asset.tile.openIssues'), String(a.state.open_issue_count)],
-          [t('asset.tile.openTasks'), String(a.state.open_task_count)],
-        ].map(([k, v]) => (
-          <div key={k} className="rounded-lg border border-line bg-surface p-3"><p className="text-sm text-ink-2">{k}</p><p className="mt-1 text-lg font-semibold">{v}</p></div>
-        ))}
-      </section>
-      {a.estimated_count && <p className="text-sm text-ink-2">{t('asset.population', { count: fmt.number(a.estimated_count) })}</p>}
-      {a.notes && <p className="max-w-prose text-sm text-ink-2">{a.notes}</p>}
+      <Card className="flex flex-col overflow-hidden sm:flex-row">
+        <div className="relative h-56 shrink-0 bg-surface-2 sm:h-auto sm:min-h-60 sm:w-80">
+          {latestPhoto ? (
+            <>
+              <EvidenceImage ws={ws} ev={latestPhoto} className="h-full w-full object-cover" />
+              <span className="absolute bottom-2 left-2 rounded-[3px] border border-line bg-surface px-2 text-xs">{photoLabel(latestPhoto)}</span>
+            </>
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center text-sm text-ink-2">
+              <Icon name="photo" size={30} className="text-ink-3" />
+              <span>{t('asset2.noPhoto')}</span>
+              {canObserve && <button type="button" className={btn} onClick={() => setSheet('photo')}>{t('asset2.firstPhoto')}</button>}
+            </div>
+          )}
+        </div>
+        <div className="flex flex-1 flex-col gap-2 px-5 py-4 sm:px-6">
+          <div className="flex flex-wrap items-center gap-2">
+            {a.tag_code && <Tag>{a.tag_code}</Tag>}
+            <HealthChip band={a.state.health_band} score={a.state.health_score} />
+            <StatusChip tone={a.is_active ? 'neutral' : 'critical'}>{t('asset.stage', { stage: te('stage', a.current_stage) })}</StatusChip>
+            {openIssues.map((i) => <Link key={i.id} to={`/w/${ws}/issues/${i.id}`}><Tag tone="critical">{i.key}</Tag></Link>)}
+          </div>
+          <h1 className="text-[34px] leading-tight font-bold">{a.label}</h1>
+          <p className="text-sm text-ink-2">{[a.species_name, a.location_name, te('kind', a.kind)].filter(Boolean).join(' · ') || t('asset.noSpecies')}</p>
+          {a.estimated_count != null && <p className="text-sm text-ink-2">{t('asset.population', { count: fmt.number(a.estimated_count) })}</p>}
+          {a.notes && <p className="max-w-prose text-sm">{a.notes}</p>}
+          <div className="mt-auto flex flex-wrap gap-2 pt-2">
+            {canObserve && <button type="button" className={btnPrimary} onClick={() => setSheet('observation')}><Icon name="record" size={17} />{t('navx.record')}</button>}
+            {canObserve && <button type="button" className={btn} onClick={() => setSheet('photo')}><Icon name="photo" size={17} />{t('asset2.addPhoto')}</button>}
+            <Link to={`/w/${ws}/monitor/map`} className={btn}><Icon name="map" size={17} />{t('asset2.showOnMap')}</Link>
+            {canObserve && !showIssue && <button type="button" className={btn} onClick={() => setShowIssue(true)}>{canDecide ? t('issueForm.open') : t('issueForm.report')}</button>}
+          </div>
+        </div>
+      </Card>
+
+      <Card className="grid grid-cols-2 sm:grid-cols-5">
+        <Fact label={t('asset2.latestHealth')} value={a.state.health_score == null ? '—' : Math.round(a.state.health_score)} tone={healthTone} note={lastScore ? fmt.date(lastScore.observed_at) : t('asset.tile.unknown')} />
+        <Fact label={t('asset2.change')} value={change == null ? '—' : `${change > 0 ? '+' : change < 0 ? '−' : ''}${Math.abs(change)}`} note={change == null ? t('asset2.changeNone') : t('asset2.changeSince', { date: fmt.date(firstScore.observed_at), score: Math.round(firstScore.health_score as number) })} />
+        <Fact label={t('asset2.lastLooked')} value={a.state.last_observed_at ? fmt.relative(a.state.last_observed_at) : t('asset.tile.never')} />
+        <Fact label={t('asset2.photos')} value={photos.length} note={latestPhoto ? t('asset2.photosLatest', { date: fmt.date(latestPhoto.created_at) }) : undefined} />
+        <Fact label={t('asset.tile.openTasks')} value={a.state.open_task_count} note={openTasks[0]?.due_at ? t('asset2.nextDue', { date: fmt.date(openTasks[0].due_at) }) : undefined} />
+      </Card>
 
       {openRecs.length > 0 && (
         <section aria-labelledby="sugg">
-          <h2 id="sugg" className="mb-2 font-semibold">{t('asset.suggested')}</h2>
-          <ul className="space-y-2">{openRecs.map((r) => <RecommendationCard key={r.id} rec={r} ws={ws} canDecide={canDecide} />)}</ul>
+          <SectionHeading id="sugg" title={t('asset.suggested')} />
+          <ul className="flex flex-col gap-2">{openRecs.map((r) => <RecommendationCard key={r.id} rec={r} ws={ws} canDecide={canDecide} />)}</ul>
         </section>
       )}
-
       {showIssue && <CreateIssueForm ws={ws} assetId={a.id} latestObservationId={latestObs?.id} onDone={() => setShowIssue(false)} />}
-      {canObserve && <ObservationForm ws={ws} assetId={a.id} onCreated={() => undefined} />}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section aria-labelledby="iss">
-          <h2 id="iss" className="mb-2 font-semibold">{t('asset.issues')}</h2>
-          {issues.data?.items.length ? (
-            <ul className="space-y-2">{issues.data.items.map((i) => (
-              <li key={i.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface p-2 text-sm">
-                <Link className="font-medium text-moss hover:underline" to={`/w/${ws}/issues/${i.id}`}>{i.key}</Link><span>{i.title}</span>
-                <SeverityChip severity={i.severity} /><StateChip state={i.state} open={i.is_open} />
-              </li>))}</ul>
-          ) : <p className="text-sm text-ink-3">{t('asset.noIssues')}</p>}
-        </section>
-        <section aria-labelledby="tsk">
-          <h2 id="tsk" className="mb-2 font-semibold">{t('asset.tasks')}</h2>
-          {tasks.data?.items.length ? (
-            <ul className="space-y-2">{tasks.data.items.map((t) => (
-              <li key={t.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface p-2 text-sm">
-                <Link className="font-medium text-moss hover:underline" to={`/w/${ws}/tasks`}>{t.key}</Link><span>{t.title}</span><TaskStatusChip status={t.status} overdue={t.overdue} />
-              </li>))}</ul>
-          ) : <p className="text-sm text-ink-3">{t('asset.noTasks')}</p>}
-        </section>
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col gap-5">
+          <section aria-labelledby="chart">
+            <Card className="flex flex-col gap-3 px-4 py-4 sm:px-5">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 id="chart" className="text-[19px] font-semibold">{t('asset2.chartTitle')}</h2>
+                <span className="font-mono text-[10.5px] tracking-[0.06em] text-ink-2 uppercase">{t('asset2.chartNote')}</span>
+              </div>
+              <HealthChart observations={obs} workDays={workDays} />
+              <div className="border-t border-line-soft pt-3">
+                <h3 id="photos" className="mb-2 font-sans text-sm font-semibold">{t('asset.photos')}</h3>
+                <EvidenceGallery ws={ws} assetId={a.id} canUpload={false} isManager={canDecide} labelFor={photoLabel} columns="grid-cols-2 sm:grid-cols-4" />
+              </div>
+            </Card>
+          </section>
+
+          <section aria-labelledby="hist">
+            <SectionHeading id="hist" title={t('asset2.timeline')}>
+              <Segmented
+                label={t('asset2.timelineFilter')}
+                value={filter}
+                onChange={setFilter}
+                options={[
+                  { value: 'all', label: t('asset2.filter.all') },
+                  { value: 'observation', label: t('asset2.filter.observation') },
+                  { value: 'work', label: t('asset2.filter.work') },
+                  { value: 'issues', label: t('asset2.filter.issues') },
+                  { value: 'stage', label: t('asset2.filter.stage') },
+                ]}
+              />
+            </SectionHeading>
+            {timeline.isLoading && <LoadingBlock label={t('asset.loadingHistory')} />}
+            {timeline.data && events.length === 0 && <p className="text-sm text-ink-2">{t('asset.noHistory')}</p>}
+            {events.length > 0 && (
+              <Card className="px-4 py-3 sm:px-5">
+                <ol className="flex flex-col">
+                  {events.map((e, i) => (
+                    <li key={`${e.type}-${e.ref_id}-${i}`} className="grid grid-cols-[5.5rem_1rem_minmax(0,1fr)] gap-x-2.5 text-sm">
+                      <span className="pt-0.5 font-mono text-xs text-ink-2">{fmt.date(e.at)}</span>
+                      <span className="flex flex-col items-center" aria-hidden="true">
+                        <span className={`mt-1.5 h-2.5 w-2.5 rounded-full border-2 bg-surface ${e.type === 'issue' ? 'border-critical' : 'border-moss'}`} />
+                        {i < events.length - 1 && <span className="w-0.5 flex-1 bg-line" />}
+                      </span>
+                      <div className="pb-4">
+                        <p className="text-xs text-ink-2">{te('timelineType', e.type)}</p>
+                        <p className="font-semibold">{e.type === 'issue' ? <Link className="hover:underline" to={`/w/${ws}/issues/${e.ref_id}`}>{e.title}</Link> : e.title}</p>
+                        {e.detail && <p className="text-ink-2">{e.detail}</p>}
+                        {e.type === 'observation' && photoObs.has(e.ref_id) && (
+                          <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-2"><Icon name="photo" size={13} />{t('asset2.withPhoto')}</p>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </Card>
+            )}
+          </section>
+        </div>
+
+        <aside className="flex min-w-0 flex-col gap-4" aria-label={t('asset2.sidebar')}>
+          <Card className="flex flex-col gap-2 px-4 py-3">
+            <h2 className="text-[17px] font-semibold">{t('asset.issues')}</h2>
+            {openIssues.length === 0 ? <p className="text-sm text-ink-2">{t('asset2.noOpenIssue')}</p> : (
+              <ul className="flex flex-col gap-2">
+                {openIssues.map((i) => (
+                  <li key={i.id} className="flex flex-col gap-1 text-sm">
+                    <span className="flex flex-wrap items-center gap-2"><Tag tone="critical">{i.key}</Tag><SeverityChip severity={i.severity} /><StateChip state={i.state} open={i.is_open} /></span>
+                    <Link to={`/w/${ws}/issues/${i.id}`} className="font-semibold hover:underline">{i.title}</Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+          <Card className="flex flex-col gap-2 px-4 py-3">
+            <h2 className="text-[17px] font-semibold">{t('asset.tasks')}</h2>
+            {openTasks.length === 0 ? <p className="text-sm text-ink-2">{t('asset.noTasks')}</p> : (
+              <ul className="flex flex-col gap-1.5 text-sm">
+                {openTasks.map((task) => (
+                  <li key={task.id} className="flex items-baseline gap-2.5">
+                    <span className={`w-16 shrink-0 font-mono text-xs ${task.overdue ? 'text-critical' : 'text-ink-2'}`}>{task.due_at ? new Date(task.due_at).toLocaleDateString(locale, { day: 'numeric', month: 'short' }) : t('home.noDate')}</span>
+                    <span className="min-w-0 flex-1">{task.issue_id ? <Link to={`/w/${ws}/issues/${task.issue_id}`} className="hover:underline">{task.title}</Link> : task.title}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+          <Card className="px-4 py-3"><SchedulePanel ws={ws} asset={a} role={workspace.role} compact /></Card>
+          <Card className="px-4 py-3"><GrowthPanel ws={ws} assetId={a.id} /></Card>
+          <Card className="px-4 py-3"><ActionPanel ws={ws} asset={a} role={workspace.role} show="history" /></Card>
+          <Card className="px-4 py-3"><LifecyclePanel ws={ws} asset={a} role={workspace.role} show="history" /></Card>
+          {workspace.mode === 'agricultural_production' && <Card className="px-4 py-3"><HarvestPanel ws={ws} asset={a} role={workspace.role} /></Card>}
+          <Card className="flex items-center gap-3 px-4 py-3">
+            <Icon name="place" size={20} className="text-moss" />
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold">{a.location_name ?? t('asset2.noPlace')}</span>
+              {a.latitude != null && a.longitude != null && <span className="font-mono text-xs text-ink-2">{a.latitude.toFixed(4)}, {a.longitude.toFixed(4)}</span>}
+            </span>
+            <Link to={`/w/${ws}/monitor/map`} className="text-sm text-moss underline">{t('asset2.openMap')}</Link>
+          </Card>
+        </aside>
       </div>
 
-      <LifecyclePanel ws={ws} asset={a} role={workspace.role} />
-      <ActionPanel ws={ws} asset={a} role={workspace.role} />
-      <SchedulePanel ws={ws} asset={a} role={workspace.role} />
-      <GrowthPanel ws={ws} assetId={a.id} />
-      {workspace.mode === 'agricultural_production' && <HarvestPanel ws={ws} asset={a} role={workspace.role} />}
-
-      <section aria-labelledby="photos">
-        <h2 id="photos" className="mb-2 font-semibold">{t('asset.photos')}</h2>
-        <EvidenceGallery
-          ws={ws}
-          assetId={a.id}
-          canUpload={canObserve}
-          isManager={canDecide}
-          issueOptions={issues.data?.items.filter((i) => i.is_open).map((i) => ({ id: i.id, label: `${i.key} · ${i.title}` }))}
-        />
-      </section>
-
-      <section aria-labelledby="hist">
-        <h2 id="hist" className="mb-2 font-semibold">{t('asset.history')}</h2>
-        {timeline.isLoading && <LoadingBlock label={t('asset.loadingHistory')} />}
-        {timeline.data?.length === 0 && <p className="text-sm text-ink-3">{t('asset.noHistory')}</p>}
-        <ol className="space-y-2 border-l border-line pl-4">
-          {timeline.data?.map((e, i) => (
-            <li key={`${e.type}-${e.ref_id}-${i}`} className="text-sm">
-              <p className="text-xs text-ink-3">{fmt.dateTime(e.at)} · {te('timelineType', e.type)}</p>
-              <p className="font-medium">{e.type === 'issue' ? <Link className="text-moss hover:underline" to={`/w/${ws}/issues/${e.ref_id}`}>{e.title}</Link> : e.title}</p>
-              {e.detail && <p className="text-ink-2">{e.detail}</p>}
-            </li>
-          ))}
-        </ol>
-      </section>
+      {sheet && <RecordSheet ws={ws} asset={a} role={workspace.role} tab={sheet} onTab={setSheet} onClose={() => setSheet(null)} issueOptions={issueOptions} />}
     </div>
   )
 }

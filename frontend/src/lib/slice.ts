@@ -37,7 +37,7 @@ export const useTimeline = (ws: string, id: string) =>
 export const useObservations = (ws: string, assetId: string) =>
   useQuery({
     queryKey: [ws, 'observations', assetId],
-    queryFn: () => api<Page<Observation>>(base(ws, '/observations', { asset_id: assetId, limit: 20 })),
+    queryFn: () => api<Page<Observation>>(base(ws, '/observations', { asset_id: assetId, limit: 100 })),
   })
 
 export const useLocations = (ws: string) =>
