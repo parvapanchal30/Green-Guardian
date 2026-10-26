@@ -120,5 +120,8 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [x] In-development pages, batch 1 (ADR-063, 2026-10-25): Trees, Plants, Crop batches, Species, Crops, Fields and zones, Inspections
 - [x] Example data under your own account in the development database (`app.tools.example_data`, ADR-064)
 - [x] Batch 2 (ADR-066, 2026-10-25): Harvests overview with CSV, Health over time, Growth measurements and page, Growth KPI
-- [ ] Batch 3: Analytics and Impact reports with CSV export
+- [x] Live demo: real weather with an offline fallback, background worker started and stopped with the demo (ADR-067)
+- [x] Batch 3 (ADR-068, 2026-10-26): Analytics and Impact reports with print and CSV; every MVP page is now live
+- [ ] UI/UX redesign review (current screens and proposed directions), to be decided with the owner before "Coming soon" work
+- [ ] Zone areas (so Impact can report coverage), report history or scheduled reports if needed
 - [ ] Next product milestone candidates: recurring inspection schedules, partial batch loss (a count ledger), workspace settings UI for agent thresholds, member invite/role UI

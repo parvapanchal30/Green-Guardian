@@ -104,8 +104,10 @@ GET /workspaces/{ws}/weather                   ?lat=&lon=&days=1..16  (provider-
 
 ## Reports
 ```
-GET /workspaces/{ws}/reports/templates     POST /workspaces/{ws}/reports     GET /reports/{id}     GET /reports/{id}/download
+GET /workspaces/{ws}/reports/analytics     ?since=&until=   (default the last 12 months, at most five years; 422 bad_period, period_too_long)
+GET /workspaces/{ws}/reports/impact        ?since=&until=
 ```
+Both are computed on request from the workspace's records, labelled `method: statistical`, any member may read them (ADR-068). Figures that cannot be computed are `null` (coverage: `available: false` with a `reason`). The earlier design of report templates and stored report files is not built; CSV and print are done by the page.
 
 ## System
 `GET /healthz` · `GET /readyz` · `GET /openapi.json`
@@ -145,7 +147,7 @@ All paths are under `/api/v1/workspaces/{ws}`. Lists return `{items, total, limi
 | Agent | `GET /agent/rules`, `POST /agent/run`, `GET /agent/runs`, `GET /agent/runs/{id}`, `GET /recommendations?status&asset_id`, `POST /recommendations/{id}/accept|dismiss` | member / manager | rule-based only; accepting creates an issue/task, or (irrigation advice) moves a watering task's due date, through the normal services; recommendations expose `agent_run_id`, `rule_version`, `outcome*`; tasks expose `recommendation_id` |
 
 **Conventions:** request bodies reject unknown fields; JSON blobs ≤ 10 KB; attachments are metadata (an https URL reference, image types only, ≤ 10; no client-supplied storage key, uploads go through `/evidence`); `observed_at` may be back-dated but not future; `409` for illegal transitions (`allowed` lists the legal ones), open tasks blocking resolution (`open_tasks`), duplicates; `422` for validation and business-rule violations; `403` for role violations.
-Still design only: `GET /dashboard`, `GET /map`, reports, bulk import, predictions (`501 capability_unavailable` is reserved). The Home dashboard currently composes counts from list totals.
+Still design only: `GET /dashboard`, `GET /map`, stored report templates, bulk import, predictions (`501 capability_unavailable` is reserved). The Home dashboard currently composes counts from list totals.
 
 ## Cross-cutting behaviour (2026-10-17, ADR-032..034)
 - **`X-Request-ID`** is returned on every response (and exposed to browsers by CORS). A well-formed incoming value (8-64 characters of `A-Za-z0-9._:-`) is kept; anything else is replaced. Every problem+json body includes `request_id`. Quote it to support: it matches the server log and the audit trail.
