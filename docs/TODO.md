@@ -122,6 +122,13 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [x] Batch 2 (ADR-066, 2026-10-25): Harvests overview with CSV, Health over time, Growth measurements and page, Growth KPI
 - [x] Live demo: real weather with an offline fallback, background worker started and stopped with the demo (ADR-067)
 - [x] Batch 3 (ADR-068, 2026-10-26): Analytics and Impact reports with print and CSV; every MVP page is now live
-- [ ] UI/UX redesign review (current screens and proposed directions), to be decided with the owner before "Coming soon" work
+- [x] UI/UX review and direction (ADR-069, 2026-10-26): Field Ledger, accepted Canopy ideas, Hindi headings with Martel; designs on the canvases linked from docs/DESIGN_SYSTEM.md
+- [x] Redesign phase 1, foundations: fonts, tokens, icons, building blocks (ADR-069)
+- [x] Redesign phase 2 (ADR-070, 2026-10-26): grouped menu with icons and counts, sub-pages as tabs, Coming next page, search, account menu with language and light/dark, phone bottom bar with Record; the menu no longer marks two entries
+- [x] Redesign phase 3 (ADR-071, 2026-10-26): Home with decisions first, rule-built summary sentence, health bar and figures, activity by day, due next, Record
+- [x] Redesign phase 4 (ADR-072, 2026-10-26): plant page with photo header, facts, health-and-photos chart, filterable timeline, side cards, and one Record sheet
+- [x] Redesign phase 5 (ADR-073, 2026-10-26): one list pattern (ledger table, cards on phones), photo cards on Trees/Plants/Crop batches, Tasks by role and due group, Issues with "Waiting for a check" and most severe first
+- [ ] Work through the redesign gaps in docs/REDESIGN_GAPS.md (one section per phase) after phase 6
+- [x] Redesign phase 6 (ADR-074 to ADR-077, 2026-10-27): sign-in (no example records), workspaces, members managed in the app, audit log, two-tab weather with place search, pin and saved places, health, growth, map, reports with a summary sentence, agent, datasets, protocols
 - [ ] Zone areas (so Impact can report coverage), report history or scheduled reports if needed
 - [ ] Next product milestone candidates: recurring inspection schedules, partial batch loss (a count ledger), workspace settings UI for agent thresholds, member invite/role UI

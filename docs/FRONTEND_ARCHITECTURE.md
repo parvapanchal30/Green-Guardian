@@ -28,6 +28,8 @@ src/
 - `<CapabilityGate feature="disease_detection">` renders the live feature if available, else `<ComingSoonPanel technique="Computer vision" />` showing the real layout with disabled controls. **No fabricated results.** Dev-only sample data is behind `VITE_SAMPLE_DATA=true`, watermarked "Sample data", and excluded from production builds.
 
 ## Design system principles
+The current visual system is **Field Ledger** (ADR-069): typefaces, colour tokens, icons and building blocks are documented in docs/DESIGN_SYSTEM.md.
+
 Dense tables with sticky headers and column control; strong status semantics (color **+** icon **+** text); lifecycle stepper on asset pages; health spectrum scale used consistently (map, tables, badges); biological context always visible (species, zone, stage); explainability components (`MethodBadge`, "Why?" popovers showing rule inputs); uncertainty via bands/ranges (`UncertaintyBand`), not point values. Light/dark themes; earthy-but-neutral palette; avoid generic AI-SaaS gradient aesthetic.
 
 ## Key screens (MVP)
