@@ -17,6 +17,10 @@ RUN pip install ".[s3]"
 
 # ---- runtime stage
 FROM python:3.12-slim-bookworm AS runtime
+# Apply pending OS security fixes that are newer than the base image (the scan in CI gates this), as the web image does.
+RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
+ && rm -rf /var/lib/apt/lists/*
 # A fixed non-root identity (no shell, no login). Secrets are NEVER baked in: everything arrives as environment variables.
 RUN groupadd --system --gid 10001 app \
  && useradd --system --uid 10001 --gid app --home-dir /srv --shell /usr/sbin/nologin app \
