@@ -3,11 +3,14 @@ setlocal EnableExtensions
 title GreenGuardian local demo
 rem ---------------------------------------------------------------------------------------------------------------
 rem  GreenGuardian local demo launcher.
-rem    demo.bat            start (creates the demo data the first time), then offers the automated tour
-rem    demo.bat --fresh    throw the demo data away and rebuild it
-rem    tour.bat            replay the automated browser tour any time
-rem    demo-stop.bat       stop the two servers
-rem  Everything runs on THIS computer with a throwaway SQLite file (backend\var\demo\demo.db).
+rem    demo.bat              start (creates the demo data the first time), then offers the automated tour
+rem    demo.bat --fresh      throw the demo data away and rebuild it
+rem    demo.bat --offline    use made-up weather instead of the real forecast (no internet needed)
+rem    tour.bat              replay the automated browser tour any time
+rem    demo-stop.bat         stop the demo's API, web app and background worker
+rem  Everything runs on THIS computer with a throwaway SQLite file (backend\var\demo\demo.db). The plants and records
+rem  are examples, but the weather is the real Open-Meteo forecast for their coordinates (unless offline), and a
+rem  background worker runs the scheduled agent checks and recurring inspections, as it would in production.
 rem  It never reads or writes your Supabase / hosted database, and needs no cloud account.
 rem ---------------------------------------------------------------------------------------------------------------
 cd /d "%~dp0"
@@ -17,6 +20,17 @@ set "FRONT=%ROOT%frontend"
 set "PY=%BACK%\.venv\Scripts\python.exe"
 set "API_PORT=8000"
 set "WEB_PORT=5173"
+
+rem ---- options (in any order) ----------------------------------------------------------------------------------
+set "FRESH="
+set "OFFLINE="
+:args
+if "%~1"=="" goto :argsdone
+if /i "%~1"=="--fresh" set "FRESH=1"
+if /i "%~1"=="--offline" set "OFFLINE=1"
+shift
+goto :args
+:argsdone
 
 echo.
 echo  === GreenGuardian local demo ===
@@ -48,11 +62,22 @@ rem ---- settings for THIS demo only (the backend\.env file with your real datab
 set "DATABASE_URL=sqlite+pysqlite:///var/demo/demo.db"
 set "JWT_SECRET=demo-only-local-secret-not-for-real-use-0123456789"
 set "ENV=development"
+rem Real weather from Open-Meteo (free, no key, non-commercial use: ADR-065) when it can be reached; otherwise made up.
 set "WEATHER_PROVIDER=mock"
+set "WEATHER_NOTE=made-up weather (offline mode)"
+if not defined OFFLINE (
+  powershell -NoProfile -Command "try { $r = Invoke-WebRequest 'https://api.open-meteo.com/v1/forecast?latitude=19.13&longitude=72.91&hourly=temperature_2m&forecast_days=1' -UseBasicParsing -TimeoutSec 8; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }"
+  if errorlevel 1 (
+    set "WEATHER_NOTE=made-up weather: Open-Meteo could not be reached, so the demo works offline"
+  ) else (
+    set "WEATHER_PROVIDER=open_meteo"
+    set "WEATHER_NOTE=real weather from Open-Meteo for the demo plants' coordinates"
+  )
+)
 set "STORAGE_PROVIDER=local"
 set "STORAGE_LOCAL_DIR=var/demo/storage"
 
-if /i "%~1"=="--fresh" (
+if defined FRESH (
   echo [..] Removing the old demo data ...
   if exist "%BACK%\var\demo" rmdir /s /q "%BACK%\var\demo"
 )
@@ -87,6 +112,8 @@ echo [..] Starting the API on http://127.0.0.1:%API_PORT% ...
 start "GreenGuardian API (demo)" /d "%BACK%" cmd /k ""%PY%" -m uvicorn app.main:create_app --factory --host 127.0.0.1 --port %API_PORT%"
 echo [..] Starting the web app on http://localhost:%WEB_PORT% ...
 start "GreenGuardian web (demo)" /d "%FRONT%" cmd /k "npm run dev -- --port %WEB_PORT% --strictPort"
+echo [..] Starting the background worker ^(scheduled agent checks, recurring inspections^) ...
+start "GreenGuardian worker (demo)" /d "%BACK%" cmd /k ""%PY%" -m app.worker --label gg-demo"
 
 echo [..] Waiting for both to answer ...
 set /a TRIES=0
@@ -99,7 +126,7 @@ timeout /t 2 /nobreak >nul
 goto :wait
 
 :ready
-echo [ok] Ready.
+echo [ok] Ready. Weather: %WEATHER_NOTE%.
 if not defined GG_NO_BROWSER start "" "http://localhost:%WEB_PORT%/"
 echo.
 echo  ---------------------------------------------------------------------------------------------------
@@ -118,6 +145,7 @@ echo  To replay the tour any time:  tour.bat      ^(options: tour.bat --manual, 
 echo  To click around by hand:      see docs\DEMO.md or open http://localhost:%WEB_PORT%/
 echo  To stop everything:           demo-stop.bat
 echo  To rebuild the demo data:     demo.bat --fresh
+echo  Without internet:             demo.bat --offline
 echo.
 pause
 exit /b 0

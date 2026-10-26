@@ -1,7 +1,9 @@
 # Local demo
 
 A self-contained way to look at the product on your own computer. **It uses a throwaway SQLite file, never your Supabase
-database, and needs no cloud account.** Nothing in it is real data.
+database, and needs no cloud account.** The plants and records are examples, but the product runs live on them: every
+figure is computed from the records, the **weather is the real Open-Meteo forecast** for the demo plants' coordinates (Mumbai
+and Pune), and a **background worker** runs the scheduled agent checks and recurring inspections, as in production.
 
 ## Run it
 1. Double-click `demo.bat` in the repository root (or run it from a terminal). First run only: it installs the frontend packages
@@ -9,7 +11,8 @@ database, and needs no cloud account.** Nothing in it is real data.
 2. It opens `http://localhost:5173`; sign in with one of the demo accounts below (also printed in the console and saved in
    `backend/var/demo/DEMO_LOGIN.txt`). It asks whether to run the **automated tour** (below).
 3. `tour.bat` replays the tour any time (`--manual` waits for Enter between steps, `--speed 2` is twice as fast, `--only agent,map`
-   runs chosen steps). `demo.bat --fresh` throws the demo data away and rebuilds it. On every start an existing demo database is brought up to date (`alembic upgrade head`: new tables only, the data is kept); demo data added for newer features, such as the recorded work on Neem #102, only appears after `--fresh`. `demo-stop.bat` stops both servers.
+   runs chosen steps). `demo.bat --fresh` throws the demo data away and rebuilds it. On every start an existing demo database is brought up to date (`alembic upgrade head`: new tables only, the data is kept); demo data added for newer features, such as the recorded work on Neem #102, only appears after `--fresh`. `demo.bat --offline` uses made-up weather (the demo also falls back to it by itself when Open-Meteo cannot be reached;
+   the console says which it used). `demo-stop.bat` stops the demo's API, web app and worker, and nothing you started yourself.
 
 ## Demo accounts
 These exist **only in the local demo database** (`backend/var/demo/demo.db`). The passwords are fixed so these instructions stay
@@ -24,7 +27,7 @@ browser may offer passwords saved for other local accounts (for example from the
 
 Workspaces: **Riverside Campus Green Cover** (Green Management) and **Green Valley Farm** (Agricultural Production). Things to
 look at: issue *Neem #102 crown dieback* (work recorded, "Did the work help?" awaiting a check, a follow-up inspection task),
-the lifecycle of *Gulmohar #09* (dead) and *Okra block C* (failed), the corrected harvest of *Tomato block A*, and growth measurements of *Neem #101*, *Mango #07*, the sapling and *Wheat field 3* (Growth page and KPI), the monthly **recurring inspection** of *Banyan #01* (its first task already exists). Recurring tasks are created when a schedule is saved, by **Create due tasks now**, or by the worker (`python -m app.worker`), which the demo does not start.
+the lifecycle of *Gulmohar #09* (dead) and *Okra block C* (failed), the corrected harvest of *Tomato block A*, and growth measurements of *Neem #101*, *Mango #07*, the sapling and *Wheat field 3* (Growth page and KPI), the monthly **recurring inspection** of *Banyan #01* (its first task already exists). Recurring tasks are created by the demo's background worker when they fall due, when a schedule is saved, or by **Create due tasks now**. The worker runs the agent once a day per workspace, so a fresh demo (whose build already ran it) shows its first scheduled run the next day.
 A demo database built before 2026-10-25 still has the old random passwords (see its `DEMO_LOGIN.txt`) until `demo.bat --fresh`.
 
 ## The two tours
@@ -75,13 +78,14 @@ cd backend
 set DATABASE_URL=sqlite+pysqlite:///var/demo/demo.db
 set JWT_SECRET=demo-only-local-secret-not-for-real-use-0123456789
 set ENV=development
-set WEATHER_PROVIDER=mock
+set WEATHER_PROVIDER=open_meteo   (or mock, offline)
 set STORAGE_PROVIDER=local
 set STORAGE_LOCAL_DIR=var/demo/storage
 .venv\Scripts\python.exe -m app.tools.demo_seed
 .venv\Scripts\python.exe -m uvicorn app.main:create_app --factory --port 8000
 ```
-then, in a second terminal: `cd frontend`, `npm run dev`, and open `http://localhost:5173`.
+then, in a second terminal: `cd frontend`, `npm run dev`, and open `http://localhost:5173`; optionally, in a third terminal with
+the same settings, `.venv\Scripts\python.exe -m app.worker` for the scheduled checks.
 
 ## What the demo contains
 Created through the real API, so every rule, role and audit entry applied:

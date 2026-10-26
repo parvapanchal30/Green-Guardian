@@ -35,8 +35,9 @@ log = structlog.get_logger()
 HEARTBEAT = Path(os.environ.get("WORKER_HEARTBEAT_FILE", Path(tempfile.gettempdir()) / "gg-worker.heartbeat"))
 
 
-def worker_id() -> str:
-    return f"{socket.gethostname()}:{os.getpid()}"
+def worker_id(label: str | None = None) -> str:
+    base = f"{socket.gethostname()}:{os.getpid()}"
+    return f"{label}@{base}" if label else base
 
 
 def build_weather(settings: Settings) -> WeatherContextProvider | None:
@@ -60,10 +61,10 @@ def healthy(max_age_s: float) -> bool:
         return False
 
 
-def run(stop: threading.Event, *, once: bool = False) -> None:
+def run(stop: threading.Event, *, once: bool = False, label: str | None = None) -> None:
     settings = get_settings()
     weather = build_weather(settings)
-    me = worker_id()
+    me = worker_id(label)
     next_housekeeping = 0.0
     log.info("worker_started", worker_id=me, poll_s=settings.worker_poll_interval_s)
     while not stop.is_set():
@@ -103,6 +104,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--once", action="store_true", help="run one pass and exit")
     parser.add_argument("--healthcheck", action="store_true", help="exit 0 if the heartbeat is recent")
+    parser.add_argument(
+        "--label",
+        default=None,
+        help="a name recorded in run history and shown in the process list (the local demo uses gg-demo)",
+    )
     args = parser.parse_args(argv)
     settings = get_settings()
     if args.healthcheck:
@@ -114,7 +120,7 @@ def main(argv: list[str] | None = None) -> int:
     for name in ("SIGINT", "SIGTERM", "SIGBREAK"):
         if (sig := getattr(signal, name, None)) is not None:
             signal.signal(sig, lambda *_: stop.set())
-    run(stop, once=args.once)
+    run(stop, once=args.once, label=args.label)
     return 0
 
 

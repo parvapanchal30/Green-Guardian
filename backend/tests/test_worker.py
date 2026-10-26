@@ -81,3 +81,35 @@ def test_heartbeat_health_check(monkeypatch, tmp_path):
 def test_the_worker_wires_the_weather_adapter_to_the_agents_port(settings):
     provider: WeatherContextProvider | None = worker.build_weather(settings)
     assert isinstance(provider, ForecastWeatherContext)  # the real wiring; tests above stub it out
+
+
+def test_a_labelled_worker_records_its_label_and_creates_due_recurring_tasks(
+    world, team, api_for, monkeypatch, tmp_path
+):
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import text
+
+    from app.modules.schedules.models import ScheduleOccurrence
+    from tests.helpers import ahead, make_asset
+
+    wire(monkeypatch, world, tmp_path)
+    m = api_for(team.manager)
+    tree = make_asset(m)
+    assert (
+        m.post("/schedules", {"asset_id": tree["id"], "interval_days": 7, "first_due_at": ahead(days=3)}).status_code
+        == 201
+    )
+    with world.db() as db:  # the first inspection falls due
+        db.execute(
+            text("UPDATE inspection_schedules SET next_due_at = :t"), {"t": datetime.now(UTC) - timedelta(minutes=1)}
+        )
+        db.commit()
+    worker.run(threading.Event(), once=True, label="gg-demo")
+    with world.db() as db:
+        workers = set(db.scalars(select(AgentRun.worker_id)))
+        created = db.scalar(
+            select(func.count()).select_from(ScheduleOccurrence).where(ScheduleOccurrence.outcome == "created")
+        )
+    assert workers and all(w.startswith("gg-demo@") for w in workers)
+    assert created == 1
