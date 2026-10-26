@@ -11,6 +11,8 @@ WORKDIR /build
 COPY pyproject.toml ./
 COPY app ./app
 # The 's3' extra adds the S3 client used when STORAGE_PROVIDER=s3 (inert otherwise).
+# DL3013 (pin versions) does not apply: this installs the project itself; its dependency ranges live in pyproject.toml.
+# hadolint ignore=DL3013
 RUN pip install ".[s3]"
 
 # ---- runtime stage
