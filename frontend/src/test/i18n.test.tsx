@@ -37,7 +37,7 @@ describe('catalogs', () => {
       if (h === text) sameOnPurpose.add(key)
     }
     // Entries that are legitimately the same in both languages (symbols only). Anything else here is an untranslated copy.
-    expect([...sameOnPurpose].sort()).toEqual(['issue.moveTo'])
+    expect([...sameOnPurpose].sort()).toEqual(['issue.moveTo', 'weather.unit.temp']) // "°C" is written the same in Hindi
   })
 
   it('plural keys come in complete pairs', () => {

@@ -13,12 +13,16 @@
     "test": "vitest run",
     "preview": "vite preview",
     "verify:dist": "node scripts/verify-dist.mjs",
-    "tour": "node tour/run-tour.mjs",
     "tour": "node tour/run-tour.mjs"
   },
   "dependencies": {
+    "@fontsource/hind": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/martel": "^5.3.0",
+    "@fontsource/zilla-slab": "^5.3.0",
     "@tanstack/react-query": "^5.104.1",
     "leaflet": "^1.9.4",
+    "lucide-react": "^1.61.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.4"

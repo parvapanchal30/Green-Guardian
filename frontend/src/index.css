@@ -1,55 +1,133 @@
 @import "tailwindcss";
 
-/* Design tokens. Status colours are reserved for status semantics (health / severity / availability). */
+/*
+ * Field Ledger design tokens (ADR-069, docs/DESIGN_SYSTEM.md).
+ * Status colours are reserved for status meaning (health, severity, availability); each has a "-soft" fill for chips
+ * and rows. Every text colour here passes 4.5:1 on canvas, surface and surface-2 (checked in the design-system test).
+ */
 @theme {
-  --font-sans: "Segoe UI", "Helvetica Neue", Arial, system-ui, sans-serif;
-  --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  --font-sans: "Hind", "Segoe UI", "Nirmala UI", system-ui, sans-serif;
+  --font-display: "Zilla Slab", "Martel", Georgia, "Nirmala UI", serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
 
-  --color-canvas: #f3f5f1;
+  --color-canvas: #f3f5f0;
   --color-surface: #ffffff;
-  --color-surface-2: #eaeee8;
-  --color-line: #d3dacf;
-  --color-ink: #16201a;
-  --color-ink-2: #46524a;
-  --color-ink-3: #6b776f;
+  --color-surface-2: #eaeee7;
+  --color-line: #d6ddd2;
+  --color-line-soft: #e8ece5;
+  --color-ink: #17211b;
+  --color-ink-2: #48544c;
+  --color-ink-3: #5b675f;
   --color-moss: #2f5d3a;
   --color-moss-ink: #ffffff;
+  --color-moss-soft: #e3ece2;
   --color-soil: #7a5c3e;
+  /* the sign-in panel: dark green in both themes */
+  --color-forest: #1f3d28;
+  --color-forest-ink: #e9f0ea;
+  --color-forest-muted: #b9cbbd;
 
-  --color-healthy: #2e7d4f;
-  --color-at-risk: #a76a0c;
-  --color-critical: #b3261e;
-  --color-soon: #5f6b78;
+  --color-healthy: #23683f;
+  --color-healthy-soft: #e3f0e6;
+  --color-at-risk: #8a5708;
+  --color-at-risk-soft: #f7ecd6;
+  --color-critical: #a8231c;
+  --color-critical-soft: #fbe4e1;
+  --color-soon: #56626e;
+  --color-info: #2c5d82;
+  --color-info-soft: #e1ecf4;
 }
 
+/* Dark: follows the device unless light is chosen; the same values apply when dark is chosen explicitly. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --color-canvas: #101612;
     --color-surface: #18201b;
     --color-surface-2: #212b24;
     --color-line: #34423a;
+    --color-line-soft: #26302a;
     --color-ink: #e8eee9;
     --color-ink-2: #b4c0b7;
-    --color-ink-3: #8a978e;
-    --color-moss: #7fbf8f;
+    --color-ink-3: #9aa69e;
+    --color-moss: #8cc79b;
     --color-moss-ink: #0f1a12;
-    --color-soil: #c9a37a;
-    --color-healthy: #5fbf86;
-    --color-at-risk: #e0a23a;
-    --color-critical: #f0786f;
-    --color-soon: #9aa7b4;
+    --color-moss-soft: #1f2e23;
+    --color-soil: #d2ad86;
+    --color-forest: #1f3d28;
+    --color-forest-ink: #e9f0ea;
+    --color-forest-muted: #b9cbbd;
+    --color-healthy: #6cc892;
+    --color-healthy-soft: #1c2e22;
+    --color-at-risk: #e6ab45;
+    --color-at-risk-soft: #34291a;
+    --color-critical: #f28a82;
+    --color-critical-soft: #3a1f1d;
+    --color-soon: #a6b2be;
+    --color-info: #8fc0e4;
+    --color-info-soft: #1d2a35;
   }
+}
+:root[data-theme="dark"] {
+  --color-canvas: #101612;
+  --color-surface: #18201b;
+  --color-surface-2: #212b24;
+  --color-line: #34423a;
+  --color-line-soft: #26302a;
+  --color-ink: #e8eee9;
+  --color-ink-2: #b4c0b7;
+  --color-ink-3: #9aa69e;
+  --color-moss: #8cc79b;
+  --color-moss-ink: #0f1a12;
+  --color-moss-soft: #1f2e23;
+  --color-soil: #d2ad86;
+  --color-forest: #1f3d28;
+  --color-forest-ink: #e9f0ea;
+  --color-forest-muted: #b9cbbd;
+  --color-healthy: #6cc892;
+  --color-healthy-soft: #1c2e22;
+  --color-at-risk: #e6ab45;
+  --color-at-risk-soft: #34291a;
+  --color-critical: #f28a82;
+  --color-critical-soft: #3a1f1d;
+  --color-soon: #a6b2be;
+  --color-info: #8fc0e4;
+  --color-info-soft: #1d2a35;
 }
 
 html {
   color-scheme: light dark;
 }
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Headings use the display face; Hindi headings get Martel through the font stack and need a taller line. In the
+   base layer, so a utility class on a heading (font-mono, font-sans, leading-*) still wins. */
+@layer base {
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+  :lang(hi) h1,
+  :lang(hi) h2,
+  :lang(hi) h3 {
+    line-height: 1.35;
+  }
+}
+
 :focus-visible {
   outline: 2px solid var(--color-moss);
   outline-offset: 2px;

@@ -43,21 +43,38 @@ export function TaskStatusChip({ status, overdue }: { status: TaskStatus; overdu
   )
 }
 
-export function PageHeader({ title, children, subtitle }: { title: string; subtitle?: ReactNode; children?: ReactNode }) {
+/**
+ * The top of every page: an optional eyebrow (the menu group, e.g. "Plants"), the title in the display face, a
+ * subtitle, and the page's actions on the right.
+ */
+export function PageHeader({
+  title,
+  children,
+  subtitle,
+  eyebrow,
+}: {
+  title: string
+  subtitle?: ReactNode
+  children?: ReactNode
+  eyebrow?: string
+}) {
   return (
-    <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {subtitle && <div className="mt-1 text-sm text-ink-2">{subtitle}</div>}
+    <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
+      <div className="flex min-w-0 flex-col gap-1">
+        {eyebrow && <span className="font-mono text-[11px] tracking-[0.08em] text-soil uppercase">{eyebrow}</span>}
+        <h1 className="text-[32px] leading-tight font-bold">{title}</h1>
+        {subtitle && <div className="text-sm text-ink-2">{subtitle}</div>}
       </div>
       {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
     </header>
   )
 }
 
-export const btn = 'rounded border border-line px-3 py-1.5 text-sm hover:bg-surface-2 disabled:opacity-50'
-export const btnPrimary = 'rounded bg-moss px-3 py-1.5 text-sm text-moss-ink hover:opacity-90 disabled:opacity-50'
-export const input = 'w-full rounded border border-line bg-canvas px-2 py-1.5 text-sm'
+export const btn =
+  'inline-flex items-center justify-center gap-2 rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-50'
+export const btnPrimary =
+  'inline-flex items-center justify-center gap-2 rounded-md bg-moss px-3.5 py-1.5 text-sm font-semibold text-moss-ink hover:opacity-90 disabled:opacity-50'
+export const input = 'w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm'
 
 export function Field({ id, label: text, hint, children }: { id: string; label: string; hint?: string; children: ReactNode }) {
   return (

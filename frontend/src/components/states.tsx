@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { ProblemError } from '../api/client'
 import { useT } from '../i18n'
+import { Icon, type IconName } from './icons'
 
 export function Skeleton({ className = 'h-4 w-full' }: { className?: string }) {
   return <div aria-hidden="true" className={`animate-pulse rounded bg-surface-2 ${className}`} />
@@ -18,10 +19,11 @@ export function LoadingBlock({ label }: { label?: string }) {
   )
 }
 
-export function EmptyState({ title, children, action }: { title: string; children?: ReactNode; action?: ReactNode }) {
+export function EmptyState({ title, children, action, icon }: { title: string; children?: ReactNode; action?: ReactNode; icon?: IconName }) {
   return (
-    <div className="rounded-lg border border-dashed border-line bg-surface p-6 text-center">
-      <p className="font-medium text-ink">{title}</p>
+    <div className="rounded-lg border-[1.5px] border-dashed border-line bg-surface p-6 text-center">
+      {icon && <Icon name={icon} size={30} className="mx-auto mb-2 text-moss" />}
+      <p className="font-display text-lg font-semibold text-ink">{title}</p>
       {children && <div className="mx-auto mt-1 max-w-prose text-sm text-ink-2">{children}</div>}
       {action && <div className="mt-4">{action}</div>}
     </div>
