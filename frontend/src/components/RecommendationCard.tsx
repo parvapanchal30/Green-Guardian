@@ -4,10 +4,21 @@ import type { Recommendation } from '../api/types'
 import { useAcceptRecommendation, useDismissRecommendation } from '../lib/slice'
 import { useI18n, type TKey } from '../i18n'
 import { MethodBadge, SeverityChip, btn, btnPrimary, input } from './domain'
+import { Icon } from './icons'
+import type { IconName } from './icon-set'
 import { errorMessage } from './states'
 import { StatusChip } from './StatusChip'
 
 const ACCEPT_KINDS = new Set(['task', 'defer_task', 'issue'])
+
+/** One icon per kind of rule, so suggestions can be told apart at a glance (ADR-069, idea 2). */
+const RULE_ICON: Record<string, IconName> = { critical_health: 'pulse', health_decline: 'health', inspection_gap: 'look', irrigation_defer: 'rain' }
+const SEVERITY_DISC: Record<string, string> = {
+  critical: 'bg-critical-soft text-critical',
+  high: 'bg-critical-soft text-critical',
+  medium: 'bg-at-risk-soft text-at-risk',
+  low: 'bg-info-soft text-info',
+}
 
 type Inputs = { kind?: string; not_known?: string[]; forecast?: { source?: string; as_of?: string; soil_moisture_note?: string } }
 const inputsOf = (rec: Recommendation): Inputs => ((rec.evidence as { inputs?: Inputs }).inputs ?? {}) as Inputs
@@ -30,7 +41,11 @@ export function RecommendationCard({ rec, ws, canDecide }: { rec: Recommendation
   const version = rec.rule_version != null ? t('rec.version', { n: rec.rule_version }) : ''
 
   return (
-    <li className="rounded-lg border border-line bg-surface p-3">
+    <li className="flex gap-3 rounded-lg border border-line bg-surface p-3">
+      <span aria-hidden="true" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${SEVERITY_DISC[rec.severity] ?? SEVERITY_DISC.low}`}>
+        <Icon name={RULE_ICON[rec.rule_key] ?? 'agent'} size={20} />
+      </span>
+      <div className="min-w-0 flex-1">
       <div className="flex flex-wrap items-center gap-2">
         <SeverityChip severity={rec.severity} />
         <MethodBadge method={rec.method} />
@@ -112,6 +127,7 @@ export function RecommendationCard({ rec, ws, canDecide }: { rec: Recommendation
           {errorMessage(error)}
         </p>
       )}
+      </div>
     </li>
   )
 }
