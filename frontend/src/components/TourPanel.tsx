@@ -39,7 +39,7 @@ export function TourButton({ ws, mode, role }: { ws: string; mode: WorkspaceMode
   const [open, setOpen] = useState(false)
   return (
     <>
-      <button type="button" className="rounded border border-line px-2 py-1 hover:bg-surface-2" onClick={() => setOpen(true)} aria-haspopup="dialog">
+      <button type="button" className="rounded-md px-2 py-1.5 text-left hover:bg-surface-2" onClick={() => setOpen(true)} aria-haspopup="dialog">
         {t('nav.tour')}
       </button>
       {open && <TourPanel ws={ws} mode={mode} role={role} onClose={() => setOpen(false)} />}

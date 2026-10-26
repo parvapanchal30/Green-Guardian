@@ -11,7 +11,7 @@ describe('route registry', () => {
   })
 
   it('only marks as live what is implemented', () => {
-    expect(ROUTES.filter((r) => r.status === 'live').map((r) => r.path).sort()).toEqual(['', 'ai/agent', 'ai/datasets', 'ai/protocols', 'assets', 'assets/batches', 'assets/crops', 'assets/plants', 'assets/species', 'assets/trees', 'harvests', 'inspections', 'issues', 'locations', 'monitor/growth', 'monitor/health', 'monitor/map', 'monitor/weather', 'reports/analytics', 'reports/impact', 'settings/audit', 'settings/members', 'tasks'])
+    expect(ROUTES.filter((r) => r.status === 'live').map((r) => r.path).sort()).toEqual(['', 'ai/agent', 'ai/datasets', 'ai/protocols', 'assets', 'assets/batches', 'assets/crops', 'assets/plants', 'assets/species', 'assets/trees', 'coming-next', 'harvests', 'inspections', 'issues', 'locations', 'monitor/growth', 'monitor/health', 'monitor/map', 'monitor/weather', 'reports/analytics', 'reports/impact', 'settings/audit', 'settings/members', 'tasks'])
   })
 
   it('every future (soon) surface is gated by a backend capability and names its technique', () => {

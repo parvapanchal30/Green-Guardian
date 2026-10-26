@@ -108,6 +108,9 @@ async function signIn(page, account) {
 }
 
 async function signOut(page) {
+  // Sign out lives in the account menu (ADR-069): open it first when it is there.
+  const account = page.getByRole('button', { name: /^Account:/ })
+  if (await account.count()) await account.first().click()
   const button = page.getByRole('button', { name: 'Sign out' })
   if (await button.count()) await button.first().click()
   else await page.goto(`${BASE}/login`)

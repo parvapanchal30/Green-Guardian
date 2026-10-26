@@ -24,6 +24,7 @@ import { HealthPage } from '../pages/HealthPage'
 import { GrowthPage } from '../pages/GrowthPage'
 import { AnalyticsPage, ImpactPage } from '../pages/ReportsPages'
 import { WeatherPage } from '../pages/WeatherPage'
+import { ComingNextPage } from '../pages/ComingNextPage'
 import { WorkspacesPage } from '../pages/WorkspacesPage'
 import { ROUTES } from './routes'
 import { RequireAuth, WorkspaceLayout } from './WorkspaceLayout'
@@ -76,6 +77,7 @@ const LIVE: Record<string, () => React.JSX.Element> = {
   'monitor/weather': WeatherPage,
   'settings/members': MembersPage,
   'settings/audit': AuditPage,
+  'coming-next': ComingNextPage,
 }
 
 // Detail pages are reachable by link, not from the sidebar.
