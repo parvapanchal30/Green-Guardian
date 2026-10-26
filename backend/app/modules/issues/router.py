@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
@@ -25,6 +26,8 @@ def list_issues(
     assignee: str | None = None,
     asset_id: uuid.UUID | None = None,
     q: str | None = None,
+    waiting: bool | None = None,
+    sort: Literal["recent", "severity"] = "recent",
     page: PageParams = Depends(page_params),
     ctx: WorkspaceContext = Depends(viewer_ctx),
     db: Session = Depends(get_db),
@@ -40,6 +43,8 @@ def list_issues(
         assignee=assignee,
         asset_id=asset_id,
         q=q,
+        waiting=waiting,
+        sort=sort,
     )
 
 

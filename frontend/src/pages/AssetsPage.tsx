@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import type { AssetKind, HealthBand } from '../api/types'
+import type { Asset, AssetKind, HealthBand } from '../api/types'
 import { useWorkspaceCtx } from '../app/WorkspaceLayout'
 import { Field, HealthChip, PageHeader, Pagination, btn, btnPrimary, input } from '../components/domain'
 import { EmptyState, ErrorState, LoadingBlock, errorMessage } from '../components/states'
@@ -8,7 +8,10 @@ import { ProblemError } from '../api/client'
 import { useI18n, type TKey } from '../i18n'
 import { atLeast } from '../lib/format'
 import { useLifecycleTemplate } from '../lib/lifecycle'
-import { useAssets, useCreateAsset, useCreateLocation, useLocations, useSpecies } from '../lib/slice'
+import { useAssets, useCreateAsset, useLocations, useSpecies } from '../lib/slice'
+import { AssetCard } from '../components/asset/AssetCard'
+import { Icon } from '../components/icons'
+import { FilterBar, FilterSelect, LedgerTable, SearchField, Segmented, Tag, type LedgerColumn } from '../components/ui'
 
 const PAGE = 25
 const KINDS: AssetKind[] = ['tree', 'plant', 'crop_batch', 'shrub', 'other']
@@ -118,29 +121,6 @@ function RegisterAssetForm({ onDone, preset }: { onDone: () => void; preset?: As
   )
 }
 
-function AddLocation() {
-  const { ws, workspace } = useWorkspaceCtx()
-  const t = useI18n().t
-  const create = useCreateLocation(ws)
-  const kind = workspace.mode === 'agricultural_production' ? 'field' : 'zone'
-  return (
-    <form
-      className="mb-4 flex flex-wrap items-end gap-2"
-      onSubmit={(e) => {
-        e.preventDefault()
-        const input_ = e.currentTarget.elements.namedItem('loc') as HTMLInputElement
-        create.mutate({ name: input_.value.trim(), kind }, { onSuccess: () => (input_.value = '') })
-      }}
-    >
-      <Field id="loc" label={t(`assets.newLocation.${workspace.mode}` as TKey)}>
-        <input id="loc" name="loc" required maxLength={200} className={input} placeholder={t(`assets.locationPlaceholder.${workspace.mode}` as TKey)} />
-      </Field>
-      <button className={btn} disabled={create.isPending}>{t(`assets.addLocation.${workspace.mode}` as TKey)}</button>
-      {create.error != null && <p role="alert" className="text-sm text-critical">{errorMessage(create.error)}</p>}
-    </form>
-  )
-}
-
 /**
  * The asset registry. With `only`, it is a view of one kind (Trees, Plants, Crop batches): the same list, filters and
  * registration, with the kind fixed. These views are filters of one model, not separate registers (ADR-006).
@@ -162,88 +142,118 @@ export function AssetsPage({ only }: { only?: AssetKind } = {}) {
   const [band, setBand] = useState('')
   const [lifecycle, setLifecycle] = useState('active')
   const [offset, setOffset] = useState(0)
+  // Photo cards only on the kind tabs (Trees, Plants, Crop batches); "All" is always the ledger table (ADR-073).
+  const [view, setView] = useState<'cards' | 'table'>('cards')
+  const cards = !!only && view === 'cards'
   const list = useAssets(ws, {
     q, kind: kind || undefined, health_band: (band as HealthBand) || undefined, species_id: speciesId, location_id: locationId, limit: PAGE, offset,
     active: lifecycle === 'all' ? undefined : lifecycle === 'active',
   })
   const canRegister = atLeast(workspace.role, 'worker')
+  const viewName = only ? t(`assets.view.${only}` as TKey) : t('assets.title')
+  function filter(set: (v: string) => void) {
+    return (v: string) => {
+      set(v)
+      setOffset(0)
+    }
+  }
+
+  const columns: LedgerColumn<Asset>[] = [
+    {
+      key: 'asset', header: t('assets.col.asset'), primary: true,
+      cell: (a) => (
+        <span className="flex flex-wrap items-center gap-2">
+          <Link className="font-semibold text-ink hover:text-moss hover:underline" to={`/w/${ws}/assets/${a.id}`}>{a.label}</Link>
+          {a.tag_code && <Tag>{a.tag_code}</Tag>}
+        </span>
+      ),
+    },
+    { key: 'health', header: t('assets.col.health'), cell: (a) => <HealthChip band={a.state.health_band} score={a.state.health_score} /> },
+    {
+      key: 'stage', header: t('assets.col.stage'),
+      cell: (a) => <span className="text-ink-2">{te('stage', a.current_stage)}{!a.is_active && <span className="ml-1 text-xs text-ink-3">{t('assets.left')}</span>}</span>,
+    },
+    { key: 'species', header: t('assets.col.species'), cell: (a) => <span className="text-ink-2">{a.species_name ?? '—'}</span> },
+    { key: 'where', header: t(`vocab.location.${workspace.mode}` as TKey), cell: (a) => <span className="text-ink-2">{a.location_name ?? '—'}</span> },
+    { key: 'seen', header: t('assets.col.lastObserved'), cell: (a) => <span className="text-ink-2">{fmt.relative(a.state.last_observed_at)}</span> },
+    {
+      key: 'issues', header: t('assets.col.issues'), numeric: true,
+      cell: (a) => <span className={a.state.open_issue_count > 0 ? 'font-semibold text-critical' : 'text-ink-3'}>{a.state.open_issue_count}</span>,
+    },
+    {
+      key: 'tasks', header: t('assets.col.tasks'), numeric: true,
+      cell: (a) => <span className={a.state.open_task_count > 0 ? 'font-semibold' : 'text-ink-3'}>{a.state.open_task_count}</span>,
+    },
+  ]
 
   return (
     <div>
-      <PageHeader title={only ? t(`assets.view.${only}` as TKey) : t('assets.title')} subtitle={only ? t(`assets.viewSubtitle.${only}` as TKey) : t(`assets.subtitle.${workspace.mode}` as TKey, { name: workspace.name })}>
-        {canRegister && !adding && <button type="button" className={btnPrimary} onClick={() => setAdding(true)}>{t('assets.register')}</button>}
+      <PageHeader
+        eyebrow={list.data ? t('list.count', { count: list.data.total }) : undefined}
+        title={viewName}
+        subtitle={only ? t(`assets.viewSubtitle.${only}` as TKey) : t(`assets.subtitle.${workspace.mode}` as TKey, { name: workspace.name })}
+      >
+        {canRegister && !adding && (
+          <button type="button" className={btnPrimary} onClick={() => setAdding(true)}>
+            <Icon name="add" size={16} />
+            {t('assets.register')}
+          </button>
+        )}
       </PageHeader>
       {adding && <RegisterAssetForm onDone={() => setAdding(false)} preset={only} />}
-      {!only && atLeast(workspace.role, 'manager') && <AddLocation />}
 
       {(speciesId || locationId) && (
-        <p className="mb-2 flex items-center gap-2 text-sm">
+        <p className="mb-3 flex items-center gap-2 text-sm">
           {speciesId ? t('assets.speciesFilter', { name: speciesName ?? '…' }) : t('assets.locationFilter', { name: locationName ?? '…' })}
           <button type="button" className={`${btn} px-2 py-0.5 text-xs`} onClick={() => setParams({}, { replace: true })}>{t('assets.clearFilter')}</button>
         </p>
       )}
-      <div className="mb-3 flex flex-wrap gap-2" role="search">
-        <label className="sr-only" htmlFor="q">{t('assets.search')}</label>
-        <input id="q" value={q} onChange={(e) => { setQ(e.target.value); setOffset(0) }} placeholder={t('assets.searchPlaceholder')} className={`${input} max-w-xs`} />
+      <FilterBar label={t('assets.search')}>
+        <SearchField id="q" label={t('assets.search')} value={q} onChange={filter(setQ)} placeholder={t('assets.searchPlaceholder')} />
         {!only && (
-          <>
-            <label className="sr-only" htmlFor="kindf">{t('assets.filterType')}</label>
-            <select id="kindf" value={kind} onChange={(e) => { setKind(e.target.value); setOffset(0) }} className={`${input} max-w-[10rem]`}>
-              <option value="">{t('assets.allTypes')}</option>
-              {KINDS.map((k) => <option key={k} value={k}>{te('kind', k)}</option>)}
-            </select>
-          </>
+          <FilterSelect id="kindf" label={t('assets.filterType')} value={kind} onChange={filter(setKind)}>
+            <option value="">{t('assets.allTypes')}</option>
+            {KINDS.map((k) => <option key={k} value={k}>{te('kind', k)}</option>)}
+          </FilterSelect>
         )}
-        <label className="sr-only" htmlFor="bandf">{t('assets.filterHealth')}</label>
-        <select id="bandf" value={band} onChange={(e) => { setBand(e.target.value); setOffset(0) }} className={`${input} max-w-[10rem]`}>
+        <FilterSelect id="bandf" label={t('assets.filterHealth')} value={band} onChange={filter(setBand)}>
           <option value="">{t('assets.anyHealth')}</option>
           <option value="healthy">{te('health', 'healthy')}</option>
           <option value="at_risk">{te('health', 'at_risk')}</option>
           <option value="critical">{te('health', 'critical')}</option>
-        </select>
-        <label className="sr-only" htmlFor="lcf">{t('assets.filterLifecycle')}</label>
-        <select id="lcf" value={lifecycle} onChange={(e) => { setLifecycle(e.target.value); setOffset(0) }} className={`${input} max-w-[12rem]`}>
+        </FilterSelect>
+        <FilterSelect id="lcf" label={t('assets.filterLifecycle')} value={lifecycle} onChange={filter(setLifecycle)}>
           <option value="active">{t('assets.active')}</option>
           <option value="exited">{t('assets.exited')}</option>
           <option value="all">{t('assets.all')}</option>
-        </select>
-      </div>
+        </FilterSelect>
+        {only && (
+          <div className="ml-auto">
+            <Segmented label={t('list.view')} value={view} onChange={setView} options={[{ value: 'cards', label: t('list.cards') }, { value: 'table', label: t('list.table') }]} />
+          </div>
+        )}
+      </FilterBar>
 
       {list.isLoading && <LoadingBlock label={t('assets.loading')} />}
       {list.error && <ErrorState error={list.error} onRetry={() => list.refetch()} />}
       {list.data && list.data.total === 0 && (
-        <EmptyState title={q || chosenKind || band || lifecycle !== 'active' ? t('assets.emptyFiltered') : only ? t(`assets.viewEmpty.${only}` as TKey) : t('assets.empty')} action={canRegister && !adding ? <button type="button" className={btnPrimary} onClick={() => setAdding(true)}>{t('assets.registerFirst')}</button> : undefined}>
+        <EmptyState
+          icon="assets"
+          title={q || chosenKind || band || lifecycle !== 'active' ? t('assets.emptyFiltered') : only ? t(`assets.viewEmpty.${only}` as TKey) : t('assets.empty')}
+          action={canRegister && !adding ? <button type="button" className={btnPrimary} onClick={() => setAdding(true)}>{t('assets.registerFirst')}</button> : undefined}
+        >
           {t('assets.emptyBody')}
         </EmptyState>
       )}
       {list.data && list.data.total > 0 && (
         <>
-          <div className="overflow-x-auto rounded-lg border border-line bg-surface">
-            <table className="w-full text-left text-sm">
-              <caption className="sr-only">{t('assets.title')}</caption>
-              <thead className="border-b border-line text-ink-2">
-                <tr>
-                  <th className="p-2 font-medium">{t('assets.col.asset')}</th><th className="p-2 font-medium">{t('assets.col.stage')}</th><th className="p-2 font-medium">{t('assets.col.species')}</th>
-                  <th className="p-2 font-medium">{t(`vocab.location.${workspace.mode}` as TKey)}</th><th className="p-2 font-medium">{t('assets.col.health')}</th>
-                  <th className="p-2 font-medium">{t('assets.col.lastObserved')}</th><th className="p-2 font-medium">{t('assets.col.issues')}</th><th className="p-2 font-medium">{t('assets.col.tasks')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.data.items.map((a) => (
-                  <tr key={a.id} className="border-b border-line last:border-0">
-                    <td className="p-2"><Link className="font-medium text-moss hover:underline" to={`/w/${ws}/assets/${a.id}`}>{a.label}</Link>{a.tag_code && <span className="ml-2 text-xs text-ink-3">{a.tag_code}</span>}</td>
-                    <td className="p-2 text-ink-2">{te('stage', a.current_stage)}{!a.is_active && <span className="ml-1 text-xs text-ink-3">{t('assets.left')}</span>}</td>
-                    <td className="p-2 text-ink-2">{a.species_name ?? '—'}</td>
-                    <td className="p-2 text-ink-2">{a.location_name ?? '—'}</td>
-                    <td className="p-2"><HealthChip band={a.state.health_band} score={a.state.health_score} /></td>
-                    <td className="p-2 text-ink-2">{fmt.relative(a.state.last_observed_at)}</td>
-                    <td className="p-2">{a.state.open_issue_count}</td>
-                    <td className="p-2">{a.state.open_task_count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {cards ? (
+            <ul aria-label={viewName} className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {list.data.items.map((a) => <AssetCard key={a.id} ws={ws} asset={a} />)}
+            </ul>
+          ) : (
+            <LedgerTable caption={viewName} columns={columns} rows={list.data.items} rowKey={(a) => a.id} />
+          )}
           <Pagination total={list.data.total} limit={PAGE} offset={offset} onChange={setOffset} />
         </>
       )}

@@ -19,7 +19,9 @@ vi.mock('../lib/slice', () => ({
   useLocations: () => ({ data: { items: [] } }),
   useCreateAsset: () => ({ mutate: state.create, isPending: false, error: null }),
   useCreateLocation: () => ({ mutate: vi.fn(), isPending: false, error: null }),
+  useEvidence: (_ws: string, params: { asset_id: string }) => ({ data: { items: params.asset_id === 'a1' ? [{ id: 'e1' }] : [] } }),
 }))
+vi.mock('../components/EvidenceGallery', () => ({ EvidenceImage: () => <img alt="latest photo" /> }))
 vi.mock('../lib/lifecycle', () => ({
   useLifecycleTemplate: () => ({
     data: { mode: 'green_management', stages: [{ key: 'planted', label: 'Planted' }, { key: 'mature', label: 'Mature' }], exits_individual: [], exits_population: [], rules: [] },
@@ -105,5 +107,29 @@ describe('views of one kind', () => {
     renderPage('crop_batch')
     expect(state.params.every((p) => p.kind === 'crop_batch')).toBe(true)
     expect(screen.getByText('No crop batches registered yet')).toBeInTheDocument()
+  })
+})
+
+describe('one list pattern, photo cards only on the kind tabs (ADR-073)', () => {
+  it('"All" is the ledger table; every cell carries its column name for the phone card', () => {
+    renderPage()
+    const table = screen.getByRole('table', { name: 'Assets' })
+    expect(screen.queryByRole('img', { name: 'latest photo' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'View' })).not.toBeInTheDocument()
+    const cells = within(within(table).getAllByRole('row')[1]).getAllByRole('cell')
+    expect(cells[0]).not.toHaveAttribute('data-label') // the name heads the card
+    expect(cells[1]).toHaveAttribute('data-label', 'Health')
+  })
+
+  it('Trees shows photo cards with the latest photo, or says there is none; the table is one click away', async () => {
+    renderPage('tree')
+    const cards = within(screen.getByRole('list', { name: 'Trees' })).getAllByRole('listitem')
+    expect(within(cards[0]).getByRole('img', { name: 'latest photo' })).toBeInTheDocument()
+    expect(within(cards[0]).getByRole('link', { name: 'Neem #1' })).toHaveAttribute('href', '/w/w1/assets/a1')
+    expect(cards[1]).toHaveTextContent('No photo yet')
+    expect(cards[1]).toHaveTextContent('(left)')
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Table' }))
+    expect(screen.getByRole('table', { name: 'Trees' })).toBeInTheDocument()
   })
 })

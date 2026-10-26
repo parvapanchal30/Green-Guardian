@@ -3,13 +3,16 @@ import { Link } from 'react-router-dom'
 import type { Task } from '../api/types'
 import { useWorkspaceCtx } from '../app/WorkspaceLayout'
 import { Field, PageHeader, Pagination, TaskStatusChip, btn, btnPrimary, input } from '../components/domain'
+import { Icon } from '../components/icons'
 import { StatusChip } from '../components/StatusChip'
 import { EmptyState, ErrorState, LoadingBlock, errorMessage } from '../components/states'
+import { FilterBar, SectionHeading, Segmented, Tag } from '../components/ui'
 import { useI18n, type TKey } from '../i18n'
 import { atLeast } from '../lib/format'
 import { useMembers } from '../lib/queries'
 import { ACTION_KINDS, ACTION_UNITS, KIND_FOR_TASK, amount } from '../lib/actions'
 import { useTasks, useTransitionTask } from '../lib/slice'
+import { DUE_GROUPS, dueGroup, type DueGroup } from '../lib/summary'
 import { useAuth } from '../lib/auth'
 
 const PAGE = 25
@@ -49,21 +52,36 @@ function Row({ t: task, ws, canMove, isManager }: { t: Task; ws: string; canMove
   }
 
   return (
-    <li className="rounded-lg border border-line bg-surface p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium">{task.key}</span>
-        <span>{task.title}</span>
-        <span className="text-xs uppercase text-ink-3">{task.priority}</span>
-        <TaskStatusChip status={task.status} overdue={task.overdue} />
-        {task.source === 'schedule' && <StatusChip tone="neutral">{te('taskSource', 'schedule')}</StatusChip>}
+    <li className={`rounded-lg border bg-surface p-3.5 ${task.overdue ? 'border-critical/40' : 'border-line'}`}>
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <Tag tone={task.overdue ? 'critical' : 'neutral'}>{task.key}</Tag>
+            <span className="font-semibold">{task.title}</span>
+          </div>
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink-2">
+            <span className={`inline-flex items-center gap-1 ${task.overdue ? 'font-semibold text-critical' : ''}`}>
+              <Icon name="time" size={14} />
+              {task.due_at ? t('tasks.due', { when: fmt.relative(task.due_at) }) : t('tasks.noDue')}
+            </span>
+            <span className="inline-flex items-center gap-1"><Icon name="members" size={14} />{who}</span>
+            {task.asset_id && (
+              <Link className="inline-flex items-center gap-1 text-moss hover:underline" to={`/w/${ws}/assets/${task.asset_id}`}>
+                <Icon name="assets" size={14} />
+                {task.asset_label}
+              </Link>
+            )}
+            {task.issue_id && <Link className="text-moss hover:underline" to={`/w/${ws}/issues/${task.issue_id}`}>{task.issue_key}</Link>}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`font-mono text-xs ${task.priority === 'p1' ? 'font-semibold text-critical' : 'text-ink-3'}`} title={t('issue.priority')}>{task.priority.toUpperCase()}</span>
+          <TaskStatusChip status={task.status} overdue={task.overdue} />
+          {task.source === 'schedule' && <StatusChip tone="neutral">{te('taskSource', 'schedule')}</StatusChip>}
+        </div>
       </div>
-      <p className="mt-1 text-sm text-ink-2">
-        {who} · {task.due_at ? t('tasks.due', { when: fmt.relative(task.due_at) }) : t('tasks.noDue')}
-        {task.asset_id && <> · <Link className="text-moss hover:underline" to={`/w/${ws}/assets/${task.asset_id}`}>{task.asset_label}</Link></>}
-        {task.issue_id && <> · <Link className="text-moss hover:underline" to={`/w/${ws}/issues/${task.issue_id}`}>{task.issue_key}</Link></>}
-      </p>
       {canMove && !completing && (
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
           {(NEXT[task.status] ?? []).filter(() => !(reopening && !isManager)).map((n) => (
             <button key={n.to} type="button" className={n.to === 'done' ? btnPrimary : btn} disabled={move.isPending}
               onClick={() => (n.to === 'done' ? setCompleting(true) : move.mutate({ id: task.id, body: { to_status: n.to } }))}>
@@ -74,7 +92,7 @@ function Row({ t: task, ws, canMove, isManager }: { t: Task; ws: string; canMove
         </div>
       )}
       {completing && (
-        <form onSubmit={complete} className="mt-2 space-y-2" aria-label={t('tasks.completeForm', { key: task.key })}>
+        <form onSubmit={complete} className="mt-3 space-y-2 border-t border-line-soft pt-3" aria-label={t('tasks.completeForm', { key: task.key })}>
           <Field id={`n-${task.id}`} label={t('tasks.whatDone')}><input id={`n-${task.id}`} name="note" className={input} maxLength={2000} /></Field>
           {task.asset_id && (
             <fieldset className="grid gap-2 rounded border border-line p-2 sm:grid-cols-4">
@@ -108,35 +126,58 @@ function Row({ t: task, ws, canMove, isManager }: { t: Task; ws: string; canMove
   )
 }
 
-const TABS = [['mine', 'tasks.tab.mine'], ['open', 'tasks.tab.open'], ['done', 'tasks.tab.done']] as const
+type Tab = 'mine' | 'open' | 'done'
 
+/**
+ * Tasks (ADR-073). Managers land on "All open", everyone else on "Mine". Open work is grouped by when it is due
+ * (overdue, today, this week, later, no date) in the server's order; finished work is one list.
+ */
 export function TasksPage() {
   const { ws, workspace } = useWorkspaceCtx()
   const { t } = useI18n()
   const { user } = useAuth()
-  const [tab, setTab] = useState<'mine' | 'open' | 'done'>('mine')
-  const [offset, setOffset] = useState(0)
-  const params = tab === 'mine' ? { assignee: 'me', is_open: true } : tab === 'open' ? { is_open: true } : { is_open: false }
-  const list = useTasks(ws, { ...params, limit: PAGE, offset })
   const isManager = atLeast(workspace.role, 'manager')
   const canWork = atLeast(workspace.role, 'worker')
+  const [tab, setTab] = useState<Tab>(isManager ? 'open' : 'mine')
+  const [offset, setOffset] = useState(0)
+  const [now] = useState(() => new Date())
+  const params = tab === 'mine' ? { assignee: 'me', is_open: true } : tab === 'open' ? { is_open: true } : { is_open: false }
+  const list = useTasks(ws, { ...params, limit: PAGE, offset })
+  const tabs: { value: Tab; label: string }[] = [
+    { value: 'mine', label: t('tasks.tab.mine') },
+    { value: 'open', label: t('tasks.tab.open') },
+    { value: 'done', label: t('tasks.tab.done') },
+  ]
+  const row = (task: Task) => (
+    <Row key={`${task.id}-${task.version}`} t={task} ws={ws} isManager={isManager} canMove={isManager || (canWork && task.assignee_id === user?.id)} />
+  )
+  const items = list.data?.items ?? []
+  const groups = new Map<DueGroup, Task[]>()
+  if (tab !== 'done') for (const task of items) groups.set(dueGroup(task, now), [...(groups.get(dueGroup(task, now)) ?? []), task])
 
   return (
     <div>
-      <PageHeader title={t('tasks.title')} subtitle={t('tasks.subtitle')} />
-      <div role="group" aria-label={t('tasks.scope')} className="mb-3 inline-flex overflow-hidden rounded border border-line text-sm">
-        {TABS.map(([k, key]) => (
-          <button key={k} type="button" aria-pressed={tab === k} onClick={() => { setTab(k); setOffset(0) }} className={`px-3 py-1.5 ${tab === k ? 'bg-surface-2 font-medium' : 'hover:bg-surface-2'}`}>{t(key)}</button>
-        ))}
-      </div>
+      <PageHeader eyebrow={list.data ? t('list.count', { count: list.data.total }) : undefined} title={t('tasks.title')} subtitle={t('tasks.subtitle')} />
+      <FilterBar>
+        <Segmented label={t('tasks.scope')} value={tab} options={tabs} onChange={(v) => { setTab(v); setOffset(0) }} />
+      </FilterBar>
       {list.isLoading && <LoadingBlock label={t('tasks.loading')} />}
       {list.error && <ErrorState error={list.error} onRetry={() => list.refetch()} />}
-      {list.data?.total === 0 && <EmptyState title={tab === 'mine' ? t('tasks.noneMine') : t('tasks.none')}>{t('tasks.emptyBody')}</EmptyState>}
-      <ul className="space-y-2">
-        {list.data?.items.map((task) => (
-          <Row key={`${task.id}-${task.version}`} t={task} ws={ws} isManager={isManager} canMove={isManager || (canWork && task.assignee_id === user?.id)} />
-        ))}
-      </ul>
+      {list.data?.total === 0 && <EmptyState icon="tasks" title={tab === 'mine' ? t('tasks.noneMine') : t('tasks.none')}>{t('tasks.emptyBody')}</EmptyState>}
+      {tab === 'done' ? (
+        <ul className="space-y-2">{items.map(row)}</ul>
+      ) : (
+        <div className="space-y-6">
+          {DUE_GROUPS.filter((g) => groups.has(g)).map((g) => (
+            <section key={g} aria-labelledby={`due-${g}`}>
+              <SectionHeading id={`due-${g}`} title={t(`tasks.group.${g}` as TKey)}>
+                <span className="font-mono text-xs text-ink-2">{groups.get(g)!.length}</span>
+              </SectionHeading>
+              <ul className="space-y-2">{groups.get(g)!.map(row)}</ul>
+            </section>
+          ))}
+        </div>
+      )}
       {list.data && <Pagination total={list.data.total} limit={PAGE} offset={offset} onChange={setOffset} />}
     </div>
   )

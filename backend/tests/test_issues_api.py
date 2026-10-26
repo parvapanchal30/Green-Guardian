@@ -241,3 +241,29 @@ def test_listing_filters_and_roles(api_for, team):
     assert viewer.get("/issues", params={"assignee": "not-a-uuid"}).status_code == 422
     assert viewer.post("/issues", {"title": "x", "asset_id": a["id"]}).status_code == 403
     assert worker.post(f"/issues/{i1['id']}/transitions", {"to_state": "investigating"}).status_code == 403
+
+
+def test_list_waiting_for_a_check_and_most_severe_first(api_for, team):
+    """ADR-073: the Issues list's "Waiting for a check" tab and its severity-first order."""
+    owner, viewer = api_for(team.owner), api_for(team.viewer)
+    a = make_asset(owner)
+    low = make_issue(owner, a["id"], title="Dry soil", severity="low")
+    crit = make_issue(owner, a["id"], title="Crown dieback", severity="critical")
+    med = make_issue(owner, a["id"], title="Leaf spots", severity="medium")
+    pipe = make_issue(owner, a["id"], title="Drip line broken", category="irrigation_failure", severity="high")
+    assert move(owner, med["id"], "investigating").status_code == 200
+    assert move(owner, med["id"], "monitoring").status_code == 200  # plant health: work done, waiting
+    assert move(owner, pipe["id"], "assigned").status_code == 200
+    assert move(owner, pipe["id"], "fixed").status_code == 200  # infrastructure: waiting for "verified"
+
+    waiting = viewer.get("/issues", params={"waiting": True, "is_open": True}).json()["items"]
+    assert {i["key"] for i in waiting} == {med["key"], pipe["key"]}
+    not_waiting = viewer.get("/issues", params={"waiting": False, "is_open": True}).json()["items"]
+    assert {i["key"] for i in not_waiting} == {low["key"], crit["key"]}
+
+    ranked = viewer.get("/issues", params={"sort": "severity"}).json()["items"]
+    assert [i["key"] for i in ranked] == [crit["key"], pipe["key"], med["key"], low["key"]]
+    assert viewer.get("/issues", params={"sort": "loudest"}).status_code == 422
+
+    other = api_for(team.other_owner, team.other_ws)  # another tenant sees none of these
+    assert other.get("/issues", params={"waiting": True}).json()["total"] == 0

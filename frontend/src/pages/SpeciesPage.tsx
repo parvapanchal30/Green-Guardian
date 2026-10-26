@@ -6,7 +6,8 @@ import type { Page, SpeciesItem } from '../api/types'
 import { useWorkspaceCtx } from '../app/WorkspaceLayout'
 import { Field, PageHeader, btn, btnPrimary, input } from '../components/domain'
 import { EmptyState, ErrorState, LoadingBlock, errorMessage } from '../components/states'
-import { StatusChip } from '../components/StatusChip'
+import { Icon } from '../components/icons'
+import { FilterBar, FilterSelect, LedgerTable, SearchField, Tag, type LedgerColumn } from '../components/ui'
 import { useI18n } from '../i18n'
 import { atLeast } from '../lib/format'
 import { qs, useCreateSpecies } from '../lib/slice'
@@ -59,65 +60,56 @@ export function SpeciesPage({ crops = false }: { crops?: boolean } = {}) {
   const [adding, setAdding] = useState(false)
   const list = useSpeciesUsage(ws, { category: crops ? 'crop' : category || undefined, q: q || undefined, in_use: usedOnly || undefined })
   const canAdd = atLeast(workspace.role, 'manager')
+  const title = crops ? t('species.cropsTitle') : t('species.title')
+
+  const count = (n: number, s: SpeciesItem) =>
+    n > 0 ? <Link className="font-semibold text-moss hover:underline" to={`/w/${ws}/assets?species=${s.id}`}>{fmt.number(n)}</Link> : <span className="text-ink-3">0</span>
+  const columns: LedgerColumn<SpeciesItem>[] = [
+    {
+      key: 'name', header: t('species.name'), primary: true,
+      cell: (s) => (
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="font-semibold">{s.common_name}</span>
+          {!s.is_global && <Tag tone="moss">{t('species.own')}</Tag>}
+        </span>
+      ),
+    },
+    { key: 'sci', header: t('species.scientific'), cell: (s) => <span className="text-ink-2 italic">{s.scientific_name ?? '—'}</span> },
+    ...(crops ? [] : [{ key: 'cat', header: t('species.category'), cell: (s: SpeciesItem) => te('speciesCategory', s.category) }]),
+    { key: 'assets', header: crops ? t('species.batches') : t('species.assets'), numeric: true, cell: (s) => count(s.assets, s) },
+    ...(crops
+      ? [{ key: 'plants', header: t('species.plants'), numeric: true, cell: (s: SpeciesItem) => (s.plants != null ? fmt.number(s.plants) : <span className="text-ink-3">—</span>) }]
+      : []),
+  ]
 
   return (
     <div>
-      <PageHeader title={crops ? t('species.cropsTitle') : t('species.title')} subtitle={crops ? t('species.cropsSubtitle') : t('species.subtitle')}>
-        {canAdd && !adding && <button type="button" className={btn} onClick={() => setAdding(true)}>{t('species.add')}</button>}
+      <PageHeader eyebrow={list.data ? t('list.count', { count: list.data.items.length }) : undefined} title={title} subtitle={crops ? t('species.cropsSubtitle') : t('species.subtitle')}>
+        {canAdd && !adding && (
+          <button type="button" className={btn} onClick={() => setAdding(true)}>
+            <Icon name="add" size={16} />
+            {t('species.add')}
+          </button>
+        )}
       </PageHeader>
       {adding && <AddSpecies ws={ws} crops={crops} onDone={() => setAdding(false)} />}
-      <div className="mb-3 flex flex-wrap items-center gap-2" role="search">
-        <label className="sr-only" htmlFor="sp-q">{t('species.search')}</label>
-        <input id="sp-q" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('species.searchPlaceholder')} className={`${input} max-w-xs`} />
+      <FilterBar label={t('species.search')}>
+        <SearchField id="sp-q" label={t('species.search')} value={q} onChange={setQ} placeholder={t('species.searchPlaceholder')} />
         {!crops && (
-          <>
-            <label className="sr-only" htmlFor="sp-catf">{t('species.category')}</label>
-            <select id="sp-catf" value={category} onChange={(e) => setCategory(e.target.value)} className={`${input} max-w-[10rem]`}>
-              <option value="">{t('species.allCategories')}</option>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{te('speciesCategory', c)}</option>)}
-            </select>
-          </>
+          <FilterSelect id="sp-catf" label={t('species.category')} value={category} onChange={setCategory}>
+            <option value="">{t('species.allCategories')}</option>
+            {CATEGORIES.map((c) => <option key={c} value={c}>{te('speciesCategory', c)}</option>)}
+          </FilterSelect>
         )}
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={usedOnly} onChange={(e) => setUsedOnly(e.target.checked)} /> {t('species.usedOnly')}</label>
-      </div>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-moss" checked={usedOnly} onChange={(e) => setUsedOnly(e.target.checked)} /> {t('species.usedOnly')}</label>
+      </FilterBar>
       {list.isLoading && <LoadingBlock label={t('species.loading')} />}
       {list.error && <ErrorState error={list.error} onRetry={() => list.refetch()} />}
       {list.data && list.data.items.length === 0 && (
-        <EmptyState title={usedOnly ? (crops ? t('species.noCrops') : t('species.noneUsed')) : t('species.none')}>{usedOnly ? t('species.noneUsedBody') : t('species.noneBody')}</EmptyState>
+        <EmptyState icon="species" title={usedOnly ? (crops ? t('species.noCrops') : t('species.noneUsed')) : t('species.none')}>{usedOnly ? t('species.noneUsedBody') : t('species.noneBody')}</EmptyState>
       )}
-      {list.data && list.data.items.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-line bg-surface">
-          <table className="w-full text-left text-sm">
-            <caption className="sr-only">{crops ? t('species.cropsTitle') : t('species.title')}</caption>
-            <thead className="border-b border-line text-ink-2">
-              <tr>
-                <th className="p-2 font-medium">{t('species.name')}</th>
-                <th className="p-2 font-medium">{t('species.scientific')}</th>
-                {!crops && <th className="p-2 font-medium">{t('species.category')}</th>}
-                <th className="p-2 font-medium">{crops ? t('species.batches') : t('species.assets')}</th>
-                {crops && <th className="p-2 font-medium">{t('species.plants')}</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {list.data.items.map((s) => (
-                <tr key={s.id} className="border-b border-line last:border-0">
-                  <td className="p-2">
-                    <span className="font-medium">{s.common_name}</span>{' '}
-                    {!s.is_global && <StatusChip tone="neutral">{t('species.own')}</StatusChip>}
-                  </td>
-                  <td className="p-2 italic text-ink-2">{s.scientific_name ?? '—'}</td>
-                  {!crops && <td className="p-2">{te('speciesCategory', s.category)}</td>}
-                  <td className="p-2">
-                    {s.assets > 0 ? <Link className="text-moss hover:underline" to={`/w/${ws}/assets?species=${s.id}`}>{fmt.number(s.assets)}</Link> : <span className="text-ink-3">0</span>}
-                  </td>
-                  {crops && <td className="p-2">{s.plants != null ? fmt.number(s.plants) : <span className="text-ink-3">—</span>}</td>}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      <p className="mt-2 text-xs text-ink-3">{t('species.countsNote')}</p>
+      {list.data && list.data.items.length > 0 && <LedgerTable caption={title} columns={columns} rows={list.data.items} rowKey={(s) => s.id} />}
+      <p className="mt-3 text-xs text-ink-3">{t('species.countsNote')}</p>
     </div>
   )
 }

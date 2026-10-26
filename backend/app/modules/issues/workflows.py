@@ -26,6 +26,8 @@ class Workflow:
     transitions: Mapping[str, tuple[str, ...]]
     terminal: frozenset[str]  # entering one closes the issue (resolved_at is set)
     success: frozenset[str]  # terminal states that mean "the problem is dealt with" (the rest are "won't fix")
+    # open states where the work is done and the issue waits for a check before it is closed (ADR-073)
+    waiting: frozenset[str] = frozenset()
 
     def allowed(self, state: str) -> tuple[str, ...]:
         return self.transitions.get(state, ())
@@ -63,6 +65,7 @@ PLANT_HEALTH = Workflow(
     },
     terminal=frozenset({"resolved", WONT_FIX}),
     success=frozenset({"resolved"}),
+    waiting=frozenset({"monitoring"}),
 )
 
 FIELD_DISEASE = Workflow(
@@ -80,6 +83,7 @@ FIELD_DISEASE = Workflow(
     },
     terminal=frozenset({"resolved", WONT_FIX}),
     success=frozenset({"resolved"}),
+    waiting=frozenset({"monitoring"}),
 )
 
 INFRASTRUCTURE = Workflow(
@@ -96,6 +100,7 @@ INFRASTRUCTURE = Workflow(
     },
     terminal=frozenset({"verified", WONT_FIX}),
     success=frozenset({"verified"}),
+    waiting=frozenset({"fixed"}),
 )
 
 HARVEST_READINESS = Workflow(

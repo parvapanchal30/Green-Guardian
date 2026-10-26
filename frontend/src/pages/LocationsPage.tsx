@@ -6,6 +6,8 @@ import { Field, PageHeader, btn, btnPrimary, input } from '../components/domain'
 import { SchedulePanel } from '../components/SchedulePanel'
 import { EmptyState, ErrorState, LoadingBlock, errorMessage } from '../components/states'
 import { StatusChip } from '../components/StatusChip'
+import { Icon } from '../components/icons'
+import { Tag } from '../components/ui'
 import { useI18n, type TKey } from '../i18n'
 import { atLeast } from '../lib/format'
 import { useCreateLocation, useLocations } from '../lib/slice'
@@ -80,24 +82,45 @@ function Row({ ws, l, parent, role }: { ws: string; l: LocationItem; parent: str
   const { t, te, fmt } = useI18n()
   const [open, setOpen] = useState(false)
   return (
-    <li className="rounded-lg border border-line bg-surface p-3 text-sm">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium">{l.name}</span>
-        <StatusChip tone="neutral">{te('locationKind', l.kind)}</StatusChip>
-        {parent && <span className="text-ink-3">{t('loc.inside', { name: parent })}</span>}
-        {l.assets > 0 ? (
-          <Link className="text-moss hover:underline" to={`/w/${ws}/assets?location=${l.id}`}>{t('loc.assets', { count: l.assets })}</Link>
-        ) : <span className="text-ink-3">{t('loc.assets', { count: 0 })}</span>}
+    <li className={`flex flex-col rounded-lg border border-line bg-surface p-4 text-sm ${open ? 'md:col-span-2' : ''}`}>
+      <div className="flex flex-wrap items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[19px] leading-snug font-semibold">{l.name}</h2>
+          <p className="mt-0.5 flex flex-wrap items-center gap-2 text-[13px] text-ink-2">
+            <Tag>{te('locationKind', l.kind)}</Tag>
+            {parent && <span>{t('loc.inside', { name: parent })}</span>}
+          </p>
+        </div>
         {l.needs_attention > 0 && <StatusChip tone="at-risk">{t('loc.attention', { count: l.needs_attention })}</StatusChip>}
-        {l.schedules > 0 && <StatusChip tone="building">{t('loc.schedules', { count: l.schedules })}</StatusChip>}
-        {l.latitude != null && l.longitude != null
-          ? <span className="text-xs text-ink-3">{fmt.number(l.latitude, { maximumFractionDigits: 4 })}, {fmt.number(l.longitude, { maximumFractionDigits: 4 })}</span>
-          : <span className="text-xs text-ink-3">{t('loc.noCoords')}</span>}
-        <button type="button" className={`${btn} ml-auto px-2 py-0.5 text-xs`} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+      </div>
+      <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-line-soft pt-3">
+        <div>
+          <dt className="font-mono text-[11px] text-ink-3 uppercase">{t('species.assets')}</dt>
+          <dd className="mt-0.5">
+            {l.assets > 0 ? (
+              <Link className="font-semibold text-moss hover:underline" to={`/w/${ws}/assets?location=${l.id}`}>{t('loc.assets', { count: l.assets })}</Link>
+            ) : <span className="text-ink-3">{t('loc.assets', { count: 0 })}</span>}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-mono text-[11px] text-ink-3 uppercase">{t('loc.coords')}</dt>
+          <dd className="mt-0.5 font-mono text-xs text-ink-2">
+            {l.latitude != null && l.longitude != null
+              ? `${fmt.number(l.latitude, { maximumFractionDigits: 4 })}, ${fmt.number(l.longitude, { maximumFractionDigits: 4 })}`
+              : <span className="font-sans text-sm text-ink-3">{t('loc.noCoords')}</span>}
+          </dd>
+        </div>
+      </dl>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1 text-[13px] text-ink-2">
+          <Icon name="recurring" size={14} />
+          {l.schedules > 0 ? t('loc.schedules', { count: l.schedules }) : t('loc.noSchedules')}
+        </span>
+        <button type="button" className={`${btn} ml-auto px-2.5 py-1 text-xs`} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
           {open ? t('loc.hideInspections') : t('loc.showInspections')}
         </button>
       </div>
-      {open && <div className="mt-3"><SchedulePanel ws={ws} location={l} role={role} compact /></div>}
+      {open && <div className="mt-3 border-t border-line-soft pt-3"><SchedulePanel ws={ws} location={l} role={role} compact /></div>}
     </li>
   )
 }
@@ -113,17 +136,22 @@ export function LocationsPage() {
 
   return (
     <div>
-      <PageHeader title={t(`loc.title.${workspace.mode}` as TKey)} subtitle={t('loc.subtitle')}>
-        {canAdd && !adding && <button type="button" className={btnPrimary} onClick={() => setAdding(true)}>{t('loc.add')}</button>}
+      <PageHeader eyebrow={list.data ? t('list.count', { count: list.data.items.length }) : undefined} title={t(`loc.title.${workspace.mode}` as TKey)} subtitle={t('loc.subtitle')}>
+        {canAdd && !adding && (
+          <button type="button" className={btnPrimary} onClick={() => setAdding(true)}>
+            <Icon name="add" size={16} />
+            {t('loc.add')}
+          </button>
+        )}
       </PageHeader>
       {adding && <AddForm ws={ws} onDone={() => setAdding(false)} />}
       {list.isLoading && <LoadingBlock label={t('loc.loading')} />}
       {list.error && <ErrorState error={list.error} onRetry={() => list.refetch()} />}
-      {list.data && list.data.items.length === 0 && <EmptyState title={t('loc.none')}>{t('loc.noneBody')}</EmptyState>}
-      <ul className="space-y-2">
+      {list.data && list.data.items.length === 0 && <EmptyState icon="zones" title={t('loc.none')}>{t('loc.noneBody')}</EmptyState>}
+      <ul className="grid gap-3 md:grid-cols-2">
         {list.data?.items.map((l) => <Row key={l.id} ws={ws} l={l} parent={l.parent_id ? names.get(l.parent_id) : undefined} role={workspace.role} />)}
       </ul>
-      <p className="mt-2 text-xs text-ink-3">{t('loc.countsNote')}</p>
+      <p className="mt-3 text-xs text-ink-3">{t('loc.countsNote')}</p>
     </div>
   )
 }

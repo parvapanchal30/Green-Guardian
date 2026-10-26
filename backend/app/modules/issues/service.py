@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.deps import WorkspaceContext
@@ -44,6 +44,9 @@ from .schemas import (
     WorkflowOut,
 )
 from .workflows import WONT_FIX, WORKFLOWS, Workflow, workflow_for
+
+# "Most severe first" order for the issues list (ADR-073)
+SEVERITY_RANK = {Severity.CRITICAL.value: 0, Severity.HIGH.value: 1, Severity.MEDIUM.value: 2, Severity.LOW.value: 3}
 
 
 def _workflow(issue: Issue) -> Workflow:
@@ -245,6 +248,8 @@ def list_issues(
     assignee: str | None = None,
     asset_id: uuid.UUID | None = None,
     q: str | None = None,
+    waiting: bool | None = None,
+    sort: str = "recent",
 ) -> Page[IssueOut]:
     stmt = (
         select(Issue, BiologicalAsset.label)
@@ -273,8 +278,16 @@ def list_issues(
     if q:
         like = f"%{q.strip().lower()}%"
         stmt = stmt.where(or_(func.lower(Issue.title).like(like), func.lower(Issue.key).like(like)))
+    if waiting is not None:
+        # each workflow names its own waiting states; an issue waits when its state is one of its workflow's
+        pairs = [and_(Issue.workflow_key == w.key, Issue.state.in_(w.waiting)) for w in WORKFLOWS.values() if w.waiting]
+        stmt = stmt.where(or_(*pairs) if waiting else ~or_(*pairs))
     total = db.scalar(select(func.count()).select_from(stmt.order_by(None).subquery())) or 0
-    rows = db.execute(stmt.order_by(Issue.opened_at.desc(), Issue.id).limit(page.limit).offset(page.offset)).all()
+    order = [Issue.opened_at.desc(), Issue.id]
+    if sort == "severity":
+        rank = case(SEVERITY_RANK, value=Issue.severity, else_=len(SEVERITY_RANK))
+        order = [rank, *order]
+    rows = db.execute(stmt.order_by(*order).limit(page.limit).offset(page.offset)).all()
     return Page(items=[_out(i, label) for i, label in rows], total=total, limit=page.limit, offset=page.offset)
 
 
