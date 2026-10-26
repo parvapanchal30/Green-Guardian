@@ -17,7 +17,9 @@ from .open_meteo import OpenMeteoProvider
 ProviderFactory = Callable[[Settings], WeatherProvider]
 
 _FACTORIES: dict[str, ProviderFactory] = {
-    "open_meteo": lambda s: OpenMeteoProvider(s.open_meteo_base_url, s.weather_timeout_s),
+    "open_meteo": lambda s: OpenMeteoProvider(
+        s.open_meteo_base_url, s.weather_timeout_s, geocoding_url=s.open_meteo_geocoding_url
+    ),
     "mock": lambda s: MockWeatherProvider(),
 }
 

@@ -111,6 +111,7 @@ class Settings(BaseSettings):
     # Key of a registered provider (app/modules/weather/registry.py); validated at application startup.
     weather_provider: str = "open_meteo"
     open_meteo_base_url: str = "https://api.open-meteo.com/v1/forecast"
+    open_meteo_geocoding_url: str = "https://geocoding-api.open-meteo.com/v1/search"
     weather_timeout_s: float = 8.0
     weather_cache_ttl_s: int = 900
 

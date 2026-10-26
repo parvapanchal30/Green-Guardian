@@ -6,7 +6,9 @@ import { short } from '../components/datasets/shared'
 import { Field, PageHeader, btn, btnPrimary, input } from '../components/domain'
 import { EmptyState, ErrorState, LoadingBlock, errorMessage } from '../components/states'
 import { StatusChip, type Tone } from '../components/StatusChip'
-import { useI18n } from '../i18n'
+import { useI18n, type TKey } from '../i18n'
+import { Icon } from '../components/icons'
+import { Card, Tag } from '../components/ui'
 import { atLeast } from '../lib/format'
 import { useCreateProtocol, useProtocol, useProtocolTemplate, useProtocols, useSignoff } from '../lib/protocols'
 
@@ -29,7 +31,7 @@ function StateChip({ s }: { s: ProtocolStatus }) {
 function Standing() {
   const { t } = useI18n()
   return (
-    <p className="rounded-lg border border-line bg-surface p-3 text-sm text-ink-2">
+    <p className="text-[13px] text-ink-2">
       {t('protocol.standing1')} <em>{t('protocol.standingBefore')}</em> {t('protocol.standing2')} <strong>{t('protocol.standingVerified')}</strong>
       {t('protocol.standing3')}
     </p>
@@ -57,33 +59,71 @@ function CreateForm({ ws, onDone }: { ws: string; onDone: () => void }) {
   )
 }
 
+const SIGNERS = ['plant_pathologist', 'data_owner', 'independent_evaluator'] as const
+
+/** Who must sign before a protocol can be approved, shown before anyone writes one (ADR-077). */
+function Signers() {
+  const { t, te } = useI18n()
+  return (
+    <Card className="overflow-hidden">
+      <section aria-labelledby="p-sign">
+        <div className="border-b border-line px-4 py-3">
+          <h2 id="p-sign" className="text-[19px] font-semibold">{t('protocol.signers.title')}</h2>
+          <p className="text-[13.5px] text-ink-2">{t('protocol.signers.intro')}</p>
+        </div>
+        <ul>
+          {SIGNERS.map((r) => (
+            <li key={r} className="border-b border-line-soft px-4 py-2.5 last:border-0">
+              <b>{te('protocolRole', r)}</b>
+              <span className="block text-[13px] text-ink-2">{t(`protocol.signers.${r}` as TKey)}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="border-t border-at-risk/30 bg-at-risk-soft px-4 py-2.5 text-[13.5px] text-at-risk">{t('protocol.signers.verified')}</p>
+      </section>
+    </Card>
+  )
+}
+
 export function ProtocolsPage() {
   const { ws, workspace } = useWorkspaceCtx()
   const { t } = useI18n()
   const list = useProtocols(ws)
   const [adding, setAdding] = useState(false)
   return (
-    <div className="space-y-6">
-      <PageHeader title={t('protocol.title')} subtitle={t('protocol.subtitle')}>
-        {atLeast(workspace.role, 'manager') && <button type="button" className={btn} aria-expanded={adding} onClick={() => setAdding((v) => !v)}>{adding ? t('protocol.closeForm') : t('protocol.registerProposed')}</button>}
+    <div className="flex flex-col gap-4">
+      <PageHeader eyebrow={t('eyebrow.insight')} title={t('protocol.title')} subtitle={t('protocol.subtitle')}>
+        {atLeast(workspace.role, 'manager') && (
+          <button type="button" className={adding ? btn : btnPrimary} aria-expanded={adding} onClick={() => setAdding((v) => !v)}>
+            {!adding && <Icon name="add" size={16} />}
+            {adding ? t('protocol.closeForm') : t('protocol.registerProposed')}
+          </button>
+        )}
       </PageHeader>
-      <Standing />
       {adding && <CreateForm ws={ws} onDone={() => setAdding(false)} />}
-      {list.isLoading && <LoadingBlock label={t('protocol.loadingList')} />}
-      {list.error && <ErrorState error={list.error} onRetry={() => list.refetch()} />}
-      {list.data && list.data.total === 0 && <EmptyState title={t('protocol.none')}>{t('protocol.noneBody')}</EmptyState>}
-      <ul className="space-y-2">
-        {list.data?.items.map((p: ProtocolSummaryRecord) => (
-          <li key={p.id} className="rounded-lg border border-line bg-surface p-3 text-sm">
-            <div className="flex flex-wrap items-center gap-2">
-              <Link to={`/w/${ws}/ai/protocols/${p.id}`} className="font-medium text-moss underline-offset-2 hover:underline">{p.title}</Link>
-              <StatusChip tone="neutral">{t('protocol.keyVersion', { key: p.key, version: p.version })}</StatusChip>
-              <StateChip s={p.status} />
-            </div>
-            {p.status.blockers[0] && <p className="mt-1 text-xs text-ink-3">{p.status.blockers[0]}</p>}
-          </li>
-        ))}
-      </ul>
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        <div className="flex flex-col gap-3">
+          {list.isLoading && <LoadingBlock label={t('protocol.loadingList')} />}
+          {list.error && <ErrorState error={list.error} onRetry={() => list.refetch()} />}
+          {list.data && list.data.total === 0 && <EmptyState icon="protocols" title={t('protocol.none')}>{t('protocol.noneBody')}</EmptyState>}
+          <ul className="flex flex-col gap-2">
+            {list.data?.items.map((p: ProtocolSummaryRecord) => (
+              <li key={p.id} className="rounded-lg border border-line bg-surface p-3.5 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link to={`/w/${ws}/ai/protocols/${p.id}`} className="font-display text-[17px] font-semibold text-ink hover:text-moss hover:underline">{p.title}</Link>
+                  <Tag>{t('protocol.keyVersion', { key: p.key, version: p.version })}</Tag>
+                  <StateChip s={p.status} />
+                </div>
+                {p.status.blockers[0] && <p className="mt-1 text-xs text-ink-2">{p.status.blockers[0]}</p>}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <aside className="flex flex-col gap-3.5">
+          <Signers />
+          <Standing />
+        </aside>
+      </div>
     </div>
   )
 }

@@ -13,7 +13,7 @@ import httpx
 
 from app.core.timeutil import utcnow
 
-from .domain import Forecast, HourlyPoint, WeatherUnavailable
+from .domain import Forecast, HourlyPoint, Place, WeatherUnavailable
 
 ATTRIBUTION = "Weather data by Open-Meteo.com (CC BY 4.0)"
 SOIL_DEPTHS = ("0_to_1cm", "1_to_3cm", "3_to_9cm", "9_to_27cm", "27_to_81cm")
@@ -29,9 +29,26 @@ HOURLY_VARS = (
 class OpenMeteoProvider:
     key = "open_meteo"
 
-    def __init__(self, base_url: str, timeout_s: float = 8.0, client: httpx.Client | None = None):
+    def __init__(
+        self,
+        base_url: str,
+        timeout_s: float = 8.0,
+        client: httpx.Client | None = None,
+        geocoding_url: str = "https://geocoding-api.open-meteo.com/v1/search",
+    ):
         self._base_url = base_url
+        self._geocoding_url = geocoding_url
         self._client = client or httpx.Client(timeout=timeout_s)
+
+    def search_places(self, name: str, count: int = 8) -> tuple[Place, ...]:
+        """Open-Meteo geocoding (free, no key; same terms and attribution as the forecast)."""
+        try:
+            resp = self._client.get(self._geocoding_url, params={"name": name, "count": count, "format": "json"})
+            resp.raise_for_status()
+            payload = resp.json()
+        except (httpx.HTTPError, ValueError) as e:
+            raise WeatherUnavailable(f"Open-Meteo geocoding failed: {e}") from e
+        return parse_places(payload)
 
     def forecast(self, latitude: float, longitude: float, days: int) -> Forecast:
         params: dict[str, str | int | float] = {
@@ -48,6 +65,22 @@ class OpenMeteoProvider:
         except (httpx.HTTPError, ValueError) as e:
             raise WeatherUnavailable(f"Open-Meteo request failed: {e}") from e
         return parse_forecast(payload)
+
+
+def parse_places(payload: dict) -> tuple[Place, ...]:
+    """Geocoding results; a search with no match has no "results" key at all."""
+    try:
+        out = []
+        for r in payload.get("results") or []:
+            region = ", ".join(str(r[k]) for k in ("admin2", "admin1", "country") if r.get(k))
+            out.append(
+                Place(
+                    name=str(r["name"]), region=region, latitude=float(r["latitude"]), longitude=float(r["longitude"])
+                )
+            )
+        return tuple(out)
+    except (KeyError, TypeError, ValueError, AttributeError) as e:
+        raise WeatherUnavailable(f"Unexpected Open-Meteo geocoding payload: {e}") from e
 
 
 def parse_forecast(payload: dict) -> Forecast:

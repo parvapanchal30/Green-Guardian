@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
-import type { Capability, Forecast, Member, Workspace, WorkspaceMode } from '../api/types'
+import type { Capability, Forecast, Member, Role, Workspace, WorkspaceMode } from '../api/types'
 
 // Query keys are workspace-scoped: [workspaceId, resource, params] (docs/FRONTEND_ARCHITECTURE.md).
 export const keys = {
@@ -38,4 +38,57 @@ export function useCreateWorkspace() {
       api<Workspace>('/workspaces', { method: 'POST', body }),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.workspaces }),
   })
+}
+
+/** Member management (ADR-074). The server enforces who may do what; these only call it and refresh the list. */
+export function useMemberChanges(ws: string) {
+  const qc = useQueryClient()
+  const done = () => qc.invalidateQueries({ queryKey: keys.members(ws) })
+  return {
+    add: useMutation({
+      mutationFn: (body: { email: string; role: Role }) => api<Member>(`/workspaces/${ws}/members`, { method: 'POST', body }),
+      onSuccess: done,
+    }),
+    changeRole: useMutation({
+      mutationFn: ({ userId, role }: { userId: string; role: Role }) => api<Member>(`/workspaces/${ws}/members/${userId}`, { method: 'PATCH', body: { role } }),
+      onSuccess: done,
+    }),
+    remove: useMutation({
+      mutationFn: (userId: string) => api<void>(`/workspaces/${ws}/members/${userId}`, { method: 'DELETE' }),
+      onSuccess: done,
+    }),
+  }
+}
+
+// ---- weather places (ADR-075)
+
+export interface FoundPlace { name: string; region: string; latitude: number; longitude: number }
+export interface SavedPlace { id: string; name: string; region: string | null; latitude: number; longitude: number }
+
+/** Search places by name through the server (its configured provider's geocoder); asks only from 2 characters. */
+export const usePlaceSearch = (ws: string, q: string) =>
+  useQuery({
+    queryKey: [ws, 'weather-places-search', q],
+    queryFn: () => api<{ source: string; attribution: string; items: FoundPlace[] }>(`/workspaces/${ws}/weather/places/search?q=${encodeURIComponent(q)}`),
+    enabled: q.trim().length >= 2,
+    retry: false,
+    staleTime: 600_000,
+  })
+
+export const useSavedPlaces = (ws: string) =>
+  useQuery({ queryKey: [ws, 'weather-places'], queryFn: () => api<SavedPlace[]>(`/workspaces/${ws}/weather/places`) })
+
+export function useWeatherPlaceChanges(ws: string) {
+  const qc = useQueryClient()
+  const done = () => qc.invalidateQueries({ queryKey: [ws, 'weather-places'] })
+  return {
+    save: useMutation({
+      mutationFn: (body: Omit<SavedPlace, 'id'>) => api<SavedPlace>(`/workspaces/${ws}/weather/places`, { method: 'POST', body }),
+      onSuccess: done,
+    }),
+    remove: useMutation({
+      mutationFn: (id: string) => api<void>(`/workspaces/${ws}/weather/places/${id}`, { method: 'DELETE' }),
+      onSuccess: done,
+    }),
+  }
 }

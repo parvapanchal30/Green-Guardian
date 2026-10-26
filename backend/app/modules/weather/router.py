@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response, status
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
-from app.core.deps import WorkspaceContext, workspace_ctx
+from app.core.db import get_db
+from app.core.deps import WorkspaceContext, manager_ctx, workspace_ctx
 from app.core.errors import ProviderUnavailable
 
+from . import places
 from .domain import WeatherUnavailable
 from .service import WeatherService, get_weather_service
 
@@ -55,3 +58,52 @@ def get_weather(
         fetched_at=fc.fetched_at,
         hourly=[HourlyOut(**p.__dict__) for p in fc.hourly],
     )
+
+
+# ---- "Any place": search by name, and places saved for the weather page (ADR-075)
+
+
+class PlaceOut(BaseModel):
+    name: str
+    region: str
+    latitude: float
+    longitude: float
+
+
+class PlaceSearchOut(BaseModel):
+    source: str
+    attribution: str
+    items: list[PlaceOut]
+
+
+@router.get("/workspaces/{ws}/weather/places/search", response_model=PlaceSearchOut)
+def search_places(
+    q: str = Query(min_length=2, max_length=100),
+    _ctx: WorkspaceContext = Depends(workspace_ctx),
+    service: WeatherService = Depends(get_weather_service),
+):
+    """Find a town, area or village by name (the configured provider's geocoder)."""
+    try:
+        found = service.search_places(q)
+    except WeatherUnavailable as e:
+        raise ProviderUnavailable("Place search is unavailable", code="geocoding_unavailable") from e
+    source, attribution = service.source
+    return PlaceSearchOut(source=source, attribution=attribution, items=[PlaceOut(**p.__dict__) for p in found])
+
+
+@router.get("/workspaces/{ws}/weather/places", response_model=list[places.SavedPlaceOut])
+def list_saved_places(ctx: WorkspaceContext = Depends(workspace_ctx)):
+    return places.list_places(ctx)
+
+
+@router.post(
+    "/workspaces/{ws}/weather/places", response_model=places.SavedPlaceOut, status_code=status.HTTP_201_CREATED
+)
+def save_place(data: places.SavedPlaceIn, ctx: WorkspaceContext = Depends(manager_ctx), db: Session = Depends(get_db)):
+    return places.save_place(db, ctx, data)
+
+
+@router.delete("/workspaces/{ws}/weather/places/{place_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_place(place_id: str, ctx: WorkspaceContext = Depends(manager_ctx), db: Session = Depends(get_db)):
+    places.remove_place(db, ctx, place_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

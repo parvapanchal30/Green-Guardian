@@ -101,7 +101,7 @@ export function HarvestsPage() {
 
           <section aria-labelledby="hv-assets">
             <h2 id="hv-assets" className="mb-2 font-semibold">{t('hv.perCrop')}</h2>
-            <div className="overflow-x-auto rounded-lg border border-line bg-surface">
+            <div className="relative overflow-x-auto rounded-lg border border-line bg-surface">
               <table className="w-full text-left text-sm">
                 <caption className="sr-only">{t('hv.perCrop')}</caption>
                 <thead className="border-b border-line text-ink-2"><tr><th className="p-2 font-medium">{t('hv.crop')}</th><th className="p-2 font-medium">{t('hv.weight')}</th><th className="p-2 font-medium">{t('hv.byUnit')}</th><th className="p-2 font-medium">{t('hv.records')}</th></tr></thead>

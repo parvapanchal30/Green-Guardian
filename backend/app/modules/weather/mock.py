@@ -9,11 +9,24 @@ from datetime import timedelta
 
 from app.core.timeutil import utcnow
 
-from .domain import Forecast, HourlyPoint
+from .domain import Forecast, HourlyPoint, Place
+
+# Fixed places for offline development and tests (real coordinates, rounded).
+MOCK_PLACES = (
+    Place("Powai", "Mumbai Suburban, Maharashtra, India", 19.1176, 72.906),
+    Place("Pune", "Pune, Maharashtra, India", 18.5196, 73.8553),
+    Place("Nashik", "Nashik, Maharashtra, India", 19.9975, 73.7898),
+    Place("New Delhi", "Delhi, India", 28.6139, 77.209),
+    Place("Bengaluru", "Bengaluru Urban, Karnataka, India", 12.9716, 77.5946),
+)
 
 
 class MockWeatherProvider:
     key = "mock"
+
+    def search_places(self, name: str, count: int = 8) -> tuple[Place, ...]:
+        needle = name.strip().lower()
+        return tuple(p for p in MOCK_PLACES if needle in p.name.lower() or needle in p.region.lower())[:count]
 
     def forecast(self, latitude: float, longitude: float, days: int) -> Forecast:
         start = utcnow().replace(minute=0, second=0, microsecond=0)

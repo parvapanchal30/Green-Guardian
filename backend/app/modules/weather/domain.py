@@ -33,12 +33,28 @@ class Forecast:
     hourly: tuple[HourlyPoint, ...]
 
 
+@dataclass(frozen=True)
+class Place:
+    """A named place found by a geocoder: where to ask for a forecast. Not a workspace location."""
+
+    name: str
+    region: str  # admin areas and country, e.g. "Maharashtra, India"
+    latitude: float
+    longitude: float
+
+
 class WeatherProvider(Protocol):
     key: str
 
     def forecast(self, latitude: float, longitude: float, days: int) -> Forecast:
         """Hourly forecast for `days` days. Raise WeatherUnavailable on any failure."""
         ...
+
+
+class PlaceFinder(Protocol):
+    """Optional second capability of a provider: find places by name. Raise WeatherUnavailable on any failure."""
+
+    def search_places(self, name: str, count: int) -> tuple[Place, ...]: ...
 
 
 def expected_precipitation_mm(forecast: Forecast, start: datetime, hours: int) -> float | None:

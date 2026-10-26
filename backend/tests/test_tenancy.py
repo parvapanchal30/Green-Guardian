@@ -15,6 +15,10 @@ ENDPOINTS = [
     ("PATCH", "/api/v1/workspaces/{ws}/members/{user_id}", {"role": "viewer"}),
     ("DELETE", "/api/v1/workspaces/{ws}/members/{user_id}", None),
     ("GET", "/api/v1/workspaces/{ws}/weather?lat=19.2&lon=72.9", None),
+    ("GET", "/api/v1/workspaces/{ws}/weather/places/search?q=pune", None),
+    ("GET", "/api/v1/workspaces/{ws}/weather/places", None),
+    ("POST", "/api/v1/workspaces/{ws}/weather/places", {"name": "Pune", "latitude": 18.52, "longitude": 73.86}),
+    ("DELETE", "/api/v1/workspaces/{ws}/weather/places/{place_id}", None),
     # locations / catalog
     ("GET", "/api/v1/workspaces/{ws}/locations", None),
     ("POST", "/api/v1/workspaces/{ws}/locations", {"name": "x", "kind": "zone"}),

@@ -46,3 +46,14 @@ describe('show or hide the password', () => {
     expect(screen.getByRole('button', { name: 'पासवर्ड छिपाएँ' })).toHaveAttribute('aria-pressed', 'true')
   })
 })
+
+describe('sign-in frame (ADR-074)', () => {
+  it('says what GreenGuardian is, shows no example records, and is honest about passwords', () => {
+    render(<MemoryRouter><LoginPage /></MemoryRouter>)
+    const about = screen.getByRole('region', { name: 'About GreenGuardian' })
+    expect(about).toHaveTextContent('Every tree, crop and field, with its full record.')
+    expect(about).not.toHaveTextContent(/GG-\d|T-\d|N-\d/) // no example issue, task or plant keys
+    expect(screen.getByRole('heading', { level: 1, name: 'Sign in' })).toBeInTheDocument()
+    expect(screen.getByText(/not available yet/)).toBeInTheDocument()
+  })
+})

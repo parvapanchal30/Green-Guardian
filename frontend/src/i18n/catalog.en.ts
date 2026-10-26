@@ -1932,23 +1932,6 @@ export const en = {
   "eyebrow.insight": "Insight",
   "eyebrow.reports": "Reports",
   "eyebrow.settings": "Settings",
-  // ---- kept until the redesign of the pages that use them (removed in phase 6)
-  'workspaces.kpis': 'KPIs: {list}',
-  "weather.live": "Live",
-  "weather.intro": "Forecast context for irrigation and field planning. Enter a coordinate for now; field and zone locations will replace this once they exist.",
-  "weather.days": "Days",
-  "weather.example": "e.g. {v}",
-  "weather.get": "Get forecast",
-  "weather.latError": "Latitude must be between -90 and 90.",
-  "weather.lonError": "Longitude must be between -180 and 180.",
-  "weather.next24": "Next 24 hours",
-  "weather.tempNow": "Temperature now",
-  "weather.rain24": "Rain, next 24 h",
-  "weather.maxProb": "Max rain probability",
-  "weather.soil": "Soil moisture, top 1 cm",
-  "weather.footer": "{attribution} · timezone {tz} · fetched {when}",
-  "members.intro": "People with access to this workspace.",
-  "members.canManage": "You can manage members through the API; the invite interface is in development.",
 } as const
 
 export type Catalog = { [K in keyof typeof en]: string }
