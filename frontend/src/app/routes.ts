@@ -65,8 +65,8 @@ export const ROUTES: NavRoute[] = [
   { path: 'ai/yield-prediction', label: 'Yield Prediction', group: 'AI', status: 'soon', modes: [A], capability: 'yield_prediction', stage: 'v2', technique: 'Machine learning', summary: 'Plant population, health, growth and environment in; expected yield range out.' },
   { path: 'ai/harvest-prediction', label: 'Harvest Prediction', group: 'AI', status: 'soon', modes: [A], capability: 'harvest_prediction', stage: 'v2', technique: 'Machine learning', summary: 'Growth stage and maturity indicators in; harvest window out.' },
 
-  { path: 'reports/analytics', label: 'Analytics', group: 'Reports', status: 'building', stage: 'mvp', summary: 'Reports generated from underlying records.' },
-  { path: 'reports/impact', label: 'Impact', group: 'Reports', status: 'building', stage: 'mvp', modes: [G], summary: 'Plantation, survival, health, growth and coverage impact.' },
+  { path: 'reports/analytics', label: 'Analytics', group: 'Reports', status: 'live', stage: 'mvp', summary: 'Reports generated from underlying records.' },
+  { path: 'reports/impact', label: 'Impact', group: 'Reports', status: 'live', stage: 'mvp', modes: [G], summary: 'Plantation, survival, health, growth and coverage impact.' },
   { path: 'reports/financials', label: 'Financials', group: 'Reports', status: 'soon', modes: [A], capability: 'profitability', stage: 'v3', technique: 'Financial model', summary: 'Yield, cost and market price in; revenue and profit ranges out.' },
 
   { path: 'settings/members', label: 'Members', group: 'Settings', status: 'live', summary: 'People and roles in this workspace.' },

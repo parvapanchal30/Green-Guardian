@@ -32,6 +32,7 @@ from app.modules.map.router import router as map_router
 from app.modules.monitor.router import router as monitor_router
 from app.modules.observations.router import router as observations_router
 from app.modules.protocols.router import router as protocols_router
+from app.modules.reports.router import router as reports_router
 from app.modules.schedules.router import router as schedules_router
 from app.modules.tasks.router import router as tasks_router
 from app.modules.weather.context import ForecastWeatherContext
@@ -114,6 +115,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         actions_router,
         schedules_router,
         monitor_router,
+        reports_router,
         audit_router,
         datasets_router,
         protocols_router,

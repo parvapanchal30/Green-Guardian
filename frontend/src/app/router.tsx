@@ -22,6 +22,7 @@ import { InspectionsPage } from '../pages/InspectionsPage'
 import { HarvestsPage } from '../pages/HarvestsPage'
 import { HealthPage } from '../pages/HealthPage'
 import { GrowthPage } from '../pages/GrowthPage'
+import { AnalyticsPage, ImpactPage } from '../pages/ReportsPages'
 import { WeatherPage } from '../pages/WeatherPage'
 import { WorkspacesPage } from '../pages/WorkspacesPage'
 import { ROUTES } from './routes'
@@ -64,6 +65,8 @@ const LIVE: Record<string, () => React.JSX.Element> = {
   harvests: HarvestsPage,
   'monitor/health': HealthPage,
   'monitor/growth': GrowthPage,
+  'reports/analytics': AnalyticsPage,
+  'reports/impact': ImpactPage,
   tasks: TasksPage,
   issues: IssuesPage,
   'ai/agent': AgentPage,

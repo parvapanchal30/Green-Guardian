@@ -34,6 +34,8 @@ ENDPOINTS = [
     ("GET", "/api/v1/workspaces/{ws}/assets/{asset_id}/harvests", None),
     ("GET", "/api/v1/workspaces/{ws}/harvests", None),
     ("GET", "/api/v1/workspaces/{ws}/monitor/health", None),
+    ("GET", "/api/v1/workspaces/{ws}/reports/analytics", None),
+    ("GET", "/api/v1/workspaces/{ws}/reports/impact", None),
     ("GET", "/api/v1/workspaces/{ws}/monitor/growth", None),
     ("GET", "/api/v1/workspaces/{ws}/assets/{asset_id}/growth", None),
     ("POST", "/api/v1/workspaces/{ws}/assets/{asset_id}/harvests", {"quantity": 1, "unit": "kg"}),

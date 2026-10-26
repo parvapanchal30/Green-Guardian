@@ -50,11 +50,11 @@ export function WorkspaceLayout() {
   const groups = navFor(workspace.mode, workspace.role)
 
   return (
-    <div className="min-h-screen md:grid md:grid-cols-[17rem_1fr]">
+    <div className="min-h-screen md:grid md:grid-cols-[17rem_1fr] print:block">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:bg-surface focus:p-2">
         {t('nav.skip')}
       </a>
-      <aside className={`${open ? 'block' : 'hidden'} border-r border-line bg-surface md:block`} aria-label={t('nav.primary')}>
+      <aside className={`${open ? 'block' : 'hidden'} border-r border-line bg-surface md:block print:hidden`} aria-label={t('nav.primary')}>
         <div className="space-y-3 border-b border-line p-4">
           <Link to="/" className="text-lg font-semibold tracking-tight text-moss">GreenGuardian</Link>
           <div>
@@ -102,7 +102,7 @@ export function WorkspaceLayout() {
         </nav>
       </aside>
       <div className="min-w-0">
-        <header className="flex items-center justify-between gap-3 border-b border-line bg-surface px-4 py-2">
+        <header className="flex items-center justify-between gap-3 border-b border-line bg-surface px-4 py-2 print:hidden">
           <button type="button" className="rounded border border-line px-2 py-1 text-sm md:hidden" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
             {t('nav.menu')}
           </button>
