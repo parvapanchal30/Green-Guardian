@@ -1,9 +1,10 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import type { LocationItem, LocationKind } from '../api/types'
 import { useWorkspaceCtx } from '../app/WorkspaceLayout'
 import { Field, PageHeader, btn, btnPrimary, input } from '../components/domain'
 import { SchedulePanel } from '../components/SchedulePanel'
+import { UseMyLocation } from '../components/UseMyLocation'
 import { EmptyState, ErrorState, LoadingBlock, errorMessage } from '../components/states'
 import { StatusChip } from '../components/StatusChip'
 import { Icon } from '../components/icons'
@@ -44,16 +45,16 @@ function AddForm({ ws, onDone }: { ws: string; onDone: () => void }) {
     )
   }
 
-  function here(form: HTMLFormElement | null) {
-    navigator.geolocation?.getCurrentPosition((p) => {
-      if (!form) return
-      ;(form.elements.namedItem('lat') as HTMLInputElement).value = p.coords.latitude.toFixed(5)
-      ;(form.elements.namedItem('lon') as HTMLInputElement).value = p.coords.longitude.toFixed(5)
-    })
+  const formRef = useRef<HTMLFormElement>(null)
+  function here(lat: number, lon: number) {
+    const form = formRef.current
+    if (!form) return
+    ;(form.elements.namedItem('lat') as HTMLInputElement).value = String(lat)
+    ;(form.elements.namedItem('lon') as HTMLInputElement).value = String(lon)
   }
 
   return (
-    <form onSubmit={submit} aria-label={t('loc.addForm')} className="mb-4 grid gap-3 rounded-lg border border-line bg-surface p-3 sm:grid-cols-3">
+    <form ref={formRef} onSubmit={submit} aria-label={t('loc.addForm')} className="mb-4 grid gap-3 rounded-lg border border-line bg-surface p-3 sm:grid-cols-3">
       <Field id="loc-name" label={t('loc.name')}><input id="loc-name" name="name" className={input} required maxLength={200} /></Field>
       <Field id="loc-kind" label={t('loc.kind')}>
         <select id="loc-kind" name="kind" className={input} defaultValue={workspace.mode === 'agricultural_production' ? 'field' : 'zone'}>
@@ -68,7 +69,7 @@ function AddForm({ ws, onDone }: { ws: string; onDone: () => void }) {
       </Field>
       <Field id="loc-lat" label={t('weather.latitude')}><input id="loc-lat" name="lat" inputMode="decimal" className={input} /></Field>
       <Field id="loc-lon" label={t('weather.longitude')}><input id="loc-lon" name="lon" inputMode="decimal" className={input} /></Field>
-      <div className="flex items-end"><button type="button" className={btn} onClick={(e) => here(e.currentTarget.form)}>{t('weather.myLocation')}</button></div>
+      <div className="flex items-end"><UseMyLocation onLocated={here} /></div>
       {(problem || create.error != null) && <p role="alert" className="text-sm text-critical sm:col-span-3">{problem ?? errorMessage(create.error)}</p>}
       <div className="flex gap-2 sm:col-span-3">
         <button className={btnPrimary} disabled={create.isPending}>{t('loc.save')}</button>

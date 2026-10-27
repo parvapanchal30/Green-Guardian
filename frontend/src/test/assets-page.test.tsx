@@ -133,3 +133,27 @@ describe('one list pattern, photo cards only on the kind tabs (ADR-073)', () => 
     expect(screen.getByRole('table', { name: 'Trees' })).toBeInTheDocument()
   })
 })
+
+describe('use my location while registering (ADR-079)', () => {
+  const geo = (impl: (ok: PositionCallback, fail: PositionErrorCallback) => void) =>
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition: impl } })
+
+  it('fills latitude and longitude from the device and says how accurate it was', async () => {
+    geo((ok) => ok({ coords: { latitude: 19.117612345, longitude: 72.906098765, accuracy: 12.4 } } as GeolocationPosition))
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: 'Register asset' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Use my location' }))
+    expect((screen.getByLabelText('Latitude (optional)') as HTMLInputElement).value).toBe('19.11761')
+    expect((screen.getByLabelText('Longitude (optional)') as HTMLInputElement).value).toBe('72.9061')
+    expect(screen.getByText('Filled from this device, accurate to about 12 m.')).toBeInTheDocument()
+  })
+
+  it('says when permission was refused and leaves the fields alone', async () => {
+    geo((_ok, fail) => fail({ code: 1, PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3, message: 'denied' } as GeolocationPositionError))
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: 'Register asset' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Use my location' }))
+    expect(screen.getByText(/Location permission was refused/)).toBeInTheDocument()
+    expect((screen.getByLabelText('Latitude (optional)') as HTMLInputElement).value).toBe('')
+  })
+})

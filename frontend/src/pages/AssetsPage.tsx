@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import type { Asset, AssetKind, HealthBand } from '../api/types'
 import { useWorkspaceCtx } from '../app/WorkspaceLayout'
@@ -11,6 +11,7 @@ import { useLifecycleTemplate } from '../lib/lifecycle'
 import { useAssets, useCreateAsset, useLocations, useSpecies } from '../lib/slice'
 import { AssetCard } from '../components/asset/AssetCard'
 import { Icon } from '../components/icons'
+import { UseMyLocation } from '../components/UseMyLocation'
 import { FilterBar, FilterSelect, LedgerTable, SearchField, Segmented, Tag, type LedgerColumn } from '../components/ui'
 
 const PAGE = 25
@@ -31,6 +32,13 @@ function RegisterAssetForm({ onDone, preset }: { onDone: () => void; preset?: As
   const template = useLifecycleTemplate(ws, true)
   const [kind, setKind] = useState<AssetKind>(preset ?? (workspace.mode === 'agricultural_production' ? 'crop_batch' : 'tree'))
   const fe = fieldErrors(create.error)
+  const formRef = useRef<HTMLFormElement>(null)
+  function fill(lat: number, lon: number) {
+    const f = formRef.current
+    if (!f) return
+    ;(f.elements.namedItem('latitude') as HTMLInputElement).value = String(lat)
+    ;(f.elements.namedItem('longitude') as HTMLInputElement).value = String(lon)
+  }
 
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -55,7 +63,7 @@ function RegisterAssetForm({ onDone, preset }: { onDone: () => void; preset?: As
   }
 
   return (
-    <form onSubmit={submit} className="mb-6 space-y-3 rounded-lg border border-line bg-surface p-4" aria-label={t('assets.register')}>
+    <form ref={formRef} onSubmit={submit} className="mb-6 space-y-3 rounded-lg border border-line bg-surface p-4" aria-label={t('assets.register')}>
       <h2 className="font-semibold">{t('assets.registerTitle')}</h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Field id="label" label={t('assets.field.label')}>
@@ -108,6 +116,10 @@ function RegisterAssetForm({ onDone, preset }: { onDone: () => void; preset?: As
         <Field id="longitude" label={t('assets.field.lon')}>
           <input id="longitude" name="longitude" inputMode="decimal" className={input} placeholder={t('assets.field.lonPlaceholder')} />
         </Field>
+        <div className="flex flex-col justify-end gap-1 sm:col-span-2 lg:col-span-1">
+          <UseMyLocation onLocated={fill} />
+          <p className="text-xs text-ink-2">{t('geo.assetHint')}</p>
+        </div>
       </div>
       <Field id="notes" label={t('assets.field.notes')}>
         <textarea id="notes" name="notes" rows={2} maxLength={5000} className={input} />
