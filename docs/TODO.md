@@ -1,134 +1,89 @@
 # TODO
 
-Legend: `[ ]` open · `[~]` in progress · `[x]` done
+Legend: `[ ]` open · `[~]` in progress · `[x]` done. Cleaned up on 2026-10-27: finished items that were still marked open
+were closed, duplicates merged, and the list regrouped by when the work is due. What each finished item contains is in
+`docs/CURRENT_STATE.md`; why, in `docs/DECISION_LOG.md`.
 
-## Phase 0 — Foundation
-- [x] Repository audit (empty repo)
-- [x] Project documentation + PRD
-- [x] Stage-2 review deck (pitch/) — fill names, IEN, guide, approval letter
-- [x] Rules-engine proof of concept (pure Python, 5 tests)
-- [x] Dev DB path decided: hosted PostgreSQL+PostGIS, Supabase by default (ADR-015)
-- [x] **Human step done 2026-10-07:** create the Supabase project, enable PostGIS in schema `extensions`, set `DATABASE_URL` + `TEST_DATABASE_URL` (docs/DATABASE_SETUP.md), run `alembic upgrade head` and `python -m app.tools.check_db`, then `pytest` so the PostGIS tests actually run
-- [x] Monorepo scaffold (backend + frontend done; `/infra` Dockerfiles still to do): `/backend` (FastAPI, uv/pip, ruff, mypy, pytest), `/frontend` (Vite React TS Tailwind shadcn), `/infra` (compose, Dockerfiles)
-- [x] `.gitignore`, `.env.example`, READMEs
-- [x] CI green on GitHub (run 3, 2026-10-17); OpenAPI client drift check still to add
-- [x] Alembic baseline + PostGIS extension migration (PostGIS step unverified without a real DB)
-- [x] Core: config, logging, error model, DB session
-- [ ] Core: event bus, job runner skeleton
+## Before the mid-stage presentation (30 October 2026)
+- [ ] Run the automated tour (`tour.bat`) end to end against the redesigned pages and fix any step that no longer finds
+  its target
+- [ ] Restyle the issue page (gap G44): it is part of the demo story (Neem #102 crown dieback)
+- [ ] Role names capitalised where shown alone (gap G3)
+- [ ] The Hindi demo path without server-written English where it is seen (part of gap G1: suggestion titles, activity lines)
+- [ ] Automated golden path in a browser, both modes: register → declining observations → suggestion → accept → task →
+  worker completes with an observation → issue resolved with a check → dashboard and report reflect it (MVP exit criterion)
+- [ ] Presentation: update the deck with progress, before/after screenshots and what is next (only with the owner's go-ahead)
+- [ ] Rehearse on `demo.bat --fresh`, with `--offline` weather as the fallback
 
-## Phase 1 — Identity & tenancy
-- [x] User/org/workspace/membership models + migrations
-- [x] Register/login/refresh/logout, argon2id, JWT
-- [x] Login rate limiting (2026-10-17); [ ] refresh-token reuse grace window or httpOnly cookie (duplicated-tab limitation), email verification, password reset
-- [x] WorkspaceContext dependency + RBAC + **tenant isolation test suite**
-- [x] Workspace create with mode selection; capabilities endpoint
-- [x] Frontend: auth, workspace switcher, app shell with mode-aware nav + future-surface routes
-- [ ] Frontend: member invite/role UI, screenshot-based visual review
+## Next (after the presentation)
+- [ ] Work through the redesign gaps in `docs/REDESIGN_GAPS.md` (G1–G53), starting with joining a workspace (G47–G53)
+- [ ] Growth and survival prediction, statistical baselines first, with uncertainty shown (Stage F/G; needs no external data)
+- [ ] Workspace settings screen for the agent's schedule and thresholds (G36)
+- [ ] Password reset and email verification; refresh-token reuse grace window or httpOnly cookie
+- [ ] Draw field and zone boundaries on the map; zone areas, so Impact can report coverage
+- [ ] Thumbnails for photos (G17, G25)
+- [ ] Bulk import of plants (CSV)
+- [ ] 100k-asset performance seed; security review
+- [ ] Tours: more in-app steps (task and issue detail, the Record sheet), a first-run prompt for new workspaces, Hindi
+  narration for the browser tour; keep `frontend/tour/steps.json` and `frontend/src/tour/steps.ts` aligned
+- [ ] i18n: API codes instead of server-composed text (G1); native-speaker review of the Hindi catalog (G2); language and
+  theme stored on the account (G8)
+- [ ] Lifecycle and harvest follow-ups: species lifecycle durations (need domain input), partial batch loss (a count
+  ledger), workspace-specific templates, seasons and crop cycles, yield per area, prices and revenue
+- [ ] Work and inspection follow-ups: calendar rules (weekdays, months, seasons), per-plant tasks for a location, watering
+  routines, location-level work, costs and stock, verification figures on the dashboard
+- [ ] Agent follow-ups: retention for `agent_runs`; wire `symptom_cluster` (needs multi-asset issues); validate the
+  irrigation thresholds once irrigation logs or soil sensors exist
+- [ ] Datasets follow-ups: label export with provenance, retention policy for dataset records
 
-## Phase 2 — Assets
-- [x] Locations (PostGIS), species seed data, assets; [ ] lifecycle events and templates
-- [x] Asset list, asset profile, create/edit, archive; map is a separate page
+## Waiting for owner decisions
+- [ ] Dataset licences: read the official licence pages of the candidates in `docs/datasets/candidates.json` and record
+  the evidence; decide PlantDoc (written confirmation from the authors, or keep it excluded); decide the open image-origin
+  questions (Cassava, Irish potato, PlantNet); reject PlantVillage in the catalog
+- [ ] A qualified plant pathologist to confirm the pending protocol thresholds, and a way to verify a signer's
+  qualification (no protocol can be approved before both exist). Disease detection (Stage E) stays blocked until then
+- [ ] Hosting: connect GitHub to the Vercel project and set the production branch (HOSTING.md section 9, ADR-051); choose
+  an API/worker host, domains, storage provider and a staging database (HOSTING.md section 10, STAGING.md section 8); then
+  replace the Preview `VITE_API_BASE_URL` placeholder
+- [ ] Zero-cost option (ZERO_COST.md): API on Vercel Functions and a daily Vercel Cron tick endpoint, after verifying the
+  free-tier facts in section 6 (needs approval to create the Vercel API project)
+- [ ] Take and rehearse the first real backup of the Supabase database (needs PostgreSQL 17 client tools)
 
-## Phase 3 — Monitoring
-- [x] Observations, `asset_state` projection, evidence upload (storage abstraction, validation); [ ] health/growth record series, projection rebuild job, thumbnails
-- [ ] Charts, timeline, observation form (mobile-first)
+## Later (production readiness)
+- [ ] Verify the S3 storage adapter against a real bucket (`python -m app.tools.storage_check`) and run the evidence
+  reconciler once there
+- [ ] Purge job and retention policy for soft-deleted photo files
+- [ ] Error reporting and alerting; database-backed worker heartbeat for hosts without exec health checks; a single-step
+  guard around `alembic upgrade`
+- [ ] Local PostgreSQL+PostGIS (or Docker) for developers, so the whole suite runs locally on PostgreSQL
+- [ ] Revisit the unindexed-foreign-key notices with real query statistics
+- [ ] Optional: a separate Supabase project or branch for tests
+- [ ] OpenAPI client drift check in CI
+- [ ] An event bus, if a second consumer of domain events appears (the worker covers today's scheduled jobs)
 
-## Phase 4 — Operations
-- [x] Workflow engine + Issues (history, evidence, resolution)
-- [x] Tasks (history); [ ] recurrence, treatments, harvest records
-
-## Phase 5 — Agent
-- [x] Rule interface, 3 rules, tests, dedupe/suppression, recommendations API, inbox UI; [ ] run history, rule settings UI, scheduler
-
-## Phase 6 — Map & dashboards
-- [x] `/map` GeoJSON + layer registry, Leaflet UI; [ ] draw tools
-- [x] `/dashboard` (green + agri), KPI availability semantics
-
-## Phase 7 — Reports, weather, surfaces, polish
-- [ ] Reports (analytics, impact, CSV), weather provider
-- [ ] Future-surface pages (Crop Rec, Disease, Growth, Survival, Yield, Harvest, Irrigation, Financials) via CapabilityGate
-- [ ] Accessibility + responsive pass, i18n extraction
-
-## Phase 8 — Hardening
-- [ ] 100k-asset perf seed, Playwright golden path (both modes), security review, deployment docs
-
-## Open questions for the user
-1. ~~Dev DB path~~ decided: hosted PostGIS (Supabase).
-2. ~~Weather provider~~ decided: Open-Meteo behind an interface. **Risk R-WX-1:** the free tier is non-commercial only; decide before any commercial deployment.
-3. ~~Deployment~~ decided: static frontend hosting/CDN, containerized FastAPI, managed PostgreSQL+PostGIS, containerized workers when needed. Dockerfiles still to write.
-
-## Database follow-ups
-- [x] RLS enabled on every table (migrations 0002, 0004)
-- [ ] Optional: a separate Supabase project/branch for tests if the team wants hard separation
-- [x] `TEST_DATABASE_URL` (tests use a throwaway schema, never dev data)
-
-## Next slice candidates (recommended order)
-- [x] Stage A2: login throttling, request IDs, audit trail (2026-10-17)
-- [x] Stage A3 (2026-10-18): Dockerfiles and compose stack, deployment doc, backup/restore procedure with CI proof, audit log UI and retention, 403 access-denied events
-- [ ] Take and rehearse the first real backup of the Supabase database (needs PostgreSQL 17 client tools on a machine you control)
-- [ ] S3-compatible storage adapter (needed before running more than one API replica)
-- [ ] Choose a hosting provider; [x] map tiles: public OpenStreetMap with attribution for this non-commercial project (ADR-065); [x] Open-Meteo commercial question: not commercial (ADR-065)
-- [x] Stage C (2026-10-18): scheduled agent worker, run history, `irrigation_defer`, rule versions, recommendation lifecycle (ADR-039..042)
-- [ ] Stage C follow-ups: workspace settings UI for the agent schedule and thresholds; retention for `agent_runs`; wire `symptom_cluster` (needs multi-asset issues); validate irrigation thresholds once irrigation logs or soil sensors exist
-- [ ] Stage D: data and ML foundations (dataset catalog and licences, labelling workflow, versioned splits, evaluation harness): investigate datasets and licensing before any model
-- [x] Full API suite ran on PostgreSQL in CI (run 3)
-- [x] `GET /dashboard` and map read models
-- [x] Photo upload with storage abstraction and validation (2026-10-17); [ ] signed URLs / S3 adapter, thumbnails, purge job
-- [x] Lifecycle events, templates, exits, corrections, survival and harvest KPIs (ADR-055); [ ] species lifecycle durations (need domain input), partial batch loss, harvest quantities and yield records, workspace-specific templates
-- [x] Worker + scheduler: periodic agent runs; weather-aware irrigation-deferral rule using the existing port (Stage C)
-- [ ] Recurring inspection tasks (the agent suggests inspections; recurring task templates are not built)
-- [ ] Member invite/role UI; workspace settings UI for agent thresholds
-- [ ] Reports (analytics/impact, CSV) from records; survival rate once loss/planting records exist
-- [ ] Decide on a local PostgreSQL+PostGIS (or Docker) for developers so the whole suite can run locally on PostgreSQL
-- [ ] Revisit the advisor's unindexed-foreign-key notices with real query statistics before production
-- [x] Open-Meteo licence: free non-commercial tier, the project is non-commercial (ADR-065); revisit only if that changes
-
-- [x] Stage D foundations (2026-10-18, synthetic fixtures only): dataset catalog and licence verification, label review, quality checks, grouped splits, evaluation harness, reviewer agreement, claim gate (ADR-044)
-- [ ] Datasets page (catalog + blocker checklist, evidence entry, review queue, quality and claim panels)
-- [ ] Owner: read the official licence pages of the candidates in `docs/datasets/candidates.json` and record the evidence; decide how PlantDoc's scraped images are treated (written confirmation from the authors, or keep it excluded)
-- [ ] Evaluation-protocol registry (needs the owner's acceptance criteria and field-domain test data); a qualified, verifiable plant-health reviewer
-- [ ] Label import/export (CSV) with provenance; retention policy for dataset records
-
-- [x] Stage D1 (2026-10-18): licence evidence verified at official sources for six candidates; worksheet importer (ADR-045)
-- [x] Stage D2: Datasets UI (catalog, evidence, blockers, approval workflow, review queue, quality, splits, agreement, claim gate) (ADR-046)
-- [x] Stage D3: evaluation-protocol proposal P-DIS-1 and registry with sign-offs (ADR-047)
-- [ ] Owner: decide the open image-origin questions (Cassava, Irish potato, PlantNet), reject PlantVillage in the catalog, and confirm the pending protocol thresholds with a qualified plant pathologist
-- [ ] A qualification-verification mechanism (needed before any protocol can be approved)
-- [x] Cluster bootstrap and risk-coverage metrics; claim gate aligned with the 139-per-class rule (ADR-049)
-- [x] Sample registration and CSV import in the UI (ADR-050)
-- [ ] Owner: connect GitHub to the Vercel project (or sign in the Vercel CLI), set the production branch, then create the first preview deployment (HOSTING.md section 9)
-- [ ] Owner: choose and approve an API/worker host, domains and a staging database; then deploy and verify (HOSTING.md section 10)
-- [x] S3-compatible evidence storage adapter (ADR-052); [ ] verify it against a real bucket with `python -m app.tools.storage_check` once a provider is approved
-- [ ] Error-reporting service and alerting; first real backup and restore rehearsal
-- [ ] Owner: read the `git_info_fail` build log or confirm Settings > Git on `greenguardian-web`; choose a release branch and set it as the Vercel Production Branch (ADR-051)
-- [ ] Owner: when a staging API exists, replace the Preview `VITE_API_BASE_URL` placeholder (it now fails builds on purpose)
-- [ ] Owner decisions for staging (STAGING.md section 8): API/worker host and plan, storage provider, staging Supabase project, region, aliases, alert recipients
-- [ ] Purge job for soft-deleted evidence blobs; database-backed worker heartbeat for hosts without exec health checks; error-reporting integration; advisory lock or single-step guard around `alembic upgrade`
-
-- [x] Owner decision: the project is non-commercial, a personal and college major project (ADR-065)
-- [ ] Zero-cost API on Vercel Functions: module-level `app` shim, transaction-pooler settings, `STORAGE_MAX_BYTES` about 4 MB with browser-side resize, region near Seoul, then measure cold start (needs owner approval to create the Vercel API project; not done)
-- [ ] Tick endpoint for a daily Vercel Cron (secret-protected, due-tolerance of about 2 h) as the zero-cost worker compromise; design in ZERO_COST.md section 2.3
-- [x] Evidence reconciler and `Attachment.storage_key` removal (ADR-054); [ ] retention policy and purge for soft-deleted evidence blobs; [ ] run the reconciler once against a real bucket after a provider is approved (deferred with hosting)
-- [ ] Verify unverified free-tier facts before relying on them (ZERO_COST.md section 6): Supabase S3 on Free, region ids, pause behaviour, Supabase Cron
-- [x] Migrations 0011 and 0012 on the development database (found applied on 2026-10-23; `alembic check` clean) and the full backend suite on PostgreSQL (994 passed; the 6 test faults fixed and re-verified)
-- [x] Harvest records, corrections, per-unit totals, Yield KPI, asset-page panel (ADR-056); [ ] seasons / crop cycles, yield per area (needs areas), prices and revenue, harvest forecasting (needs data and a protocol)
-- [ ] Tours: more in-app steps (tasks and issues detail, observation form), a first-run prompt for new workspaces, translations; keep `frontend/tour/steps.json` and `frontend/src/tour/steps.ts` aligned
-- [x] i18n foundation (English, Hindi) and the main screens (ADR-058); [x] migrate the remaining screens (2026-10-22); [ ] Hindi narration for the automated browser tour (`steps.json`, optional); [ ] API codes for server-composed text; [ ] **native-speaker review of the Hindi catalog**; [ ] language preference stored on the account
-- [x] Actions as records and the verification rule (ADR-059, 2026-10-23); [x] migration 0013 on the development database (2026-10-25); [x] recurring inspection schedules (ADR-062, 2026-10-25); [x] migration 0014 on the development database (2026-10-25); [ ] calendar rules (weekdays, months, seasons), per-plant tasks for a location, routines for watering and other work; [ ] location-level work, costs and stock; [ ] verification figures on the dashboard
-- [x] Every API timestamp is timezone-aware, also from SQLite (`UtcDateTime`, ADR-060)
-- [x] Fixed, documented passwords for the local demo accounts (ADR-061)
-- [x] In-development pages, batch 1 (ADR-063, 2026-10-25): Trees, Plants, Crop batches, Species, Crops, Fields and zones, Inspections
-- [x] Example data under your own account in the development database (`app.tools.example_data`, ADR-064)
-- [x] Batch 2 (ADR-066, 2026-10-25): Harvests overview with CSV, Health over time, Growth measurements and page, Growth KPI
-- [x] Live demo: real weather with an offline fallback, background worker started and stopped with the demo (ADR-067)
-- [x] Batch 3 (ADR-068, 2026-10-26): Analytics and Impact reports with print and CSV; every MVP page is now live
-- [x] UI/UX review and direction (ADR-069, 2026-10-26): Field Ledger, accepted Canopy ideas, Hindi headings with Martel; designs on the canvases linked from docs/DESIGN_SYSTEM.md
-- [x] Redesign phase 1, foundations: fonts, tokens, icons, building blocks (ADR-069)
-- [x] Redesign phase 2 (ADR-070, 2026-10-26): grouped menu with icons and counts, sub-pages as tabs, Coming next page, search, account menu with language and light/dark, phone bottom bar with Record; the menu no longer marks two entries
-- [x] Redesign phase 3 (ADR-071, 2026-10-26): Home with decisions first, rule-built summary sentence, health bar and figures, activity by day, due next, Record
-- [x] Redesign phase 4 (ADR-072, 2026-10-26): plant page with photo header, facts, health-and-photos chart, filterable timeline, side cards, and one Record sheet
-- [x] Redesign phase 5 (ADR-073, 2026-10-26): one list pattern (ledger table, cards on phones), photo cards on Trees/Plants/Crop batches, Tasks by role and due group, Issues with "Waiting for a check" and most severe first
-- [ ] Work through the redesign gaps in docs/REDESIGN_GAPS.md (one section per phase) after phase 6
-- [x] Redesign phase 6 (ADR-074 to ADR-077, 2026-10-27): sign-in (no example records), workspaces, members managed in the app, audit log, two-tab weather with place search, pin and saved places, health, growth, map, reports with a summary sentence, agent, datasets, protocols
-- [ ] Zone areas (so Impact can report coverage), report history or scheduled reports if needed
-- [ ] Next product milestone candidates: recurring inspection schedules, partial batch loss (a count ledger), workspace settings UI for agent thresholds, member invite/role UI
+## Done (condensed; details in CURRENT_STATE.md)
+- [x] Foundation: documentation and PRD, Stage-2 deck, rules proof of concept, hosted PostgreSQL+PostGIS on Supabase
+  (ADR-015), monorepo, Alembic with PostGIS, RLS on every table, CI green on GitHub including the full suite on PostgreSQL
+- [x] Identity and tenancy: accounts (argon2id, JWT, refresh), login throttling, request IDs, audit trail, workspaces with
+  two modes, five roles, tenant isolation suite covering every workspace endpoint, member management in the app (ADR-074)
+- [x] Assets: locations, species catalog with workspace species, individual plants and crop batches, lifecycle events,
+  exits and corrections (ADR-055), Trees/Plants/Crop batches/Species/Crops/Fields and zones pages (ADR-063, ADR-078)
+- [x] Monitoring: observations with the state projection (rebuildable), photo evidence with local and S3 storage
+  (ADR-052, ADR-054), growth measurements, health and growth over time (ADR-066), map with layers, weather (Open-Meteo,
+  ADR-065) with place search and saved places (ADR-075), "Use my location" (ADR-079)
+- [x] Operations: issue workflows with evidence, history and resolution; tasks with history; recorded work and the
+  "did it help?" check (ADR-059); recurring inspections (ADR-062); harvests with corrections and the Yield KPI (ADR-056)
+- [x] Agent: four rules including the advisory `irrigation_defer`, suggestions inbox, scheduled worker, run history, rule
+  versions (Stage C, ADR-039..042)
+- [x] Reports: Analytics and Impact for a period, print and CSV, with a summary sentence (ADR-068, ADR-077)
+- [x] Future surfaces behind CapabilityGate and the Coming next page; no model is claimed anywhere
+- [x] Data and ML foundations: dataset catalog with licence verification, review queue, quality checks, grouped splits,
+  evaluation harness, reviewer agreement, claim gate, sample import, evaluation-protocol registry with sign-offs
+  (Stage D, ADR-044..050)
+- [x] Platform: Dockerfiles and compose stack, deployment and backup/restore docs with CI proof, container lint and image
+  scan in CI, UTC timestamps everywhere (ADR-060), non-commercial licensing decision (ADR-065)
+- [x] Local demo with real weather, background worker and two tours; example data for the development database
+  (ADR-061, ADR-064, ADR-067)
+- [x] English and Hindi on every screen (ADR-058)
+- [x] Field Ledger redesign, phases 1–6 (ADR-069 to ADR-077), with the gaps list in `docs/REDESIGN_GAPS.md`
+- [x] README for the repository

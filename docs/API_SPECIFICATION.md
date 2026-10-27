@@ -133,7 +133,7 @@ All paths are under `/api/v1/workspaces/{ws}`. Lists return `{items, total, limi
 | Workspace | `GET|POST /workspaces`, `GET|PATCH /{ws}`, `GET /{ws}/capabilities`, members `GET|POST /members`, `PATCH|DELETE /members/{user_id}` | member / admin | PATCH `settings.agent` sets rule thresholds |
 | Weather | `GET /weather?lat&lon&days`, `GET /weather/places/search?q=`, `GET|POST /weather/places`, `DELETE /weather/places/{id}` | member / member / manager | provider-neutral; source + attribution returned; saved places live in workspace settings (ADR-075) |
 | Locations | `GET /locations`, `POST /locations`, `GET /locations/{id}` | member / manager | zone/field/site/plot, optional parent |
-| Species | `GET /species?category&q`, `POST /species` | member / manager | global seed + workspace-private |
+| Species | `GET /species?category&q&in_use&mine`, `POST /species` | member / manager | global seed + workspace-private; `mine=true`: used or added by this workspace (ADR-078) |
 | Assets | `GET /assets` (`kind, location_id, health_band, q, has_open_issue`), `POST /assets`, `GET|PATCH|DELETE /assets/{id}`, `GET /assets/{id}/timeline` | member / worker / manager | `DELETE` archives (soft); profile includes current `state` |
 | Observations | `POST /observations`, `GET /observations?asset_id`, `GET /observations/{id}` | worker / member | immutable (no PUT/PATCH/DELETE); `POST` returns `{observation, recommendations}` |
 | Issues | `GET /issues` (`state, is_open, waiting, severity, category, assignee, asset_id, q, sort=recent|severity`), `POST /issues`, `GET /issues/workflows`, `GET|PATCH /issues/{id}`, `POST /issues/{id}/transitions`, `POST /issues/{id}/evidence` | member / worker / manager | transitions validated by the workflow; closing needs a resolution |

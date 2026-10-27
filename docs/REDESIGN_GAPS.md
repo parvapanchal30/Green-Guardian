@@ -78,3 +78,21 @@ redesign. "Where" names the file or page; "Suggested fix" is a starting point, n
 | G44 | The issue page, harvests page, dataset and protocol detail pages and the "planned" placeholder pages were not part of this redesign and keep their earlier styling. | `IssueDetailPage.tsx`, `HarvestsPage.tsx`, `DatasetDetailPage.tsx`, `ProtocolsPage.tsx` (detail), `PlannedPage.tsx` | Restyle with the building blocks; the issue page has a design (L-Issue). |
 | G45 | Visually hidden text inside a horizontally scrolling area widened phone pages (fixed in Weather, Coming next, the shared table and two report tables by giving the area `position: relative`). | Any new scroll area | Keep `relative` on scroll containers; consider a lint or test for it. |
 | G46 | Health and Growth charts are drawn per page; the period switch does not carry over between Health and Growth. | Monitor | Keep the period in the address. |
+
+## Joining a workspace and roles (found in discussion, 2026-10-27)
+
+How it works today: a new account belongs to no workspace. A person either creates a workspace (and becomes its owner)
+or is added by an owner or admin under Settings → Members, by the email they registered with; the person adding them
+chooses the role. Roles belong to a person in one workspace, so the same person can be an owner in one and a worker or
+viewer in another. A viewer sees everything and changes nothing (for example a funder, municipal officer, auditor,
+landowner or the college guide).
+
+| # | Gap | Where | Suggested fix |
+|---|---|---|---|
+| G47 | A new user is not told that someone else can add them to a workspace; the empty page only says to create one, so people may create a duplicate workspace. | `WorkspacesPage.tsx` | An empty state that explains both ways in: ask for a join link, or create a workspace if you manage the plants. |
+| G48 | There is no join link or code; the person must register first and then tell the owner their email outside the app (G39 covers email invitations). | Members | Join links created by an owner or admin for a chosen role, with an expiry and a use limit; shareable on WhatsApp, no email provider needed. |
+| G49 | Nobody is told when they are added to a workspace; it just appears in their list. | Members | A notice on the next sign-in ("You were added to X as worker by Y"). |
+| G50 | A person cannot ask to join a workspace. | Workspaces | A "request access" flow that an owner or admin approves, if join links prove not enough. |
+| G51 | Members below admin cannot leave a workspace themselves; only an owner or admin can remove them. | Members | "Leave workspace" for everyone except the last owner. |
+| G52 | Handing a workspace over is "add a second owner, then demote yourself", with no guided step. | Members | A transfer-ownership action with confirmation. |
+| G53 | What each role can do is explained only on the Members page, which a new user may never open. | Workspaces, account menu | Show the person's role and its one-line meaning on the workspaces list and in the account menu. |
