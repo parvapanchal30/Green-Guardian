@@ -7,11 +7,11 @@ were closed, duplicates merged, and the list regrouped by when the work is due. 
 ## Before the mid-stage presentation (30 October 2026)
 - [ ] Run the automated tour (`tour.bat`) end to end against the redesigned pages and fix any step that no longer finds
   its target
-- [ ] Restyle the issue page (gap G44): it is part of the demo story (Neem #102 crown dieback)
-- [ ] Role names capitalised where shown alone (gap G3)
-- [ ] The Hindi demo path without server-written English where it is seen (part of gap G1: suggestion titles, activity lines)
-- [ ] Automated golden path in a browser, both modes: register → declining observations → suggestion → accept → task →
-  worker completes with an observation → issue resolved with a check → dashboard and report reflect it (MVP exit criterion)
+- [x] Restyle the issue page (gap G44, ADR-080)
+- [x] Role names capitalised where shown alone (gap G3)
+- [x] The Hindi demo path: suggestions, activity lines, system notes and workflow names follow the language (part of G1,
+  ADR-081); run `demo.bat --fresh` before presenting so the demo's suggestions carry their numbers
+- [x] Automated golden path in a browser, both modes (`npm run e2e`, CI job `golden-path`, ADR-082)
 - [ ] Presentation: update the deck with progress, before/after screenshots and what is next (only with the owner's go-ahead)
 - [ ] Rehearse on `demo.bat --fresh`, with `--offline` weather as the fallback
 

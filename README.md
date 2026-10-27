@@ -86,7 +86,13 @@ npx tsc -b
 npm run lint
 npx vitest run
 npm run build
+npm run e2e
 ```
+
+`npm run e2e` is the golden path in a real browser, in both modes: it starts its own throwaway API and web app,
+registers a plant, records declining health, accepts the agent's suggestion, has a worker complete the task with a
+follow-up check, resolves the issue and checks that Today and the Analytics report reflect it (Microsoft Edge on
+Windows, Google Chrome on Linux).
 
 Backend tests run against SQLite by default; set `TEST_DATABASE_URL` to a disposable PostgreSQL database to run them on
 PostgreSQL too (`docs/DATABASE_SETUP.md`). Every workspace endpoint is covered by a tenant-isolation test.

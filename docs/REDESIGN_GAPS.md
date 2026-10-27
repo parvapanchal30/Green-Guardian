@@ -8,9 +8,9 @@ redesign. "Where" names the file or page; "Suggested fix" is a starting point, n
 
 | # | Gap | Where | Suggested fix |
 |---|---|---|---|
-| G1 | **Text written by the server stays English on the Hindi screen**: suggestion titles and explanations ("Gulmohar #09 health is critical"), activity and timeline lines ("created as todo — Task created", "Observation (health)"), KPI bases and reasons, capability names and techniques, error messages. | API responses shown as-is | Send codes and values from the API and compose the text in the frontend catalogs (already in TODO as "API codes for server-composed text"). |
+| G1 | **Partly fixed (ADR-081)**: suggestions, Today's activity lines, system notes and workflow names now follow the language. Still English: the explanations under the dashboard figures, suggestion outcome details, the irrigation rule's "not known" list, capability names, error messages. Originally: **Text written by the server stays English on the Hindi screen**: suggestion titles and explanations ("Gulmohar #09 health is critical"), activity and timeline lines ("created as todo — Task created", "Observation (health)"), KPI bases and reasons, capability names and techniques, error messages. | API responses shown as-is | Send codes and values from the API and compose the text in the frontend catalogs (already in TODO as "API codes for server-composed text"). |
 | G2 | The Hindi catalog has not been reviewed by a native speaker. | `i18n/catalog.hi.ts` | Review session; fix wording in one pass. |
-| G3 | Role names are lower case wherever they are shown alone ("owner", "worker"). | `role.*` keys | Capitalise in the catalog, keep lower case only inside sentences. |
+| G3 | **Fixed (ADR-080).** Role names are lower case wherever they are shown alone ("owner", "worker"). | `role.*` keys | Capitalise in the catalog, keep lower case only inside sentences. |
 | G4 | Dark mode: the map tiles (OpenStreetMap) stay light, and pages not yet redesigned were only spot-checked in dark. | Map, phases 5–6 pages | Dim the tile layer in dark mode; check every page in dark at the end of phase 6. |
 | G5 | Dates appear in two styles: the page eyebrows use the browser's long form ("Monday, October 26"), the rest uses "Oct 26, 2026"; the design used "26 Oct". | `i18n` formatters, Home | One date style per language, through `fmt`, everywhere. |
 
@@ -28,7 +28,7 @@ redesign. "Where" names the file or page; "Suggested fix" is a starting point, n
 
 | # | Gap | Where | Suggested fix |
 |---|---|---|---|
-| G11 | Activity lines repeat their type ("Observation" tag, then "Observation: Neem sapling #201"), because the title comes from the server. | Home activity | Part of G1: the API sends the type and subject; the page writes the line. |
+| G11 | **Fixed (ADR-081).** Activity lines repeat their type ("Observation" tag, then "Observation: Neem sapling #201"), because the title comes from the server. | Home activity | Part of G1: the API sends the type and subject; the page writes the line. |
 | G12 | Recent activity is the server's latest 10 events with no "show more". | `dashboard/service.py` (`ACTIVITY_LIMIT`) | A paged activity endpoint or a link to the audit log for managers. |
 | G13 | "Due next" lists every open task, also for field workers, who mostly want their own. | Home | Show "Mine" first for workers, "All open" for managers (as the Tasks page will). |
 | G14 | With a location or type filter on, the summary sentence does not say that it covers only that part ("in Zone 4"). | `lib/summary.ts` | Add the filter to the sentence. |
@@ -75,7 +75,7 @@ redesign. "Where" names the file or page; "Suggested fix" is a starting point, n
 | G41 | The Rain advice panel repeats the rule's thresholds and default values in the frontend. | `lib/weather.ts` | Return the evaluated rule result from the server for a coordinate. |
 | G42 | The weather map has no keyboard way to move the pin precisely (search and "Use my location" are the keyboard paths). | `weather/PinMap.tsx` | Arrow-key nudging, or latitude and longitude fields. |
 | G43 | Saved weather places can be renamed only by removing and saving again. | Weather | A rename action. |
-| G44 | The issue page, harvests page, dataset and protocol detail pages and the "planned" placeholder pages were not part of this redesign and keep their earlier styling. | `IssueDetailPage.tsx`, `HarvestsPage.tsx`, `DatasetDetailPage.tsx`, `ProtocolsPage.tsx` (detail), `PlannedPage.tsx` | Restyle with the building blocks; the issue page has a design (L-Issue). |
+| G44 | **Issue page done (ADR-080).** The issue page, harvests page, dataset and protocol detail pages and the "planned" placeholder pages were not part of this redesign and keep their earlier styling. | `IssueDetailPage.tsx`, `HarvestsPage.tsx`, `DatasetDetailPage.tsx`, `ProtocolsPage.tsx` (detail), `PlannedPage.tsx` | Restyle with the building blocks; the issue page has a design (L-Issue). |
 | G45 | Visually hidden text inside a horizontally scrolling area widened phone pages (fixed in Weather, Coming next, the shared table and two report tables by giving the area `position: relative`). | Any new scroll area | Keep `relative` on scroll containers; consider a lint or test for it. |
 | G46 | Health and Growth charts are drawn per page; the period switch does not carry over between Health and Growth. | Monitor | Keep the period in the address. |
 
