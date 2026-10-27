@@ -58,6 +58,13 @@ class Activity(BaseModel):
     key: str | None
     title: str
     detail: str | None
+    # The parts of the line, so a client can word it in the reader's language (ADR-081); title/detail stay English.
+    subject: str | None = None  # the plant (observation) or the issue/task title
+    from_state: str | None = None
+    to_state: str | None = None
+    note: str | None = None
+    health_score: float | None = None
+    symptoms: list[str] = []
 
 
 class Dashboard(BaseModel):

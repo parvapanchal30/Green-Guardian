@@ -333,7 +333,11 @@ export interface AgentRun {
 
 // ------------------------------------------------------------------ dashboard read model
 export interface DashboardKpi { key: string; label: string; available: boolean; value: number | null; unit: string | null; basis: string | null; reason: string | null }
-export interface DashboardActivity { at: string; type: 'observation' | 'issue' | 'task'; ref_id: string; asset_id: string | null; key: string | null; title: string; detail: string | null }
+export interface DashboardActivity {
+  at: string; type: 'observation' | 'issue' | 'task'; ref_id: string; asset_id: string | null; key: string | null; title: string; detail: string | null
+  /** The parts of the line (ADR-081); absent from older servers. */
+  subject?: string | null; from_state?: string | null; to_state?: string | null; note?: string | null; health_score?: number | null; symptoms?: string[]
+}
 export interface Dashboard {
   mode: string
   as_of: string

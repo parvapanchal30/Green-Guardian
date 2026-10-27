@@ -109,7 +109,7 @@ describe('members', () => {
     const omar = within(screen.getByRole('table')).getAllByRole('row')[3]
     expect(within(omar).queryByRole('combobox')).not.toBeInTheDocument()
     const ravi = within(screen.getByRole('table')).getAllByRole('row')[2]
-    expect(within(within(ravi).getByLabelText('Role for Ravi')).queryByRole('option', { name: 'owner' })).not.toBeInTheDocument()
+    expect(within(within(ravi).getByLabelText('Role for Ravi')).queryByRole('option', { name: 'Owner' })).not.toBeInTheDocument()
     unmount()
     state.role = 'manager'
     render(<MemoryRouter><MembersPage /></MemoryRouter>)

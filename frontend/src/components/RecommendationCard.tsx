@@ -8,6 +8,7 @@ import { Icon } from './icons'
 import type { IconName } from './icon-set'
 import { errorMessage } from './states'
 import { StatusChip } from './StatusChip'
+import { recommendationText } from '../lib/recText'
 
 const ACCEPT_KINDS = new Set(['task', 'defer_task', 'issue'])
 
@@ -38,6 +39,10 @@ export function RecommendationCard({ rec, ws, canDecide }: { rec: Recommendation
   const inputs = inputsOf(rec)
   const forecastBased = inputs.kind === 'advisory_forecast_based'
   const open = rec.status === 'open'
+  // Worded in the reader's language from the rule's numbers when they are there; otherwise the server's English (ADR-081).
+  const local = recommendationText(rec, t, te, fmt.number)
+  const title = local?.title ?? rec.title
+  const explanation = local?.explanation ?? rec.explanation
   const version = rec.rule_version != null ? t('rec.version', { n: rec.rule_version }) : ''
 
   return (
@@ -53,7 +58,7 @@ export function RecommendationCard({ rec, ws, canDecide }: { rec: Recommendation
         {!open && <StatusChip tone="neutral">{te('rec.status', rec.status)}</StatusChip>}
         {rec.outcome && <StatusChip tone="live">{te('rec.outcome', rec.outcome)}</StatusChip>}
         <Link to={`/w/${ws}/assets/${rec.asset_id}`} className="font-medium text-moss underline-offset-2 hover:underline">
-          {rec.title}
+          {title}
         </Link>
         <span className="text-xs text-ink-3">{fmt.relative(rec.created_at)}</span>
       </div>
@@ -70,7 +75,7 @@ export function RecommendationCard({ rec, ws, canDecide }: { rec: Recommendation
       {why && (
         <div className="mt-1 space-y-1 rounded bg-surface-2 p-2 text-sm text-ink-2">
           <p>
-            {stripStop(rec.explanation)}.{' '}
+            {stripStop(explanation)}.{' '}
             {t(forecastBased ? 'rec.producedForecast' : 'rec.producedRecorded', { rule: rec.rule_key, version })}
           </p>
           {inputs.forecast?.source && (

@@ -124,6 +124,7 @@ class IrrigationDeferral:
                             "asset_id": a.asset_id,
                         },
                         evidence={
+                            "label": a.label,
                             "kind": "advisory_forecast_based",
                             "forecast": {
                                 "source": w.source,

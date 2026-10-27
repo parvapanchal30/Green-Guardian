@@ -119,3 +119,22 @@ def test_health_decline_baseline_resets_when_an_issue_is_resolved():
     later = asset(2, 0, health=[(3, 85), (0.5, 55)])
     later = AssetSnapshot(**{**later.__dict__, "last_resolved_at": NOW - timedelta(days=5)})
     assert len(HealthDecline().evaluate([later], NOW)) == 1
+
+
+def test_findings_carry_the_numbers_behind_their_sentence():
+    """ADR-081: a client words suggestions in the reader's language from these fields, not from the English title."""
+    [crit] = CriticalHealth(below=40).evaluate([snap(4, score=19.9)], NOW)
+    assert crit.evidence == {"label": crit.title.split(" health")[0], "score": 19.9, "threshold": 40}
+    [fell] = HealthDecline().evaluate([asset(3, 1, health=[(10, 82), (1, 62)])], NOW)
+    assert fell.evidence == {
+        "label": "Tree #3",
+        "from_score": 82,
+        "to_score": 62,
+        "drop": 20,
+        "window_days": 14,
+        "observations": 2,
+    }
+    [gap] = InspectionGap().evaluate([asset(1, 30)], NOW)
+    assert (
+        gap.evidence["label"] == "Tree #1" and gap.evidence["days_since"] == 30 and gap.evidence["interval_days"] == 21
+    )

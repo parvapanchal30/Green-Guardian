@@ -12,6 +12,7 @@ import { useI18n, type TKey } from '../i18n'
 import { atLeast } from '../lib/format'
 import { useDashboard, useLocations, useRecommendations, useTasks } from '../lib/slice'
 import { dayKey, homeSummary } from '../lib/summary'
+import { activityText } from '../lib/recText'
 
 const KINDS = ['tree', 'plant', 'shrub', 'crop_batch', 'other']
 const SHOWN_SUGGESTIONS = 3
@@ -23,7 +24,7 @@ function activityLink(ws: string, a: DashboardActivity): string {
 
 /** Activity grouped by day, newest first; the record key (GG-001, T-004) leads each line when there is one. */
 function Activity({ ws, items }: { ws: string; items: DashboardActivity[] }) {
-  const { t, te, locale } = useI18n()
+  const { t, te, fmt, locale } = useI18n()
   const groups: { key: string; label: string; items: DashboardActivity[] }[] = []
   for (const a of items) {
     const k = dayKey(a.at)
@@ -42,13 +43,13 @@ function Activity({ ws, items }: { ws: string; items: DashboardActivity[] }) {
           <p className="mb-1 font-mono text-[11px] tracking-[0.08em] text-soil uppercase">{g.label}</p>
           <ul className="divide-y divide-line-soft text-sm">
             {g.items.map((a) => {
-              const title = a.key && a.title.startsWith(a.key) ? a.title.slice(a.key.length).trim() : a.title
+              const { title, detail } = activityText(a, t, te, fmt.number)
               return (
                 <li key={`${a.type}-${a.ref_id}-${a.at}`} className="flex items-baseline gap-3 py-1.5">
                   <span className="min-w-16 shrink-0">{a.key ? <Tag tone={a.type === 'issue' ? 'critical' : 'neutral'}>{a.key}</Tag> : <Tag tone="moss">{te('timelineType', a.type)}</Tag>}</span>
                   <span className="min-w-0 flex-1">
                     <Link className="text-ink hover:underline" to={activityLink(ws, a)}>{title}</Link>
-                    {a.detail && <span className="text-ink-2"> · {a.detail}</span>}
+                    {detail && <span className="text-ink-2"> · {detail}</span>}
                   </span>
                   <time className="shrink-0 font-mono text-xs text-ink-2" dateTime={a.at}>{new Date(a.at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</time>
                 </li>

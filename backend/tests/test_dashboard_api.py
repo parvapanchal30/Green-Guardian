@@ -170,3 +170,28 @@ def test_statement_count_does_not_grow_with_data(api_for, team, world):
         observe(api, a, health_score=60)
     counts.append(measure())
     assert counts[0] == counts[1], counts
+
+
+def test_activity_lines_carry_their_parts(api_for, team):
+    """ADR-081: plant, states, score and note alongside the English title, so a client can word the line itself."""
+    worker, manager = api_for(team.worker), api_for(team.manager)
+    a = make_asset(worker, label="Neem #9")["id"]
+    observe(worker, a, health_score=31, symptoms=["leaf_yellowing"], notes="crown thinning")
+    issue = make_issue(worker, a, title="Crown dieback")
+    manager.post(f"/issues/{issue['id']}/transitions", {"to_state": "investigating", "note": "sampling the bark"})
+    by_type = {}
+    for x in dash(manager)["recent_activity"]:
+        by_type.setdefault(x["type"], x)
+    obs, iss = by_type["observation"], by_type["issue"]
+    assert (obs["subject"], obs["health_score"], obs["symptoms"], obs["note"]) == (
+        "Neem #9",
+        31,
+        ["leaf_yellowing"],
+        "crown thinning",
+    )
+    assert (iss["subject"], iss["from_state"], iss["to_state"], iss["note"]) == (
+        "Crown dieback",
+        "open",
+        "investigating",
+        "sampling the bark",
+    )

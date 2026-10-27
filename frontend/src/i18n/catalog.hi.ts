@@ -1952,4 +1952,43 @@ export const hi: Catalog = {
   "geo.unavailable": "यह डिवाइस अपनी लोकेशन नहीं बता सका। इसके बजाय निर्देशांक लिखें।",
   "geo.unsupported": "यह ब्राउज़र लोकेशन साझा नहीं कर सकता। इसके बजाय निर्देशांक लिखें।",
   "geo.assetHint": "पौधे के पास खड़े हों: इस डिवाइस के निर्देशांक इस्तेमाल होंगे।",
+
+  // ---- Issue page (ADR-080)
+  "issue.by": "{name} द्वारा",
+  "issue.details": "विवरण",
+  "issue.category": "श्रेणी",
+  "issue.source": "स्रोत",
+  "issue.workflowName": "कार्यप्रवाह",
+  "issue.assignee": "सौंपा गया",
+
+  // ---- Suggestions and activity in the reader's language (ADR-081)
+  "recx.critical.title": "{label} का स्वास्थ्य गंभीर है ({score})",
+  "recx.critical.why": "नवीनतम स्वास्थ्य स्कोर {score} गंभीर सीमा {threshold} से कम है, और पौधे की कोई खुली समस्या नहीं है",
+  "recx.decline.title": "{label} का स्वास्थ्य {days} दिनों में {drop} अंक गिरा",
+  "recx.decline.why_one": "{count} अवलोकन में {from} → {to}",
+  "recx.decline.why_other": "{count} अवलोकनों में {from} → {to}",
+  "recx.gap.title": "{label} को {days} दिनों से नहीं देखा गया (सीमा {limit})",
+  "recx.gap.why": "पिछली बार ध्यान: {date} को {basis}, {days} दिन पहले; निरीक्षण अंतराल {limit} दिन है और कोई निरीक्षण काम खुला नहीं है",
+  "recx.gap.neverTitle": "{label} का कभी अवलोकन नहीं हुआ",
+  "recx.gap.neverWhy": "कोई अवलोकन, पूरा निरीक्षण या समस्या गतिविधि दर्ज नहीं है; निरीक्षण अंतराल {limit} दिन है",
+  "recx.basis.observation": "एक अवलोकन",
+  "recx.basis.completed_inspection_task": "एक पूरा निरीक्षण",
+  "recx.basis.issue_activity": "समस्या गतिविधि",
+  "recx.basis.registration": "पंजीकरण",
+  "recx.rain.title": "{label} की सिंचाई ({task}) टालने पर विचार करें: {mm} मिमी बारिश का पूर्वानुमान",
+  "recx.rain.why": "सलाह, मौसम पूर्वानुमान पर आधारित, मिट्टी की नमी के माप पर नहीं: अगले 24 घंटों में {pct}% तक संभावना के साथ {mm} मिमी बारिश का पूर्वानुमान है (सीमाएँ {minMm} मिमी और {minPct}%), और सिंचाई काम {task} इसी समय में आता है",
+  "recx.health": "स्वास्थ्य {n}",
+  "recx.openedAs": "{state} के रूप में खोली गई",
+  "recx.createdAs": "{state} के रूप में बनाया गया",
+  "recx.updated": "अपडेट किया गया",
+
+  // ---- Server notes and workflow names (ADR-081)
+  "recx.note.issueOpened": "समस्या खोली गई",
+  "recx.note.taskCreated": "काम बनाया गया",
+  "recx.note.bySchedule": "समय-सारणी '{name}' से बनाया गया",
+  "recx.note.cancelledWith": "{key} बंद होने पर रद्द किया गया",
+  "workflow.plant_health": "पौधे का स्वास्थ्य",
+  "workflow.field_disease": "खेत का रोग",
+  "workflow.infrastructure": "बुनियादी ढाँचा",
+  "workflow.harvest_readiness": "कटाई की तैयारी",
 }

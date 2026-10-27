@@ -353,6 +353,10 @@ def _recent_activity(db: Session, ctx: WorkspaceContext, scope) -> list[Activity
                 key=None,
                 title=f"Observation: {label}",
                 detail=" · ".join(b for b in bits if b) or None,
+                subject=label,
+                health_score=o.health_score,
+                symptoms=list(o.symptoms or []),
+                note=o.notes,
             )
         )
 
@@ -380,6 +384,10 @@ def _recent_activity(db: Session, ctx: WorkspaceContext, scope) -> list[Activity
                 key=key,
                 title=f"{key} {title}",
                 detail=what + (f" — {h.note}" if h.note else ""),
+                subject=title,
+                from_state=h.from_state,
+                to_state=h.to_state,
+                note=h.note,
             )
         )
 
@@ -405,6 +413,10 @@ def _recent_activity(db: Session, ctx: WorkspaceContext, scope) -> list[Activity
                 key=key,
                 title=f"{key} {title}",
                 detail=what + (f" — {th.note}" if th.note else ""),
+                subject=title,
+                from_state=th.from_status,
+                to_state=th.to_status,
+                note=th.note,
             )
         )
 

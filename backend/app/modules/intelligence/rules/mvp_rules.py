@@ -59,6 +59,7 @@ class InspectionGap:
                     severity="high" if days is not None and days > 2 * self.max_days else "medium",
                     proposed_action={"create": "task", "type": "inspect", "asset_id": a.asset_id},
                     evidence={
+                        "label": a.label,
                         "interval_days": self.max_days,
                         "basis": basis,
                         "last_attention_at": last.isoformat() if last else None,
@@ -110,6 +111,15 @@ class HealthDecline:
                         explanation=f"{pts[0].score:.0f} -> {pts[-1].score:.0f} across {len(pts)} observations",
                         severity="high" if pts[-1].score < 40 else "medium",
                         proposed_action={"create": "issue", "category": "growth_anomaly", "asset_id": a.asset_id},
+                        # the numbers behind the sentence, so a client can word it in the reader's language (ADR-081)
+                        evidence={
+                            "label": a.label,
+                            "from_score": pts[0].score,
+                            "to_score": pts[-1].score,
+                            "drop": drop,
+                            "window_days": self.window_days,
+                            "observations": len(pts),
+                        },
                     )
                 )
         return out
@@ -175,6 +185,7 @@ class CriticalHealth:
                         "asset_id": a.asset_id,
                         "observation_id": a.latest_observation_id,
                     },
+                    evidence={"label": a.label, "score": score, "threshold": self.below},
                 )
             )
         return out
