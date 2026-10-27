@@ -16,11 +16,15 @@ function clearFocus() {
   }
 }
 
-/** Resolve with the element once it exists (pages render after their data arrives), or null after a timeout. */
-function waitFor(find: () => Element | null, timeoutMs = WAIT_MS): Promise<Element | null> {
+/**
+ * Resolve with the element once it exists (pages render after their data arrives), or null after a timeout. Stops
+ * polling as soon as `stopped()` is true (the step changed or the panel closed), so no timer outlives the panel.
+ */
+function waitFor(find: () => Element | null, stopped: () => boolean, timeoutMs = WAIT_MS): Promise<Element | null> {
   return new Promise((resolve) => {
     const started = Date.now()
     const tick = () => {
+      if (stopped()) return resolve(null)
       const el = find()
       if (el) return resolve(el)
       if (Date.now() - started > timeoutMs) return resolve(null)
@@ -71,13 +75,13 @@ export function TourPanel({ ws, mode, role, onClose }: { ws: string; mode: Works
     async function show() {
       navigate(`/w/${ws}${step.path}`)
       if (step.openFirstAsset) {
-        const link = await waitFor(() => document.querySelector('table tbody a[href*="/assets/"]'))
+        const link = await waitFor(() => document.querySelector('table tbody a[href*="/assets/"]'), () => cancelled)
         if (cancelled) return
         if (!link) return setMissing(true)
         navigate(link.getAttribute('href') as string)
       }
       if (!step.focus) return
-      const target = await waitFor(() => document.querySelector(step.focus as string))
+      const target = await waitFor(() => document.querySelector(step.focus as string), () => cancelled)
       if (cancelled) return
       if (!target) return setMissing(true)
       const el = target as HTMLElement
