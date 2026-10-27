@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# golden-path failure screenshots (ADR-082)
+e2e/artifacts/

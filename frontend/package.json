@@ -13,7 +13,8 @@
     "test": "vitest run",
     "preview": "vite preview",
     "verify:dist": "node scripts/verify-dist.mjs",
-    "tour": "node tour/run-tour.mjs"
+    "tour": "node tour/run-tour.mjs",
+    "e2e": "node e2e/golden-path.mjs"
   },
   "dependencies": {
     "@fontsource/hind": "^5.3.0",
