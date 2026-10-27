@@ -3,7 +3,10 @@ import { Link, useParams } from 'react-router-dom'
 import { ProblemError } from '../api/client'
 import type { IssueDetail, Workflow } from '../api/types'
 import { useWorkspaceCtx } from '../app/WorkspaceLayout'
-import { Field, PageHeader, SeverityChip, StateChip, TaskStatusChip, btn, btnPrimary, input } from '../components/domain'
+import { Field, SeverityChip, StateChip, TaskStatusChip, btn, btnPrimary, input } from '../components/domain'
+import { Icon } from '../components/icons'
+import { Card, SectionHeading, Tag } from '../components/ui'
+import { systemNote } from '../lib/recText'
 import { ActionForm, ActionList } from '../components/ActionPanel'
 import { EvidenceGallery } from '../components/EvidenceGallery'
 import { VerificationCard } from '../components/VerificationCard'
@@ -17,24 +20,31 @@ const OUTCOMES = ['fixed', 'mitigated', 'no_action_needed', 'duplicate']
 const SUCCESS = new Set(['fixed', 'mitigated'])
 const TASK_TYPES = ['inspect', 'treat', 'water', 'fertilize', 'prune', 'replace', 'monitor', 'other']
 
+/**
+ * The workflow as numbered steps (ADR-080). Only stages the issue really passed through get a check mark; skipped
+ * stages stay plain; "won't fix" is shown on its own when the issue was closed that way.
+ */
 function Stepper({ wf, current, visited }: { wf: Workflow; current: string; visited: Set<string> }) {
   const { t, te } = useI18n()
-  // The happy path in order; terminal "won't fix" is shown separately when it is the current state.
   const path = wf.states.filter((s) => s !== 'closed_wont_fix')
   const idx = path.indexOf(current)
   return (
-    <ol className="flex flex-wrap items-center gap-1 text-xs" aria-label={t('issue.workflow', { name: wf.label })}>
+    <ol className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-line bg-surface px-4 py-3" aria-label={t('issue.workflow', { name: te('workflow', wf.key, wf.label) })}>
       {path.map((s, i) => {
-        // only stages the issue really passed through get a check mark; skipped stages stay plain
         const state = current === 'closed_wont_fix' ? 'off' : i === idx ? 'now' : i < idx && visited.has(s) ? 'past' : 'next'
         return (
-          <li key={s} aria-current={state === 'now' ? 'step' : undefined} className={`rounded border px-2 py-1 ${state === 'now' ? 'border-moss bg-moss font-medium text-moss-ink' : state === 'past' ? 'border-moss text-moss' : 'border-line text-ink-3'}`}>
-            {state === 'past' && <span aria-hidden="true">✓ </span>}
-            {te('issueState', s)}
+          <li key={s} aria-current={state === 'now' ? 'step' : undefined} className="flex items-center gap-3">
+            {i > 0 && <span aria-hidden="true" className={`hidden h-[1.5px] w-8 sm:block ${state === 'past' || state === 'now' ? 'bg-moss' : 'bg-line'}`} />}
+            <span className={`flex items-center gap-2 text-sm ${state === 'now' ? 'font-semibold text-ink' : state === 'past' ? 'text-ink' : 'text-ink-2'}`}>
+              <b className={`flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] font-mono text-[11px] font-medium ${state === 'now' ? 'border-moss bg-moss text-moss-ink' : state === 'past' ? 'border-moss text-moss' : 'border-line bg-surface'}`}>
+                {state === 'past' ? <span aria-hidden="true">✓</span> : i + 1}
+              </b>
+              {te('issueState', s)}
+            </span>
           </li>
         )
       })}
-      {current === 'closed_wont_fix' && <li aria-current="step" className="rounded border border-ink-3 bg-surface-2 px-2 py-1 font-medium">{te('issueState', 'closed_wont_fix')}</li>}
+      {current === 'closed_wont_fix' && <li aria-current="step" className="ml-auto rounded border border-ink-3 bg-surface-2 px-2 py-1 text-sm font-semibold">{te('issueState', 'closed_wont_fix')}</li>}
     </ol>
   )
 }
@@ -80,8 +90,8 @@ function TransitionPanel({ issue, wf, ws }: { issue: IssueDetail; wf: Workflow; 
 
   const err = move.error instanceof ProblemError ? move.error : null
   return (
-    <section aria-labelledby="mv" className="rounded-lg border border-line bg-surface p-4">
-      <h2 id="mv" className="mb-2 font-semibold">{t('issue.move')}</h2>
+    <section aria-labelledby="mv" className="rounded-lg border border-line bg-surface px-4 py-3.5">
+      <SectionHeading id="mv" title={t('issue.move')} />
       {issue.allowed_transitions.length === 0 && <p className="text-sm text-ink-3">{t('issue.noTransitions')}</p>}
       {target == null ? (
         <div className="flex flex-wrap gap-2">
@@ -136,7 +146,7 @@ function AddTask({ issue, ws, canAssign }: { issue: IssueDetail; ws: string; can
   const members = useMembers(ws)
   const [open, setOpen] = useState(false)
   if (!canAssign || !issue.is_open) return null
-  if (!open) return <button type="button" className={btn} onClick={() => setOpen(true)}>{t('issue.addTask')}</button>
+  if (!open) return <button type="button" className={btn} onClick={() => setOpen(true)}><Icon name="add" size={16} />{t('issue.addTask')}</button>
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const f = new FormData(e.currentTarget)
@@ -149,7 +159,7 @@ function AddTask({ issue, ws, canAssign }: { issue: IssueDetail; ws: string; can
     )
   }
   return (
-    <form onSubmit={submit} className="space-y-3 rounded-lg border border-line bg-surface p-3" aria-label={t('issue.addTask')}>
+    <form onSubmit={submit} className="mt-2 w-full space-y-3 rounded-lg border border-line bg-surface p-4 text-left" aria-label={t('issue.addTask')}>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2"><Field id="ttitle" label={t('issue.task')}><input id="ttitle" name="title" required maxLength={300} className={input} placeholder={t('issue.taskPlaceholder')} /></Field></div>
         <Field id="ttype" label={t('issue.type')}><select id="ttype" name="type" className={input} defaultValue="treat">{TASK_TYPES.map((k) => <option key={k} value={k}>{te('taskType', k)}</option>)}</select></Field>
@@ -170,11 +180,10 @@ function IssueWork({ issue, ws, canRecord }: { issue: IssueDetail; ws: string; c
   const can = canRecord && issue.is_open
   return (
     <section aria-labelledby="wk">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h2 id="wk" className="font-semibold">{t('action.workOnIssue')}</h2>
-        {can && !open && <button type="button" className={btn} onClick={() => setOpen(true)}>{t('action.recordWork')}</button>}
-      </div>
-      {issue.actions.length === 0 ? <p className="text-sm text-ink-3">{t('action.noneOnIssue')}</p> : <ActionList ws={ws} actions={issue.actions} />}
+      <SectionHeading id="wk" title={t('action.workOnIssue')}>
+        {can && !open && <button type="button" className={btn} onClick={() => setOpen(true)}><Icon name="record" size={16} />{t('action.recordWork')}</button>}
+      </SectionHeading>
+      {issue.actions.length === 0 ? <p className="text-sm text-ink-2">{t('action.noneOnIssue')}</p> : <ActionList ws={ws} actions={issue.actions} />}
       {can && open && (
         <div className="mt-3">
           <ActionForm ws={ws} assetId={issue.asset_id} issueId={issue.id} onDone={() => setOpen(false)} />
@@ -191,70 +200,122 @@ export function IssueDetailPage() {
   const { t, te, fmt } = useI18n()
   const issue = useIssue(ws, issueId)
   const flows = useWorkflows(ws)
+  const members = useMembers(ws)
   if (issue.isLoading) return <LoadingBlock label={t('issue.loading')} />
   if (issue.error || !issue.data) return <ErrorState error={issue.error ?? new Error(t('issue.notFound'))} onRetry={() => issue.refetch()} />
   const i = issue.data
   const wf = flows.data?.find((w) => w.key === i.workflow_key)
   const canManage = atLeast(workspace.role, 'manager')
+  const who = (id: string | null) => (id ? members.data?.find((m) => m.user_id === id)?.name : undefined)
 
   return (
-    <div className="space-y-6">
-      <nav aria-label={t('asset.breadcrumb')} className="text-sm text-ink-3"><Link to={`/w/${ws}/issues`} className="hover:underline">{t('issues.caption')}</Link> / {i.key}</nav>
-      <PageHeader title={`${i.key} · ${i.title}`} subtitle={<>{i.asset_id && <Link className="text-moss hover:underline" to={`/w/${ws}/assets/${i.asset_id}`}>{i.asset_label}</Link>} · {te('issueCategory', i.category)} · {t('issue.opened', { when: fmt.relative(i.opened_at) })} · {te('issueSource', i.source)}</>}>
-        <SeverityChip severity={i.severity} />
-        <StateChip state={i.state} open={i.is_open} />
-      </PageHeader>
+    <div className="flex flex-col gap-5">
+      <nav aria-label={t('asset.breadcrumb')} className="text-[13px] text-ink-2">
+        <Link to={`/w/${ws}/issues`} className="text-moss hover:underline">{t('issues.caption')}</Link> / {i.key}
+      </nav>
+      <header className="flex flex-col gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Tag>{i.key}</Tag>
+          <SeverityChip severity={i.severity} />
+          <StateChip state={i.state} open={i.is_open} />
+          <Tag>{te('issueCategory', i.category)}</Tag>
+        </div>
+        <h1 className="text-[32px] leading-tight font-bold">{i.title}</h1>
+        <p className="text-sm text-ink-2">
+          {t('issue.opened', { when: fmt.relative(i.opened_at) })}
+          {who(i.reporter_id) && <> · {t('issue.by', { name: who(i.reporter_id)! })}</>}
+          {i.asset_id && <> · <Link className="text-moss hover:underline" to={`/w/${ws}/assets/${i.asset_id}`}>{i.asset_label}</Link></>}
+        </p>
+      </header>
+
       {wf && <Stepper wf={wf} current={i.state} visited={new Set(i.history.map((h) => h.to_state))} />}
-      {i.description && <p className="max-w-prose text-sm text-ink-2">{i.description}</p>}
+
       {!i.is_open && (
-        <p className="rounded-lg border border-moss bg-surface p-3 text-sm">
+        <p className="rounded-lg border border-moss/40 bg-moss-soft px-4 py-3 text-sm">
           {t('issue.closedOn', { when: fmt.dateTime(i.resolved_at) })} <strong>{te('outcome', i.resolution_outcome ?? '')}</strong>{i.resolution_notes ? ` — ${i.resolution_notes}` : ''}
         </p>
       )}
 
-      <VerificationCard v={i.verification} />
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="flex flex-col gap-5">
+          {i.description && <p className="max-w-[62ch] text-base">{i.description}</p>}
+          <VerificationCard v={i.verification} />
+          {canManage && wf ? <TransitionPanel key={`${i.state}-${i.version}`} issue={i} wf={wf} ws={ws} /> : <p className="text-sm text-ink-2">{t('issue.onlyManager')}</p>}
 
-      {canManage && wf ? <TransitionPanel key={`${i.state}-${i.version}`} issue={i} wf={wf} ws={ws} /> : <p className="text-sm text-ink-3">{t('issue.onlyManager')}</p>}
+          <section aria-labelledby="tk">
+            <SectionHeading id="tk" title={t('issue.tasks')}><AddTask issue={i} ws={ws} canAssign={canManage} /></SectionHeading>
+            {i.tasks.length === 0 ? <p className="text-sm text-ink-2">{t('issue.noTasks')}</p> : (
+              <ul className="overflow-hidden rounded-lg border border-line bg-surface">
+                {i.tasks.map((task) => (
+                  <li key={task.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line-soft px-3.5 py-2.5 text-sm last:border-0">
+                    <Tag tone={task.overdue ? 'critical' : 'neutral'}>{task.key}</Tag>
+                    <span className="min-w-0 flex-1">{task.title}</span>
+                    {who(task.assignee_id) && <span className="text-ink-2">{who(task.assignee_id)}</span>}
+                    <TaskStatusChip status={task.status} overdue={task.overdue} />
+                    <span className={`font-mono text-xs ${task.overdue ? 'text-critical' : 'text-ink-2'}`}>{task.due_at ? t('tasks.due', { when: fmt.relative(task.due_at) }) : t('tasks.noDue')}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-2 text-xs text-ink-2">{t('issue.updateOnTasks')} <Link className="underline" to={`/w/${ws}/tasks`}>{t('issue.tasksPage')}</Link> {t('issue.page')}</p>
+          </section>
 
-      <section aria-labelledby="tk">
-        <div className="mb-2 flex items-center justify-between gap-2"><h2 id="tk" className="font-semibold">{t('issue.tasks')}</h2><AddTask issue={i} ws={ws} canAssign={canManage} /></div>
-        {i.tasks.length === 0 ? <p className="text-sm text-ink-3">{t('issue.noTasks')}</p> : (
-          <ul className="space-y-2">{i.tasks.map((task) => (
-            <li key={task.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface p-2 text-sm">
-              <span className="font-medium">{task.key}</span><span>{task.title}</span><TaskStatusChip status={task.status} overdue={task.overdue} />
-              <span className="text-ink-3">{task.due_at ? t('tasks.due', { when: fmt.relative(task.due_at) }) : t('tasks.noDue')}</span>
-            </li>))}</ul>
-        )}
-        <p className="mt-2 text-xs text-ink-3">{t('issue.updateOnTasks')} <Link className="underline" to={`/w/${ws}/tasks`}>{t('issue.tasksPage')}</Link> {t('issue.page')}</p>
-      </section>
+          <IssueWork issue={i} ws={ws} canRecord={atLeast(workspace.role, 'worker')} />
 
-      <IssueWork issue={i} ws={ws} canRecord={atLeast(workspace.role, 'worker')} />
+          <section aria-labelledby="ev">
+            <SectionHeading id="ev" title={t('issue.evidence')} />
+            {i.evidence.length === 0 ? <p className="text-sm text-ink-2">{t('issue.noEvidence')}</p> : (
+              <ul className="overflow-hidden rounded-lg border border-line bg-surface">
+                {i.evidence.map((o) => (
+                  <li key={o.id} className="flex gap-3 border-b border-line-soft px-3.5 py-2.5 text-sm last:border-0">
+                    <span className="w-28 shrink-0 font-mono text-xs text-ink-2">{fmt.dateTime(o.observed_at)}</span>
+                    <span className="min-w-0">
+                      {[o.health_score != null ? t('issue.healthN', { n: Math.round(o.health_score) }) : null, o.symptoms.join(', ') || null, o.notes].filter(Boolean).join(' · ')}
+                      {o.attachments.map((a) => <span key={a.name + (a.url ?? '')} className="block text-xs text-ink-2">{t('issue.photoRef', { name: a.caption ?? a.name })}</span>)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <h3 className="mt-4 mb-2 text-[17px] font-semibold">{t('issue.photos')}</h3>
+            <EvidenceGallery ws={ws} assetId={i.asset_id ?? undefined} issueId={i.id} canUpload={atLeast(workspace.role, 'worker') && i.is_open} isManager={atLeast(workspace.role, 'manager')} />
+          </section>
+        </div>
 
-      <section aria-labelledby="ev">
-        <h2 id="ev" className="mb-2 font-semibold">{t('issue.evidence')}</h2>
-        {i.evidence.length === 0 ? <p className="text-sm text-ink-3">{t('issue.noEvidence')}</p> : (
-          <ul className="space-y-2">{i.evidence.map((o) => (
-            <li key={o.id} className="rounded-lg border border-line bg-surface p-2 text-sm">
-              <p className="text-xs text-ink-3">{fmt.dateTime(o.observed_at)}</p>
-              <p>{[o.health_score != null ? t('issue.healthN', { n: Math.round(o.health_score) }) : null, o.symptoms.join(', ') || null, o.notes].filter(Boolean).join(' · ')}</p>
-              {o.attachments.map((a) => <p key={a.name + (a.url ?? '')} className="text-xs text-ink-3">{t('issue.photoRef', { name: a.caption ?? a.name })}</p>)}
-            </li>))}</ul>
-        )}
-        <h3 className="mb-2 mt-4 text-sm font-semibold">{t('issue.photos')}</h3>
-        <EvidenceGallery ws={ws} assetId={i.asset_id ?? undefined} issueId={i.id} canUpload={atLeast(workspace.role, 'worker') && i.is_open} isManager={atLeast(workspace.role, 'manager')} />
-      </section>
-
-      <section aria-labelledby="hs">
-        <h2 id="hs" className="mb-2 font-semibold">{t('issue.history')}</h2>
-        <ol className="space-y-2 border-l border-line pl-4">
-          {i.history.map((h, n) => (
-            <li key={n} className="text-sm">
-              <p className="text-xs text-ink-3">{fmt.dateTime(h.at)}</p>
-              <p>{h.from_state == null ? <>{t('issue.openedAs')} <strong>{te('issueState', h.to_state)}</strong></> : h.from_state === h.to_state ? <>{t('issue.updated')}</> : <>{te('issueState', h.from_state)} → <strong>{te('issueState', h.to_state)}</strong></>}{h.note ? ` — ${h.note}` : ''}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
+        <aside className="flex flex-col gap-3.5">
+          <Card className="px-4 py-3.5">
+            <section aria-labelledby="det">
+              <SectionHeading id="det" title={t('issue.details')} />
+              <dl className="grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
+                {i.asset_id && <><dt className="text-ink-2">{t('issues.col.asset')}</dt><dd><Link className="text-moss hover:underline" to={`/w/${ws}/assets/${i.asset_id}`}>{i.asset_label}</Link></dd></>}
+                <dt className="text-ink-2">{t('issue.category')}</dt><dd>{te('issueCategory', i.category)}</dd>
+                <dt className="text-ink-2">{t('issues.col.severity')}</dt><dd>{te('severity', i.severity)}</dd>
+                <dt className="text-ink-2">{t('issue.source')}</dt><dd>{te('issueSource', i.source)}</dd>
+                {wf && <><dt className="text-ink-2">{t('issue.workflowName')}</dt><dd>{te('workflow', wf.key, wf.label)}</dd></>}
+                <dt className="text-ink-2">{t('issues.col.opened')}</dt><dd className="font-mono text-xs leading-5">{fmt.dateTime(i.opened_at)}</dd>
+                {who(i.assignee_id) && <><dt className="text-ink-2">{t('issue.assignee')}</dt><dd>{who(i.assignee_id)}</dd></>}
+              </dl>
+            </section>
+          </Card>
+          <Card className="px-4 py-3.5">
+            <section aria-labelledby="hs">
+              <SectionHeading id="hs" title={t('issue.history')} />
+              <ol className="flex flex-col gap-2.5">
+                {[...i.history].reverse().map((h, n) => (
+                  <li key={n} className="grid grid-cols-[88px_minmax(0,1fr)] gap-2 text-sm">
+                    <span className="font-mono text-xs leading-5 text-ink-2">{fmt.dateTime(h.at)}</span>
+                    <span>
+                      {h.from_state == null ? <>{t('issue.openedAs')} <strong>{te('issueState', h.to_state)}</strong></> : h.from_state === h.to_state ? <>{t('issue.updated')}</> : <>{te('issueState', h.from_state)} → <strong>{te('issueState', h.to_state)}</strong></>}
+                      {who(h.actor_id) && <span className="text-ink-2"> · {who(h.actor_id)}</span>}
+                      {h.note && <span className="block text-ink-2">{systemNote(h.note, t)}</span>}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          </Card>
+        </aside>
+      </div>
     </div>
   )
 }
