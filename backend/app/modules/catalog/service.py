@@ -86,6 +86,7 @@ def list_species(
     category: SpeciesCategory | None = None,
     q: str | None = None,
     in_use: bool | None = None,
+    mine: bool | None = None,
 ) -> Page[SpeciesOut]:
     usage = _usage(db, ctx)
     stmt = (
@@ -97,6 +98,9 @@ def list_species(
         stmt = stmt.where(usage.c.assets > 0)
     if in_use is False:
         stmt = stmt.where(usage.c.assets.is_(None))
+    if mine:
+        # This workspace's species: those its living plants use, and those it added itself (ADR-078).
+        stmt = stmt.where(or_(usage.c.assets > 0, Species.workspace_id == ctx.workspace_id))
     if category:
         stmt = stmt.where(Species.category == category.value)
     if q:

@@ -54,3 +54,19 @@ def test_the_asset_list_filters_by_species(api_for, team):
     make_asset(m, label="M1", species_id=mango)
     labels = [a["label"] for a in m.get("/assets", params={"species_id": neem}).json()["items"]]
     assert labels == ["N1"]
+
+
+def test_mine_is_this_workspaces_species_only(api_for, team):
+    """ADR-078: the Species page lists what this workspace uses or added, not the whole shared catalog."""
+    m = api_for(team.manager)
+    other = api_for(team.other_owner, team.other_ws)
+    make_asset(m, label="Mango 1", species_id=species_id(m, "Mango"))
+    assert m.post("/species", {"category": "tree", "common_name": "Jamun"}).status_code == 201
+    assert other.post("/species", {"category": "tree", "common_name": "Kadamba"}).status_code == 201
+    make_asset(other, label="Their neem", species_id=species_id(other, "Neem"))
+
+    mine = by_name(m, mine=True)
+    assert set(mine) == {"Mango", "Jamun"}  # used here, or added here
+    assert "Kadamba" not in by_name(m)  # another workspace's own species is never visible
+    assert {"Neem", "Mango", "Jamun"} <= set(by_name(m))  # the whole catalog is still there to choose from
+    assert set(by_name(other, mine=True)) == {"Kadamba", "Neem"}

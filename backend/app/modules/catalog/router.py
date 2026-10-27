@@ -19,11 +19,12 @@ def list_species(
     category: SpeciesCategory | None = None,
     q: str | None = None,
     in_use: bool | None = None,
+    mine: bool | None = None,
     page: PageParams = Depends(page_params),
     ctx: WorkspaceContext = Depends(viewer_ctx),
     db: Session = Depends(get_db),
 ):
-    return service.list_species(db, ctx, page, category, q, in_use)
+    return service.list_species(db, ctx, page, category, q, in_use, mine)
 
 
 @router.post("", response_model=SpeciesOut, status_code=status.HTTP_201_CREATED)

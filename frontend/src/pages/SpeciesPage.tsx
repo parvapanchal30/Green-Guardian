@@ -7,14 +7,14 @@ import { useWorkspaceCtx } from '../app/WorkspaceLayout'
 import { Field, PageHeader, btn, btnPrimary, input } from '../components/domain'
 import { EmptyState, ErrorState, LoadingBlock, errorMessage } from '../components/states'
 import { Icon } from '../components/icons'
-import { FilterBar, FilterSelect, LedgerTable, SearchField, Tag, type LedgerColumn } from '../components/ui'
+import { FilterBar, FilterSelect, LedgerTable, SearchField, Segmented, Tag, type LedgerColumn } from '../components/ui'
 import { useI18n } from '../i18n'
 import { atLeast } from '../lib/format'
 import { qs, useCreateSpecies } from '../lib/slice'
 
 const CATEGORIES = ['tree', 'crop', 'plant', 'ornamental', 'other'] as const
 
-const useSpeciesUsage = (ws: string, params: { category?: string; q?: string; in_use?: boolean }) =>
+const useSpeciesUsage = (ws: string, params: { category?: string; q?: string; mine?: boolean }) =>
   useQuery({
     queryKey: [ws, 'species', 'usage', params],
     queryFn: () => api<Page<SpeciesItem>>(`/workspaces/${ws}/species${qs({ ...params, limit: 200 })}`),
@@ -56,9 +56,11 @@ export function SpeciesPage({ crops = false }: { crops?: boolean } = {}) {
   const { t, te, fmt } = useI18n()
   const [q, setQ] = useState('')
   const [category, setCategory] = useState('')
-  const [usedOnly, setUsedOnly] = useState(crops)
   const [adding, setAdding] = useState(false)
-  const list = useSpeciesUsage(ws, { category: crops ? 'crop' : category || undefined, q: q || undefined, in_use: usedOnly || undefined })
+  // This workspace's species (used here or added here) by default; the shared catalog on request (ADR-078).
+  const [scope, setScope] = useState<'mine' | 'catalog'>('mine')
+  const mine = scope === 'mine'
+  const list = useSpeciesUsage(ws, { category: crops ? 'crop' : category || undefined, q: q || undefined, mine: mine || undefined })
   const canAdd = atLeast(workspace.role, 'manager')
   const title = crops ? t('species.cropsTitle') : t('species.title')
 
@@ -101,15 +103,15 @@ export function SpeciesPage({ crops = false }: { crops?: boolean } = {}) {
             {CATEGORIES.map((c) => <option key={c} value={c}>{te('speciesCategory', c)}</option>)}
           </FilterSelect>
         )}
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-moss" checked={usedOnly} onChange={(e) => setUsedOnly(e.target.checked)} /> {t('species.usedOnly')}</label>
+        <Segmented label={t('species.scope')} value={scope} onChange={setScope} options={[{ value: 'mine', label: t('species.scope.mine') }, { value: 'catalog', label: t('species.scope.catalog') }]} />
       </FilterBar>
       {list.isLoading && <LoadingBlock label={t('species.loading')} />}
       {list.error && <ErrorState error={list.error} onRetry={() => list.refetch()} />}
       {list.data && list.data.items.length === 0 && (
-        <EmptyState icon="species" title={usedOnly ? (crops ? t('species.noCrops') : t('species.noneUsed')) : t('species.none')}>{usedOnly ? t('species.noneUsedBody') : t('species.noneBody')}</EmptyState>
+        <EmptyState icon="species" title={mine && !q && !category ? (crops ? t('species.noCrops') : t('species.noneUsed')) : t('species.none')}>{mine ? t('species.noneUsedBody') : t('species.noneBody')}</EmptyState>
       )}
       {list.data && list.data.items.length > 0 && <LedgerTable caption={title} columns={columns} rows={list.data.items} rowKey={(s) => s.id} />}
-      <p className="mt-3 text-xs text-ink-3">{t('species.countsNote')}</p>
+      <p className="mt-3 text-xs text-ink-3">{mine ? t('species.mineNote') : t('species.catalogNote')} {t('species.countsNote')}</p>
     </div>
   )
 }

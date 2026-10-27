@@ -47,19 +47,20 @@ describe('species and crops', () => {
     expect(within(row).getByRole('link', { name: '2' })).toHaveAttribute('href', '/w/w1/assets?species=s1')
     expect(row).toHaveTextContent('2,000')
     expect(state.urls[0]).toContain('category=crop')
-    expect(state.urls[0]).toContain('in_use=true')
+    expect(state.urls[0]).toContain('mine=true')
     expect(screen.getByRole('heading', { name: 'Crops' })).toBeInTheDocument()
     expect(screen.queryByLabelText('Category')).not.toBeInTheDocument()
   })
 
-  it('Species shows the whole catalog, marks this workspace\'s own entries, and filters', async () => {
+  it('Species shows this workspace\'s species, or the shared catalog on request, and marks its own entries', async () => {
     renderPage()
     const own = (await screen.findByText('Field bean')).closest('tr') as HTMLElement
     expect(own).toHaveTextContent('This workspace')
     expect(within(own).queryByRole('link')).not.toBeInTheDocument() // nothing to open when unused
-    expect(state.urls[0]).not.toContain('in_use')
-    await userEvent.click(screen.getByLabelText('Only those in use here'))
-    expect(state.urls.at(-1)).toContain('in_use=true')
+    expect(state.urls[0]).toContain('mine=true') // this workspace's species by default (ADR-078)
+    await userEvent.click(screen.getByRole('button', { name: 'Shared catalog' }))
+    expect(state.urls.at(-1)).not.toContain('mine')
+    expect(screen.getByText(/Species added in other workspaces are never shown/)).toBeInTheDocument()
   })
 
   it('a manager adds a species; a worker cannot', async () => {

@@ -1332,7 +1332,7 @@ export const en = {
 
   // ---- species
   "species.title": "Species",
-  "species.subtitle": "The species and crop catalog, with how many of this workspace's living assets use each.",
+  "species.subtitle": "The species this workspace grows or added, with how many of its living plants use each.",
   "species.cropsTitle": "Crops",
   "species.cropsSubtitle": "Crops grown in this workspace: how many batches and how many plants.",
   "species.add": "Add a species",
@@ -1344,13 +1344,12 @@ export const en = {
   "species.search": "Search species",
   "species.searchPlaceholder": "Search by name",
   "species.allCategories": "All categories",
-  "species.usedOnly": "Only those in use here",
   "species.loading": "Loading species",
   "species.none": "No species match",
   "species.noneBody": "Try another search, or add the species.",
   "species.noneUsed": "No species is in use yet",
   "species.noCrops": "No crop is grown here yet",
-  "species.noneUsedBody": "Register an asset with a species to see it here.",
+"species.noneUsedBody": "Register a plant with a species, or add a species, and it appears here. The shared catalog lists the species you can choose from.",
   "species.assets": "Living assets",
   "species.batches": "Batches",
   "species.plants": "Plants (estimated)",
@@ -1932,6 +1931,25 @@ export const en = {
   "eyebrow.insight": "Insight",
   "eyebrow.reports": "Reports",
   "eyebrow.settings": "Settings",
+
+  // ---- Species of this workspace (ADR-078)
+  "species.mineNote": "Shown: the species this workspace's living plants use and the species added here.",
+
+  // ---- Species of this workspace (ADR-078)
+  "species.scope": "Which species",
+  "species.scope.mine": "This workspace",
+  "species.scope.catalog": "Shared catalog",
+  "species.catalogNote": "Shown: the starter catalog every workspace can choose from, plus the species added here. Species added in other workspaces are never shown.",
+
+  // ---- Use my location (ADR-079)
+  "geo.useMine": "Use my location",
+  "geo.locating": "Finding your location…",
+  "geo.filled": "Filled from this device, accurate to about {m} m.",
+  "geo.denied": "Location permission was refused. Allow it in the browser, or type the coordinates.",
+  "geo.timeout": "Finding the location took too long. Try again outdoors, or type the coordinates.",
+  "geo.unavailable": "This device could not tell its location. Type the coordinates instead.",
+  "geo.unsupported": "This browser cannot share a location. Type the coordinates instead.",
+  "geo.assetHint": "Stand next to the plant: the coordinates of this device are used.",
 } as const
 
 export type Catalog = { [K in keyof typeof en]: string }
